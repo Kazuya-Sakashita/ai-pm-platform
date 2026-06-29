@@ -50,10 +50,12 @@ export interface paths {
         get: operations["getProject"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** Archive project */
+        delete: operations["archiveProject"];
         options?: never;
         head?: never;
-        patch?: never;
+        /** Update project */
+        patch: operations["updateProject"];
         trace?: never;
     };
     "/projects/{project_id}/meetings": {
@@ -484,6 +486,13 @@ export interface components {
         CreateProjectRequest: {
             name: string;
             description?: string;
+            github_repo?: string;
+        };
+        UpdateProjectRequest: {
+            name?: string;
+            description?: string;
+            /** @enum {string} */
+            status?: "active" | "archived";
             github_repo?: string;
         };
         /** @enum {string} */
@@ -1018,6 +1027,55 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+        };
+    };
+    archiveProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Project archived */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProjectRequest"];
+            };
+        };
+        responses: {
+            /** @description Project updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationError"];
         };
     };
     listProjectMeetings: {

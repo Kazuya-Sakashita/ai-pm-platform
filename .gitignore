@@ -13,6 +13,6 @@ backend/tmp/
 backend/log/
 backend/vendor/bundle/
 backend/storage/
+backend/config/master.key
 
 work/*.png
-

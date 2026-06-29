@@ -43,6 +43,7 @@ Rails APIでProjects、Meetings、Reviews、Jobsの最小実装を行い、Front
 ## 関連レビュー
 
 - `docs/review/20260630_backend_frontend_implementation_preparation_review.md`
+- `docs/review/20260630_backend_projects_meetings_reviews_jobs_implementation_review.md`
 
 ## レビュー結果
 
@@ -50,7 +51,27 @@ Rails APIでProjects、Meetings、Reviews、Jobsの最小実装を行い、Front
 
 ## 次アクション
 
-- ISSUE-014完了後に着手する
-- DB migrationを最小化する
-- request specを先に書く
+- GitHub #15をcloseする
+- ISSUE-002でMeeting ingest/minutes generationの上位フローへ接続する
+- Backend CI導入時にPostgreSQL serviceとRSpecを追加する
 
+## 進捗
+
+完了。
+
+2026-06-30 07:43 JST確認:
+
+- Rails API scaffoldを `backend/` に作成済み
+- PostgreSQL compose serviceを追加済み
+- Projects create/list/show/update/archiveを実装済み
+- Meetings create/list/showを実装済み
+- Reviews create/list/resolve/accept-riskを実装済み
+- Jobs showを実装済み
+- Audit log placeholderを実装済み
+- UUID primary key、PostgreSQL `pgcrypto` extension、主要migrationを追加済み
+- request specs 10件を追加済み
+- OpenAPIへProject update/archiveを反映し、TypeScript schemaを再生成済み
+- `npm run api:verify`: 成功。OpenAPI contract warningなし。local Node engine warningのみ既知。
+- `bundle exec ruby bin/rails db:prepare`: 成功
+- `bundle exec rspec`: 10 examples, 0 failures
+- `bundle exec ruby bin/rails zeitwerk:check`: All is good

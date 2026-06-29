@@ -108,6 +108,40 @@ paths:
                 $ref: "#/components/schemas/ProjectResponse"
         "404":
           $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Projects]
+      summary: Update project
+      operationId: updateProject
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProjectRequest"
+      responses:
+        "200":
+          description: Project updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    delete:
+      tags: [Projects]
+      summary: Archive project
+      operationId: archiveProject
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "204":
+          description: Project archived
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /projects/{project_id}/meetings:
     get:
@@ -900,6 +934,23 @@ components:
         description:
           type: string
           maxLength: 2000
+        github_repo:
+          type: string
+          maxLength: 255
+
+    UpdateProjectRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: string
+          maxLength: 2000
+        status:
+          type: string
+          enum: [active, archived]
         github_repo:
           type: string
           maxLength: 255
