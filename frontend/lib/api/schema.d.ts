@@ -12,26 +12,7 @@ export interface paths {
             cookie?: never;
         };
         /** Health check */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Service health */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["HealthResponse"];
-                    };
-                };
-            };
-        };
+        get: operations["getHealth"];
         put?: never;
         post?: never;
         delete?: never;
@@ -48,56 +29,10 @@ export interface paths {
             cookie?: never;
         };
         /** List projects */
-        get: {
-            parameters: {
-                query?: {
-                    page?: components["parameters"]["Page"];
-                    per_page?: components["parameters"]["PerPage"];
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Projects */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ProjectListResponse"];
-                    };
-                };
-            };
-        };
+        get: operations["listProjects"];
         put?: never;
         /** Create project */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["CreateProjectRequest"];
-                };
-            };
-            responses: {
-                /** @description Project created */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ProjectResponse"];
-                    };
-                };
-                422: components["responses"]["ValidationError"];
-            };
-        };
+        post: operations["createProject"];
         delete?: never;
         options?: never;
         head?: never;
@@ -112,29 +47,7 @@ export interface paths {
             cookie?: never;
         };
         /** Get project */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    project_id: components["parameters"]["ProjectId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Project */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ProjectResponse"];
-                    };
-                };
-                404: components["responses"]["NotFound"];
-            };
-        };
+        get: operations["getProject"];
         put?: never;
         post?: never;
         delete?: never;
@@ -151,60 +64,10 @@ export interface paths {
             cookie?: never;
         };
         /** List meetings in project */
-        get: {
-            parameters: {
-                query?: {
-                    page?: components["parameters"]["Page"];
-                    per_page?: components["parameters"]["PerPage"];
-                };
-                header?: never;
-                path: {
-                    project_id: components["parameters"]["ProjectId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Meetings */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["MeetingListResponse"];
-                    };
-                };
-            };
-        };
+        get: operations["listProjectMeetings"];
         put?: never;
         /** Create meeting */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    project_id: components["parameters"]["ProjectId"];
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["CreateMeetingRequest"];
-                };
-            };
-            responses: {
-                /** @description Meeting created */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["MeetingResponse"];
-                    };
-                };
-                422: components["responses"]["ValidationError"];
-            };
-        };
+        post: operations["createMeeting"];
         delete?: never;
         options?: never;
         head?: never;
@@ -219,29 +82,7 @@ export interface paths {
             cookie?: never;
         };
         /** Get meeting */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    meeting_id: components["parameters"]["MeetingId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Meeting */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["MeetingResponse"];
-                    };
-                };
-                404: components["responses"]["NotFound"];
-            };
-        };
+        get: operations["getMeeting"];
         put?: never;
         post?: never;
         delete?: never;
@@ -260,32 +101,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Generate minutes from a meeting */
-        post: {
-            parameters: {
-                query?: never;
-                header?: {
-                    "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-                };
-                path: {
-                    meeting_id: components["parameters"]["MeetingId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Minutes generation accepted */
-                202: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["GenerationJobResponse"];
-                    };
-                };
-                404: components["responses"]["NotFound"];
-                429: components["responses"]["RateLimited"];
-            };
-        };
+        post: operations["generateMinutes"];
         delete?: never;
         options?: never;
         head?: never;
@@ -300,62 +116,14 @@ export interface paths {
             cookie?: never;
         };
         /** Get minutes */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    minutes_id: components["parameters"]["MinutesId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Minutes */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["MinutesResponse"];
-                    };
-                };
-                404: components["responses"]["NotFound"];
-            };
-        };
+        get: operations["getMinutes"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
         /** Update minutes */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    minutes_id: components["parameters"]["MinutesId"];
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["UpdateMinutesRequest"];
-                };
-            };
-            responses: {
-                /** @description Minutes updated */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["MinutesResponse"];
-                    };
-                };
-                422: components["responses"]["ValidationError"];
-            };
-        };
+        patch: operations["updateMinutes"];
         trace?: never;
     };
     "/minutes/{minutes_id}/approve": {
@@ -368,29 +136,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Approve minutes */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    minutes_id: components["parameters"]["MinutesId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Minutes approved */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["MinutesResponse"];
-                    };
-                };
-                409: components["responses"]["ReviewRequired"];
-            };
-        };
+        post: operations["approveMinutes"];
         delete?: never;
         options?: never;
         head?: never;
@@ -407,31 +153,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Generate requirement from minutes */
-        post: {
-            parameters: {
-                query?: never;
-                header?: {
-                    "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-                };
-                path: {
-                    minutes_id: components["parameters"]["MinutesId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Requirement generation accepted */
-                202: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["GenerationJobResponse"];
-                    };
-                };
-                409: components["responses"]["ReviewRequired"];
-            };
-        };
+        post: operations["generateRequirement"];
         delete?: never;
         options?: never;
         head?: never;
@@ -446,62 +168,14 @@ export interface paths {
             cookie?: never;
         };
         /** Get requirement */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    requirement_id: components["parameters"]["RequirementId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Requirement */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["RequirementResponse"];
-                    };
-                };
-                404: components["responses"]["NotFound"];
-            };
-        };
+        get: operations["getRequirement"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
         /** Update requirement */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    requirement_id: components["parameters"]["RequirementId"];
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["UpdateRequirementRequest"];
-                };
-            };
-            responses: {
-                /** @description Requirement updated */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["RequirementResponse"];
-                    };
-                };
-                422: components["responses"]["ValidationError"];
-            };
-        };
+        patch: operations["updateRequirement"];
         trace?: never;
     };
     "/requirements/{requirement_id}/generate-issue-draft": {
@@ -514,31 +188,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Generate GitHub issue draft from requirement */
-        post: {
-            parameters: {
-                query?: never;
-                header?: {
-                    "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-                };
-                path: {
-                    requirement_id: components["parameters"]["RequirementId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Issue draft generation accepted */
-                202: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["GenerationJobResponse"];
-                    };
-                };
-                409: components["responses"]["ReviewRequired"];
-            };
-        };
+        post: operations["generateIssueDraft"];
         delete?: never;
         options?: never;
         head?: never;
@@ -555,31 +205,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Generate OpenAPI draft from requirement */
-        post: {
-            parameters: {
-                query?: never;
-                header?: {
-                    "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-                };
-                path: {
-                    requirement_id: components["parameters"]["RequirementId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OpenAPI draft generation accepted */
-                202: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["GenerationJobResponse"];
-                    };
-                };
-                409: components["responses"]["ReviewRequired"];
-            };
-        };
+        post: operations["generateOpenApiDraft"];
         delete?: never;
         options?: never;
         head?: never;
@@ -594,62 +220,14 @@ export interface paths {
             cookie?: never;
         };
         /** Get issue draft */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    issue_draft_id: components["parameters"]["IssueDraftId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Issue draft */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["IssueDraftResponse"];
-                    };
-                };
-                404: components["responses"]["NotFound"];
-            };
-        };
+        get: operations["getIssueDraft"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
         /** Update issue draft */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    issue_draft_id: components["parameters"]["IssueDraftId"];
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["UpdateIssueDraftRequest"];
-                };
-            };
-            responses: {
-                /** @description Issue draft updated */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["IssueDraftResponse"];
-                    };
-                };
-                422: components["responses"]["ValidationError"];
-            };
-        };
+        patch: operations["updateIssueDraft"];
         trace?: never;
     };
     "/issue-drafts/{issue_draft_id}/publish-github": {
@@ -662,32 +240,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Publish approved issue draft to GitHub */
-        post: {
-            parameters: {
-                query?: never;
-                header?: {
-                    "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-                };
-                path: {
-                    issue_draft_id: components["parameters"]["IssueDraftId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Publish accepted */
-                202: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["PublishGitHubIssueResponse"];
-                    };
-                };
-                409: components["responses"]["ReviewRequired"];
-                424: components["responses"]["IntegrationNotConnected"];
-            };
-        };
+        post: operations["publishIssueDraftToGitHub"];
         delete?: never;
         options?: never;
         head?: never;
@@ -702,62 +255,14 @@ export interface paths {
             cookie?: never;
         };
         /** Get OpenAPI draft */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    openapi_draft_id: components["parameters"]["OpenApiDraftId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OpenAPI draft */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["OpenApiDraftResponse"];
-                    };
-                };
-                404: components["responses"]["NotFound"];
-            };
-        };
+        get: operations["getOpenApiDraft"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
         /** Update OpenAPI draft */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    openapi_draft_id: components["parameters"]["OpenApiDraftId"];
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["UpdateOpenApiDraftRequest"];
-                };
-            };
-            responses: {
-                /** @description OpenAPI draft updated */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["OpenApiDraftResponse"];
-                    };
-                };
-                422: components["responses"]["ValidationError"];
-            };
-        };
+        patch: operations["updateOpenApiDraft"];
         trace?: never;
     };
     "/openapi-drafts/{openapi_draft_id}/validate": {
@@ -770,29 +275,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Validate OpenAPI draft */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    openapi_draft_id: components["parameters"]["OpenApiDraftId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OpenAPI validation result */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["OpenApiValidationResponse"];
-                    };
-                };
-                404: components["responses"]["NotFound"];
-            };
-        };
+        post: operations["validateOpenApiDraft"];
         delete?: never;
         options?: never;
         head?: never;
@@ -807,58 +290,10 @@ export interface paths {
             cookie?: never;
         };
         /** List reviews */
-        get: {
-            parameters: {
-                query?: {
-                    page?: components["parameters"]["Page"];
-                    per_page?: components["parameters"]["PerPage"];
-                    target_type?: components["schemas"]["ReviewTargetType"];
-                    target_id?: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Reviews */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ReviewListResponse"];
-                    };
-                };
-            };
-        };
+        get: operations["listReviews"];
         put?: never;
         /** Create review */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["CreateReviewRequest"];
-                };
-            };
-            responses: {
-                /** @description Review created */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ReviewResponse"];
-                    };
-                };
-                422: components["responses"]["ValidationError"];
-            };
-        };
+        post: operations["createReview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -875,32 +310,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Mark review action resolved */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    review_id: components["parameters"]["ReviewId"];
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["ResolveReviewActionRequest"];
-                };
-            };
-            responses: {
-                /** @description Review updated */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ReviewResponse"];
-                    };
-                };
-            };
-        };
+        post: operations["resolveReviewAction"];
         delete?: never;
         options?: never;
         head?: never;
@@ -917,33 +327,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Mark review blocker as accepted risk */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    review_id: components["parameters"]["ReviewId"];
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["AcceptReviewRiskRequest"];
-                };
-            };
-            responses: {
-                /** @description Review marked as accepted risk */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ReviewResponse"];
-                    };
-                };
-                422: components["responses"]["ValidationError"];
-            };
-        };
+        post: operations["acceptReviewRisk"];
         delete?: never;
         options?: never;
         head?: never;
@@ -958,30 +342,7 @@ export interface paths {
             cookie?: never;
         };
         /** List project integrations */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    project_id: components["parameters"]["ProjectId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Integrations */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            data: components["schemas"]["IntegrationAccount"][];
-                        };
-                    };
-                };
-            };
-        };
+        get: operations["listProjectIntegrations"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1000,33 +361,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Start GitHub connection */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    project_id: components["parameters"]["ProjectId"];
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["StartGitHubConnectionRequest"];
-                };
-            };
-            responses: {
-                /** @description GitHub connection URL */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StartGitHubConnectionResponse"];
-                    };
-                };
-                422: components["responses"]["ValidationError"];
-            };
-        };
+        post: operations["startGitHubConnection"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1043,31 +378,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Disconnect GitHub integration */
-        post: {
-            parameters: {
-                query?: never;
-                header?: {
-                    "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-                };
-                path: {
-                    project_id: components["parameters"]["ProjectId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description GitHub integration disconnected */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["IntegrationAccountResponse"];
-                    };
-                };
-                404: components["responses"]["NotFound"];
-            };
-        };
+        post: operations["disconnectGitHubIntegration"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1084,33 +395,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Complete GitHub connection callback */
-        post: {
-            parameters: {
-                query?: never;
-                header?: {
-                    "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-                };
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["GitHubCallbackRequest"];
-                };
-            };
-            responses: {
-                /** @description GitHub integration connected */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["IntegrationAccountResponse"];
-                    };
-                };
-                422: components["responses"]["ValidationError"];
-            };
-        };
+        post: operations["completeGitHubConnectionCallback"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1127,38 +412,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Receive GitHub App webhook */
-        post: {
-            parameters: {
-                query?: never;
-                header: {
-                    "X-GitHub-Event": components["parameters"]["GitHubEvent"];
-                    "X-GitHub-Delivery": components["parameters"]["GitHubDelivery"];
-                    "X-Hub-Signature-256": components["parameters"]["GitHubSignature256"];
-                };
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            responses: {
-                /** @description Webhook accepted */
-                202: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["WebhookAcceptedResponse"];
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                422: components["responses"]["ValidationError"];
-            };
-        };
+        post: operations["receiveGitHubWebhook"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1173,29 +427,7 @@ export interface paths {
             cookie?: never;
         };
         /** Get generation or integration job */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    job_id: components["parameters"]["JobId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Job */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["JobResponse"];
-                    };
-                };
-                404: components["responses"]["NotFound"];
-            };
-        };
+        get: operations["getJob"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1212,31 +444,7 @@ export interface paths {
             cookie?: never;
         };
         /** List audit logs */
-        get: {
-            parameters: {
-                query?: {
-                    page?: components["parameters"]["Page"];
-                    per_page?: components["parameters"]["PerPage"];
-                };
-                header?: never;
-                path: {
-                    project_id: components["parameters"]["ProjectId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Audit logs */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["AuditLogListResponse"];
-                    };
-                };
-            };
-        };
+        get: operations["listProjectAuditLogs"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1718,4 +926,838 @@ export interface components {
     pathItems: never;
 }
 export type $defs = Record<string, never>;
-export type operations = Record<string, never>;
+export interface operations {
+    getHealth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Service health */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HealthResponse"];
+                };
+            };
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    listProjects: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                per_page?: components["parameters"]["PerPage"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Projects */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectListResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateProjectRequest"];
+            };
+        };
+        responses: {
+            /** @description Project created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectResponse"];
+                };
+            };
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    getProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Project */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listProjectMeetings: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                per_page?: components["parameters"]["PerPage"];
+            };
+            header?: never;
+            path: {
+                project_id: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Meetings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeetingListResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createMeeting: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateMeetingRequest"];
+            };
+        };
+        responses: {
+            /** @description Meeting created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeetingResponse"];
+                };
+            };
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    getMeeting: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                meeting_id: components["parameters"]["MeetingId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Meeting */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeetingResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    generateMinutes: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                meeting_id: components["parameters"]["MeetingId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Minutes generation accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationJobResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    getMinutes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                minutes_id: components["parameters"]["MinutesId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Minutes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MinutesResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateMinutes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                minutes_id: components["parameters"]["MinutesId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateMinutesRequest"];
+            };
+        };
+        responses: {
+            /** @description Minutes updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MinutesResponse"];
+                };
+            };
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    approveMinutes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                minutes_id: components["parameters"]["MinutesId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Minutes approved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MinutesResponse"];
+                };
+            };
+            409: components["responses"]["ReviewRequired"];
+        };
+    };
+    generateRequirement: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                minutes_id: components["parameters"]["MinutesId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Requirement generation accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationJobResponse"];
+                };
+            };
+            409: components["responses"]["ReviewRequired"];
+        };
+    };
+    getRequirement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                requirement_id: components["parameters"]["RequirementId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Requirement */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequirementResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateRequirement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                requirement_id: components["parameters"]["RequirementId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateRequirementRequest"];
+            };
+        };
+        responses: {
+            /** @description Requirement updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequirementResponse"];
+                };
+            };
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    generateIssueDraft: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                requirement_id: components["parameters"]["RequirementId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Issue draft generation accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationJobResponse"];
+                };
+            };
+            409: components["responses"]["ReviewRequired"];
+        };
+    };
+    generateOpenApiDraft: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                requirement_id: components["parameters"]["RequirementId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OpenAPI draft generation accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationJobResponse"];
+                };
+            };
+            409: components["responses"]["ReviewRequired"];
+        };
+    };
+    getIssueDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                issue_draft_id: components["parameters"]["IssueDraftId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Issue draft */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssueDraftResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateIssueDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                issue_draft_id: components["parameters"]["IssueDraftId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateIssueDraftRequest"];
+            };
+        };
+        responses: {
+            /** @description Issue draft updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssueDraftResponse"];
+                };
+            };
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    publishIssueDraftToGitHub: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                issue_draft_id: components["parameters"]["IssueDraftId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Publish accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishGitHubIssueResponse"];
+                };
+            };
+            409: components["responses"]["ReviewRequired"];
+            424: components["responses"]["IntegrationNotConnected"];
+        };
+    };
+    getOpenApiDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                openapi_draft_id: components["parameters"]["OpenApiDraftId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OpenAPI draft */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpenApiDraftResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateOpenApiDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                openapi_draft_id: components["parameters"]["OpenApiDraftId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateOpenApiDraftRequest"];
+            };
+        };
+        responses: {
+            /** @description OpenAPI draft updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpenApiDraftResponse"];
+                };
+            };
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    validateOpenApiDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                openapi_draft_id: components["parameters"]["OpenApiDraftId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OpenAPI validation result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpenApiValidationResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listReviews: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                per_page?: components["parameters"]["PerPage"];
+                target_type?: components["schemas"]["ReviewTargetType"];
+                target_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reviews */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewListResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Review created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewResponse"];
+                };
+            };
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    resolveReviewAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: components["parameters"]["ReviewId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveReviewActionRequest"];
+            };
+        };
+        responses: {
+            /** @description Review updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    acceptReviewRisk: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: components["parameters"]["ReviewId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptReviewRiskRequest"];
+            };
+        };
+        responses: {
+            /** @description Review marked as accepted risk */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewResponse"];
+                };
+            };
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    listProjectIntegrations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Integrations */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["IntegrationAccount"][];
+                    };
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    startGitHubConnection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartGitHubConnectionRequest"];
+            };
+        };
+        responses: {
+            /** @description GitHub connection URL */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartGitHubConnectionResponse"];
+                };
+            };
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    disconnectGitHubIntegration: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                project_id: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description GitHub integration disconnected */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntegrationAccountResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    completeGitHubConnectionCallback: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GitHubCallbackRequest"];
+            };
+        };
+        responses: {
+            /** @description GitHub integration connected */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntegrationAccountResponse"];
+                };
+            };
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    receiveGitHubWebhook: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-GitHub-Event": components["parameters"]["GitHubEvent"];
+                "X-GitHub-Delivery": components["parameters"]["GitHubDelivery"];
+                "X-Hub-Signature-256": components["parameters"]["GitHubSignature256"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Webhook accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookAcceptedResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    getJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: components["parameters"]["JobId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Job */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listProjectAuditLogs: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                per_page?: components["parameters"]["PerPage"];
+            };
+            header?: never;
+            path: {
+                project_id: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Audit logs */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditLogListResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+}

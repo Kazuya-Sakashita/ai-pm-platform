@@ -3,31 +3,47 @@ info:
   title: AI PM Platform API
   version: 0.1.0
   description: MVP API for converting meeting logs into minutes, requirements, issue drafts, OpenAPI drafts, reviews, and GitHub sync.
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
 servers:
-  - url: https://api.example.com/api/v1
-    description: Production placeholder
-  - url: http://localhost:3001/api/v1
-    description: Local development
+  - url: https://api.ai-pm-platform.test/api/v1
+    description: Production environment placeholder. Replace with the owned production domain before public release.
+  - url: https://dev.api.ai-pm-platform.test/api/v1
+    description: Development environment placeholder. Local clients override this with NEXT_PUBLIC_API_BASE_URL.
 security:
   - bearerAuth: []
 tags:
   - name: Health
+    description: Service health and availability checks.
   - name: Projects
+    description: Project workspaces that group meetings, artifacts, integrations, and audit logs.
   - name: Meetings
+    description: Meeting logs and source material used to generate downstream artifacts.
   - name: Minutes
+    description: AI-generated and human-reviewed meeting minutes.
   - name: Requirements
+    description: Requirement drafts generated from approved minutes.
   - name: IssueDrafts
+    description: GitHub Issue drafts generated from approved requirements.
   - name: OpenApiDrafts
+    description: OpenAPI draft artifacts generated from approved requirements.
   - name: Reviews
+    description: Expert review records, blockers, accepted risks, and improvement actions.
   - name: Integrations
+    description: External service connection lifecycle and project integration accounts.
   - name: Jobs
+    description: Asynchronous generation, validation, and publish jobs.
   - name: Webhooks
+    description: Incoming webhook endpoints for connected external systems.
   - name: AuditLogs
+    description: Immutable project activity and security audit records.
 paths:
   /health:
     get:
       tags: [Health]
       summary: Health check
+      operationId: getHealth
       security: []
       responses:
         "200":
@@ -36,11 +52,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthResponse"
+        "429":
+          $ref: "#/components/responses/RateLimited"
 
   /projects:
     get:
       tags: [Projects]
       summary: List projects
+      operationId: listProjects
       parameters:
         - $ref: "#/components/parameters/Page"
         - $ref: "#/components/parameters/PerPage"
@@ -51,9 +70,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ProjectListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
     post:
       tags: [Projects]
       summary: Create project
+      operationId: createProject
       requestBody:
         required: true
         content:
@@ -74,6 +96,7 @@ paths:
     get:
       tags: [Projects]
       summary: Get project
+      operationId: getProject
       parameters:
         - $ref: "#/components/parameters/ProjectId"
       responses:
@@ -90,6 +113,7 @@ paths:
     get:
       tags: [Meetings]
       summary: List meetings in project
+      operationId: listProjectMeetings
       parameters:
         - $ref: "#/components/parameters/ProjectId"
         - $ref: "#/components/parameters/Page"
@@ -101,9 +125,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MeetingListResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
     post:
       tags: [Meetings]
       summary: Create meeting
+      operationId: createMeeting
       parameters:
         - $ref: "#/components/parameters/ProjectId"
       requestBody:
@@ -126,6 +153,7 @@ paths:
     get:
       tags: [Meetings]
       summary: Get meeting
+      operationId: getMeeting
       parameters:
         - $ref: "#/components/parameters/MeetingId"
       responses:
@@ -142,6 +170,7 @@ paths:
     post:
       tags: [Minutes]
       summary: Generate minutes from a meeting
+      operationId: generateMinutes
       parameters:
         - $ref: "#/components/parameters/MeetingId"
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -161,6 +190,7 @@ paths:
     get:
       tags: [Minutes]
       summary: Get minutes
+      operationId: getMinutes
       parameters:
         - $ref: "#/components/parameters/MinutesId"
       responses:
@@ -175,6 +205,7 @@ paths:
     patch:
       tags: [Minutes]
       summary: Update minutes
+      operationId: updateMinutes
       parameters:
         - $ref: "#/components/parameters/MinutesId"
       requestBody:
@@ -197,6 +228,7 @@ paths:
     post:
       tags: [Minutes]
       summary: Approve minutes
+      operationId: approveMinutes
       parameters:
         - $ref: "#/components/parameters/MinutesId"
       responses:
@@ -213,6 +245,7 @@ paths:
     post:
       tags: [Requirements]
       summary: Generate requirement from minutes
+      operationId: generateRequirement
       parameters:
         - $ref: "#/components/parameters/MinutesId"
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -230,6 +263,7 @@ paths:
     get:
       tags: [Requirements]
       summary: Get requirement
+      operationId: getRequirement
       parameters:
         - $ref: "#/components/parameters/RequirementId"
       responses:
@@ -244,6 +278,7 @@ paths:
     patch:
       tags: [Requirements]
       summary: Update requirement
+      operationId: updateRequirement
       parameters:
         - $ref: "#/components/parameters/RequirementId"
       requestBody:
@@ -266,6 +301,7 @@ paths:
     post:
       tags: [IssueDrafts]
       summary: Generate GitHub issue draft from requirement
+      operationId: generateIssueDraft
       parameters:
         - $ref: "#/components/parameters/RequirementId"
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -283,6 +319,7 @@ paths:
     post:
       tags: [OpenApiDrafts]
       summary: Generate OpenAPI draft from requirement
+      operationId: generateOpenApiDraft
       parameters:
         - $ref: "#/components/parameters/RequirementId"
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -300,6 +337,7 @@ paths:
     get:
       tags: [IssueDrafts]
       summary: Get issue draft
+      operationId: getIssueDraft
       parameters:
         - $ref: "#/components/parameters/IssueDraftId"
       responses:
@@ -314,6 +352,7 @@ paths:
     patch:
       tags: [IssueDrafts]
       summary: Update issue draft
+      operationId: updateIssueDraft
       parameters:
         - $ref: "#/components/parameters/IssueDraftId"
       requestBody:
@@ -336,6 +375,7 @@ paths:
     post:
       tags: [IssueDrafts]
       summary: Publish approved issue draft to GitHub
+      operationId: publishIssueDraftToGitHub
       parameters:
         - $ref: "#/components/parameters/IssueDraftId"
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -355,6 +395,7 @@ paths:
     get:
       tags: [OpenApiDrafts]
       summary: Get OpenAPI draft
+      operationId: getOpenApiDraft
       parameters:
         - $ref: "#/components/parameters/OpenApiDraftId"
       responses:
@@ -369,6 +410,7 @@ paths:
     patch:
       tags: [OpenApiDrafts]
       summary: Update OpenAPI draft
+      operationId: updateOpenApiDraft
       parameters:
         - $ref: "#/components/parameters/OpenApiDraftId"
       requestBody:
@@ -391,6 +433,7 @@ paths:
     post:
       tags: [OpenApiDrafts]
       summary: Validate OpenAPI draft
+      operationId: validateOpenApiDraft
       parameters:
         - $ref: "#/components/parameters/OpenApiDraftId"
       responses:
@@ -407,6 +450,7 @@ paths:
     get:
       tags: [Reviews]
       summary: List reviews
+      operationId: listReviews
       parameters:
         - $ref: "#/components/parameters/Page"
         - $ref: "#/components/parameters/PerPage"
@@ -427,9 +471,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ReviewListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
     post:
       tags: [Reviews]
       summary: Create review
+      operationId: createReview
       requestBody:
         required: true
         content:
@@ -450,6 +497,7 @@ paths:
     post:
       tags: [Reviews]
       summary: Mark review action resolved
+      operationId: resolveReviewAction
       parameters:
         - $ref: "#/components/parameters/ReviewId"
       requestBody:
@@ -465,11 +513,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ReviewResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
 
   /reviews/{review_id}/accept-risk:
     post:
       tags: [Reviews]
       summary: Mark review blocker as accepted risk
+      operationId: acceptReviewRisk
       parameters:
         - $ref: "#/components/parameters/ReviewId"
       requestBody:
@@ -492,6 +545,7 @@ paths:
     get:
       tags: [Integrations]
       summary: List project integrations
+      operationId: listProjectIntegrations
       parameters:
         - $ref: "#/components/parameters/ProjectId"
       responses:
@@ -507,11 +561,14 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/IntegrationAccount"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /projects/{project_id}/integrations/github/connect:
     post:
       tags: [Integrations]
       summary: Start GitHub connection
+      operationId: startGitHubConnection
       parameters:
         - $ref: "#/components/parameters/ProjectId"
       requestBody:
@@ -534,6 +591,7 @@ paths:
     post:
       tags: [Integrations]
       summary: Disconnect GitHub integration
+      operationId: disconnectGitHubIntegration
       parameters:
         - $ref: "#/components/parameters/ProjectId"
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -551,6 +609,7 @@ paths:
     post:
       tags: [Integrations]
       summary: Complete GitHub connection callback
+      operationId: completeGitHubConnectionCallback
       security: []
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -574,6 +633,7 @@ paths:
     post:
       tags: [Webhooks]
       summary: Receive GitHub App webhook
+      operationId: receiveGitHubWebhook
       security: []
       parameters:
         - $ref: "#/components/parameters/GitHubEvent"
@@ -602,6 +662,7 @@ paths:
     get:
       tags: [Jobs]
       summary: Get generation or integration job
+      operationId: getJob
       parameters:
         - $ref: "#/components/parameters/JobId"
       responses:
@@ -618,6 +679,7 @@ paths:
     get:
       tags: [AuditLogs]
       summary: List audit logs
+      operationId: listProjectAuditLogs
       parameters:
         - $ref: "#/components/parameters/ProjectId"
         - $ref: "#/components/parameters/Page"
@@ -629,6 +691,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuditLogListResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
 components:
   securitySchemes:

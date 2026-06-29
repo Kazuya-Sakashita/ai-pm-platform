@@ -40,6 +40,7 @@ OpenAPIのoperationId、tag description、4XX response、license、server URL警
 ## 関連レビュー
 
 - `docs/review/20260630_openapi_tooling_implementation_review.md`
+- `docs/review/20260630_openapi_lint_warnings_cleanup_review.md`
 
 ## レビュー結果
 
@@ -47,8 +48,20 @@ tooling導入は成功したが、Redocly warningsが残っている。世界レ
 
 ## 次アクション
 
-- operationIdを追加する
-- tag descriptionを追加する
-- 4XX responseを追加する
-- Redocly rulesetを適切に調整する
+- ISSUE-015のBackend実装前に、生成済みTypeScript schemaを利用する
+- local Nodeを `.node-version` の `22.12.0` 以上へ合わせる
+- Backend実装時にOpenAPI contract testをCIへ追加する
 
+## 進捗
+
+完了。
+
+2026-06-30 07:25 JST確認:
+
+- 全operationへ `operationId` を追加済み
+- 全tagへdescriptionを追加済み
+- 必要なoperationへ4XX responseを追加済み
+- `info.license` と `identifier` を追加済み
+- server URLは `.test` placeholderへ変更し、local devはclient側の `NEXT_PUBLIC_API_BASE_URL` で上書きする方針に変更済み
+- `npm run api:verify`: OpenAPI lint warningなし
+- local Node `v22.7.0` によるRedocly engine warningのみ残存。これはOpenAPI契約warningではなくISSUE-019のtoolchain整合課題として扱う。

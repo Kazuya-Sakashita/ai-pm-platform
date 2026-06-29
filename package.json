@@ -9,7 +9,7 @@
   },
   "scripts": {
     "api:check": "ruby scripts/check-openapi.rb && redocly lint docs/api/openapi.yaml",
-    "api:types": "openapi-typescript docs/api/openapi.yaml -o frontend/lib/api/schema.d.ts",
+    "api:types": "openapi-typescript",
     "api:verify": "npm run api:check && npm run api:types",
     "github:issues:dry-run": "ruby scripts/sync-github-issues.rb --dry-run",
     "github:issues:sync": "ruby scripts/sync-github-issues.rb --apply"
