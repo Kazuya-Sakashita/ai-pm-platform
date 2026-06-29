@@ -45,6 +45,7 @@ https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/2
 - `docs/review/20260630_db_design_review.md`
 - `docs/review/20260630_discord_minutes_backend_slice_review.md`
 - `docs/review/20260630_openai_minutes_generation_provider_review.md`
+- `docs/review/20260630_frontend_meeting_workspace_api_connection_review.md`
 
 ## レビュー結果
 
@@ -84,8 +85,19 @@ P0として妥当。ただし、いきなりBot実装へ進むと権限と運用
 - `bundle exec ruby bin/rails zeitwerk:check`: All is good
 - `npm run api:verify`: 成功。OpenAPI contract warningなし
 
+2026-06-30 09:45 JST追加:
+
+- Next.js App Router frontendを追加
+- Meeting Workspaceを第一画面として実装
+- Project作成/選択、Meeting保存、Minutes生成、Job取得、Minutes取得/編集/承認、Review作成をOpenAPI clientで接続
+- `npm run frontend:build`: 成功
+- `npm audit --omit=dev`: 0 vulnerabilities
+- local API smokeでProject作成 -> Meeting保存 -> Minutes生成 -> Job取得 -> Minutes取得に成功
+- `docs/decisions/ADR-0005_frontend_next_api_workspace.md` を追加
+
 未完了:
 
 - 本番OpenAI API keyでのlive generation検証
-- Frontend Meeting Workspaceとの接続
-- 生成結果レビュー導線のUI実装
+- Playwright smoke test
+- ブラウザスクリーンショットによるビジュアルQA
+- Review Center本体との統合
