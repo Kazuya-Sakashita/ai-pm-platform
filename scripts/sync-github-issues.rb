@@ -56,7 +56,7 @@ issue_paths = ISSUE_DIR.glob("ISSUE-*.md").sort
 abort "No issue files found in #{ISSUE_DIR}" if issue_paths.empty?
 
 if mode == "--apply"
-  run!("gh", "auth", "status")
+  run!("gh", "api", "user", "--jq", ".login")
   remotes = run!("git", "remote", "-v")
   abort "No git remote configured. Add origin before applying." if remotes.strip.empty?
 end

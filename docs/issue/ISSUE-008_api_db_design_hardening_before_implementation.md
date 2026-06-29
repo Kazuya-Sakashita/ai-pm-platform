@@ -2,9 +2,10 @@
 
 ## GitHub Issue
 
-登録待ち。
+https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/8
 
-理由: remote未設定、GitHub CLI token invalid。
+登録日: 2026-06-30
+同期方法: `scripts/sync-github-issues.rb --apply`
 
 ## 背景
 
@@ -58,4 +59,4 @@ Backend/Frontend実装に進む前に、APIとDBのP0不足を解消し、レビ
 
 ## 進捗
 
-完了。GitHub Issue同期のみ登録待ち。
+完了。GitHub Issue同期済み。

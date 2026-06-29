@@ -2,11 +2,10 @@
 
 ## GitHub Issue
 
-登録待ち。
+https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/4
 
-理由: `gh auth status` で GitHub token invalid。初期時点でremote未設定。
-
-登録試行: ISSUE-001登録時に `no git remotes found` が確認されたため、remote設定と再認証後に登録する。
+登録日: 2026-06-30
+同期方法: `scripts/sync-github-issues.rb --apply`
 
 ## 背景
 
