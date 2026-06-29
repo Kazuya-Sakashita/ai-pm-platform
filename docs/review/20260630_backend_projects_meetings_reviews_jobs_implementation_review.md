@@ -50,7 +50,7 @@ G-STACK、DDD、C4 Model、STRIDE、ISO25010、DORA Metrics
 
 ## 次アクション
 
-- GitHub #15をcloseする。
+- GitHub #15はclose済み。
 - 次はISSUE-002を優先し、会議ログ保存から議事録生成placeholderまでをBackendに接続する。
 - CI導入Issueを追加するか、ISSUE-002の前処理としてbackend test workflowを作る。
 

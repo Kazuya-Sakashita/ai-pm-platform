@@ -75,3 +75,8 @@ Rails APIでProjects、Meetings、Reviews、Jobsの最小実装を行い、Front
 - `bundle exec ruby bin/rails db:prepare`: 成功
 - `bundle exec rspec`: 10 examples, 0 failures
 - `bundle exec ruby bin/rails zeitwerk:check`: All is good
+
+2026-06-30 07:46 JST確認:
+
+- GitHub #15 close済み
+- close commentにcommit `d12038a` を記録済み
