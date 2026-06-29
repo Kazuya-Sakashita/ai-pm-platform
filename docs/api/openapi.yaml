@@ -217,8 +217,14 @@ paths:
                 $ref: "#/components/schemas/GenerationJobResponse"
         "404":
           $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "424":
+          $ref: "#/components/responses/IntegrationNotConnected"
         "429":
           $ref: "#/components/responses/RateLimited"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
 
   /minutes/{minutes_id}:
     get:
@@ -872,6 +878,12 @@ components:
             $ref: "#/components/schemas/ErrorResponse"
     RateLimited:
       description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    UpstreamError:
+      description: Upstream AI provider failed or returned an invalid response
       content:
         application/json:
           schema:

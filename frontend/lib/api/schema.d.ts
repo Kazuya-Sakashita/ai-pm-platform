@@ -913,6 +913,15 @@ export interface components {
                 "application/json": components["schemas"]["ErrorResponse"];
             };
         };
+        /** @description Upstream AI provider failed or returned an invalid response */
+        UpstreamError: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
     };
     parameters: {
         ProjectId: string;
@@ -1177,7 +1186,10 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationError"];
+            424: components["responses"]["IntegrationNotConnected"];
             429: components["responses"]["RateLimited"];
+            502: components["responses"]["UpstreamError"];
         };
     };
     getMinutes: {

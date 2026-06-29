@@ -3,11 +3,16 @@ module Api
     class MinutesController < ApplicationController
       def generate
         meeting = Meeting.find(params[:id])
-        minute = MinutesGenerationService.new(meeting).call
         job = meeting.project.jobs.create!(
           job_type: "ai_generation",
-          status: "succeeded",
+          status: "running",
           target_type: "minutes",
+          progress: 10
+        )
+
+        minute = MinutesGenerationService.new(meeting).call
+        job.update!(
+          status: "succeeded",
           target_id: minute.id,
           progress: 100
         )
@@ -20,6 +25,27 @@ module Api
         )
 
         render json: { data: { job_id: job.id, status: job.status } }, status: :accepted
+      rescue MinutesGeneration::ProviderError => e
+        job&.update!(
+          status: "failed",
+          progress: 100,
+          error_code: e.code,
+          error_message: e.message,
+          safe_error_detail: e.safe_detail
+        )
+        AuditLog.record!(
+          project: meeting.project,
+          action: "minutes.generation_failed",
+          target: job,
+          metadata: { meeting_id: meeting.id, provider_error_code: e.code, request_id: e.request_id }.compact
+        ) if job
+
+        render_error(
+          e.code,
+          e.safe_detail,
+          e.http_status,
+          { job_id: job&.id, request_id: e.request_id }.compact
+        )
       end
 
       def show

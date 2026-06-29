@@ -44,6 +44,7 @@ https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/2
 - `docs/review/20260630_screen_design_review.md`
 - `docs/review/20260630_db_design_review.md`
 - `docs/review/20260630_discord_minutes_backend_slice_review.md`
+- `docs/review/20260630_openai_minutes_generation_provider_review.md`
 
 ## レビュー結果
 
@@ -71,8 +72,20 @@ P0として妥当。ただし、いきなりBot実装へ進むと権限と運用
 - `bundle exec rspec`: 15 examples, 0 failures
 - `npm run api:verify`: 成功。OpenAPI contract warningなし
 
+2026-06-30 09:10 JST追加:
+
+- `MINUTES_GENERATION_PROVIDER=auto|openai|deterministic` によるprovider選択を追加
+- OpenAI Responses API + Structured Outputs用providerを追加
+- `OPENAI_API_KEY` 未設定時はOpenAI強制時のみ424とfailed jobを保存
+- OpenAI送信前にsecret patternを検出し、該当時はAI送信をブロック
+- provider失敗時に `jobs.status=failed`、`safe_error_detail`、`minutes.generation_failed` audit logを保存
+- `POST /api/v1/meetings/:id/generate-minutes` のOpenAPIへ422/424/502を追加
+- `bundle exec rspec`: 24 examples, 0 failures
+- `bundle exec ruby bin/rails zeitwerk:check`: All is good
+- `npm run api:verify`: 成功。OpenAPI contract warningなし
+
 未完了:
 
-- 実OpenAI APIによるAI議事録生成
+- 本番OpenAI API keyでのlive generation検証
 - Frontend Meeting Workspaceとの接続
 - 生成結果レビュー導線のUI実装
