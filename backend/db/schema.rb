@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_06_30_073500) do
+ActiveRecord::Schema[7.1].define(version: 2026_06_30_075000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pgcrypto"
   enable_extension "plpgsql"
@@ -63,6 +63,21 @@ ActiveRecord::Schema[7.1].define(version: 2026_06_30_073500) do
     t.index ["status"], name: "index_meetings_on_status"
   end
 
+  create_table "minutes", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "meeting_id", null: false
+    t.string "status", default: "generated", null: false
+    t.text "summary", null: false
+    t.jsonb "decisions", default: [], null: false
+    t.jsonb "open_questions", default: [], null: false
+    t.jsonb "action_items", default: [], null: false
+    t.string "generated_by_model"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["meeting_id", "created_at"], name: "index_minutes_on_meeting_id_and_created_at"
+    t.index ["meeting_id"], name: "index_minutes_on_meeting_id"
+    t.index ["status"], name: "index_minutes_on_status"
+  end
+
   create_table "projects", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "name", null: false
     t.text "description"
@@ -95,4 +110,5 @@ ActiveRecord::Schema[7.1].define(version: 2026_06_30_073500) do
   add_foreign_key "audit_logs", "projects"
   add_foreign_key "jobs", "projects"
   add_foreign_key "meetings", "projects"
+  add_foreign_key "minutes", "meetings"
 end

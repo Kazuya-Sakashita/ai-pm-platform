@@ -741,7 +741,7 @@ export interface components {
                 /** Format: uuid */
                 job_id: string;
                 /** @enum {string} */
-                status: "queued" | "running";
+                status: "queued" | "running" | "succeeded";
             };
         };
         Job: {
@@ -1227,6 +1227,7 @@ export interface operations {
                     "application/json": components["schemas"]["MinutesResponse"];
                 };
             };
+            404: components["responses"]["NotFound"];
             422: components["responses"]["ValidationError"];
         };
     };
@@ -1250,6 +1251,7 @@ export interface operations {
                     "application/json": components["schemas"]["MinutesResponse"];
                 };
             };
+            404: components["responses"]["NotFound"];
             409: components["responses"]["ReviewRequired"];
         };
     };

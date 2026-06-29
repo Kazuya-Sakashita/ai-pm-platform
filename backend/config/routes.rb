@@ -8,7 +8,12 @@ Rails.application.routes.draw do
         resources :audit_logs, only: %i[index], path: "audit-logs"
       end
 
-      resources :meetings, only: %i[show]
+      resources :meetings, only: %i[show] do
+        post "generate-minutes", to: "minutes#generate", on: :member
+      end
+      resources :minutes, only: %i[show update] do
+        post "approve", on: :member
+      end
       resources :reviews, only: %i[index create] do
         post "resolve-action", to: "reviews#resolve_action", on: :member
         post "accept-risk", to: "reviews#accept_risk", on: :member

@@ -43,6 +43,7 @@ https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/2
 - `docs/review/20260629_requirements_review.md`
 - `docs/review/20260630_screen_design_review.md`
 - `docs/review/20260630_db_design_review.md`
+- `docs/review/20260630_discord_minutes_backend_slice_review.md`
 
 ## レビュー結果
 
@@ -50,7 +51,28 @@ P0として妥当。ただし、いきなりBot実装へ進むと権限と運用
 
 ## 次アクション
 
-- 画面設計初稿は `docs/product/20260630_mvp_screen_design.md` に作成済み
-- DB設計初稿は `docs/architecture/20260630_db_design.md` に作成済み
-- Minutes APIを含むOpenAPI初稿は `docs/api/openapi.yaml` に作成済み
-- 次はISSUE-007としてワイヤーフレームとReview blocker UXを詳細化する
+- OpenAI-backed minutes generation providerを追加する
+- Meeting Workspace UIからMeeting作成とMinutes生成を呼び出す
+- 生成結果のレビュー依頼導線をFrontendへ接続する
+- OpenAI実装後にGitHub #2のclose可否を再評価する
+
+## 進捗
+
+進行中。
+
+2026-06-30 07:51 JST確認:
+
+- 手動テキスト/Discordログ貼り付けは `POST /api/v1/projects/:project_id/meetings` で保存可能
+- `source_type: discord_log` を受け付けるrequest specを追加済み
+- `POST /api/v1/meetings/:id/generate-minutes` を実装済み
+- deterministic placeholderでsummary、decisions、open_questions、action_itemsを分離してMinutesを作成可能
+- `GET/PATCH /api/v1/minutes/:id` と `POST /api/v1/minutes/:id/approve` を実装済み
+- Minutes review resultは `POST /api/v1/reviews` で保存可能、request spec追加済み
+- `bundle exec rspec`: 15 examples, 0 failures
+- `npm run api:verify`: 成功。OpenAPI contract warningなし
+
+未完了:
+
+- 実OpenAI APIによるAI議事録生成
+- Frontend Meeting Workspaceとの接続
+- 生成結果レビュー導線のUI実装

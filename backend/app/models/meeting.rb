@@ -3,6 +3,7 @@ class Meeting < ApplicationRecord
   STATUSES = %w[draft generating generated in_review needs_changes approved failed].freeze
 
   belongs_to :project
+  has_many :minutes, class_name: "Minute", dependent: :destroy
 
   validates :title, presence: true, length: { maximum: 160 }
   validates :source_type, inclusion: { in: SOURCE_TYPES }

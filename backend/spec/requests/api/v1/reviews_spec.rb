@@ -18,6 +18,25 @@ RSpec.describe "API V1 Reviews", type: :request do
       expect(response).to have_http_status(:created)
       expect(JSON.parse(response.body).dig("data", "status")).to eq("open")
     end
+
+    it "stores a minutes review result" do
+      minute = create(:minute)
+
+      post "/api/v1/reviews", params: {
+        target_type: "minutes",
+        target_id: minute.id,
+        reviewer_role: "QA",
+        framework: ["ISO25010"],
+        positives: ["Minutes are structured"],
+        improvements: ["Clarify owners"],
+        priority: ["P1"],
+        next_actions: ["Assign action item owners"],
+        issue_numbers: ["ISSUE-002"]
+      }
+
+      expect(response).to have_http_status(:created)
+      expect(JSON.parse(response.body).dig("data", "target_type")).to eq("minutes")
+    end
   end
 
   describe "POST /api/v1/reviews/:id/resolve-action" do

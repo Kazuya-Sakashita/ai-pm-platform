@@ -255,6 +255,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MinutesResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "422":
           $ref: "#/components/responses/ValidationError"
 
@@ -272,6 +274,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MinutesResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/ReviewRequired"
 
@@ -1539,7 +1543,7 @@ components:
               format: uuid
             status:
               type: string
-              enum: [queued, running]
+              enum: [queued, running, succeeded]
 
     Job:
       type: object
