@@ -65,3 +65,8 @@ tooling導入は成功したが、Redocly warningsが残っている。世界レ
 - server URLは `.test` placeholderへ変更し、local devはclient側の `NEXT_PUBLIC_API_BASE_URL` で上書きする方針に変更済み
 - `npm run api:verify`: OpenAPI lint warningなし
 - local Node `v22.7.0` によるRedocly engine warningのみ残存。これはOpenAPI契約warningではなくISSUE-019のtoolchain整合課題として扱う。
+
+2026-06-30 07:27 JST確認:
+
+- GitHub #18 close済み
+- close commentにcommit `bf42674` を記録済み

@@ -48,7 +48,7 @@ G-STACK、ISO25010、DDD、OpenAPI contract review
 ## 次アクション
 
 - `docs/api/openapi.yaml` と `frontend/lib/api/schema.d.ts` をcommit/pushする。
-- GitHub #18をcloseする。
+- GitHub #18はclose済み。
 - 次にISSUE-015のBackend Projects/Meetings/Reviews/Jobs MVPへ進む。
 
 ## Issue番号
