@@ -4,7 +4,9 @@
 
 GitHub Issue登録は未完了。
 
-2026-06-30 07:10 JST時点でも、remote未設定、GitHub CLI token invalidのため、GitHub同期は未完了。
+2026-06-30 07:10 JST時点では、remote未設定、GitHub CLI token invalidのため、GitHub同期は未完了だった。
+
+2026-06-30 07:11 JST時点で、remote設定とpushは完了。GitHub Issue登録はGitHub CLI token invalidのため未完了。
 
 ## 実施済み
 
@@ -13,28 +15,25 @@ GitHub Issue登録は未完了。
 - `gh issue create --title "ISSUE-001: Project foundation, research, and governance" --body-file docs/issue/ISSUE-001_project_foundation_research_and_governance.md` を試行した。
 - `scripts/sync-github-issues.rb` を追加し、Issue一括登録のdry-runとapply手順を用意した。
 - `npm run github:issues:dry-run` で登録対象を確認できるようにした。
+- `origin` を `git@github.com:Kazuya-Sakashita/ai-pm-platform.git` として確認した。
+- `git push -u origin main` が `Everything up-to-date` で成功した。
 
 ## ブロッカー
 
-1. `gh issue create` が `no git remotes found` で失敗した。
-2. `gh auth status` で GitHub token invalid が確認された。
+1. `gh auth status` で GitHub token invalid が確認された。
 
 ## 必要な次アクション
 
 1. GitHub CLIを再認証する。
-2. GitHub repositoryを作成または既存repositoryをremoteとして設定する。
-3. `git push -u origin main` で初回commitをpushする。
-4. `npm run github:issues:dry-run` で登録対象を確認する。
-5. `npm run github:issues:sync` で `docs/issue/ISSUE-*.md` をGitHub Issueとして登録する。
-6. 登録後、各Issueファイルの `GitHub Issue` 欄へURLと番号を追記する。
-7. `docs/review/` の `Issue番号` 欄へGitHub番号を追記する。
+2. `npm run github:issues:dry-run` で登録対象を確認する。
+3. `npm run github:issues:sync` で `docs/issue/ISSUE-*.md` をGitHub Issueとして登録する。
+4. 登録後、各Issueファイルの `GitHub Issue` 欄へURLと番号を追記する。
+5. `docs/review/` の `Issue番号` 欄へGitHub番号を追記する。
 
 ## 同期コマンド
 
 ```bash
 gh auth login -h github.com
-git remote add origin <repo-url>
-git push -u origin main
 npm run github:issues:dry-run
 npm run github:issues:sync
 ```
