@@ -1,0 +1,22 @@
+{
+  "name": "ai-pm-platform",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": "22.12.0",
+    "npm": ">=10"
+  },
+  "scripts": {
+    "api:check": "ruby scripts/check-openapi.rb && redocly lint docs/api/openapi.yaml",
+    "api:types": "openapi-typescript docs/api/openapi.yaml -o frontend/lib/api/schema.d.ts",
+    "api:verify": "npm run api:check && npm run api:types",
+    "github:issues:dry-run": "ruby scripts/sync-github-issues.rb --dry-run",
+    "github:issues:sync": "ruby scripts/sync-github-issues.rb --apply"
+  },
+  "devDependencies": {
+    "@redocly/cli": "^2.12.1",
+    "openapi-fetch": "^0.15.0",
+    "openapi-typescript": "^7.10.1"
+  }
+}

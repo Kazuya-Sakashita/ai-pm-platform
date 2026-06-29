@@ -1,0 +1,11 @@
+apis:
+  main:
+    root: docs/api/openapi.yaml
+    x-openapi-ts:
+      output: frontend/lib/api/schema.d.ts
+extends:
+  - recommended
+rules:
+  operation-operationId: warn
+  security-defined: error
+  no-unused-components: warn

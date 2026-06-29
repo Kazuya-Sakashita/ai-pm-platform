@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AI PM Platform MVP Prototype</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to main</a>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Primary navigation">
+        <div class="brand">
+          <span class="brand-mark">AP</span>
+          <span>AI PM</span>
+        </div>
+        <nav class="nav-list">
+          <a class="nav-item active" href="#project">Projects</a>
+          <a class="nav-item" href="#meeting">Meetings</a>
+          <a class="nav-item" href="#requirement">Requirements</a>
+          <a class="nav-item" href="#reviews">Reviews</a>
+          <a class="nav-item" href="#openapi">OpenAPI</a>
+          <a class="nav-item" href="#integrations">Integrations</a>
+        </nav>
+      </aside>
+
+      <div class="workspace">
+        <header class="top-bar">
+          <div>
+            <p class="eyebrow">Project</p>
+            <h1>AI議事録プラットフォーム</h1>
+          </div>
+          <div class="top-status">
+            <span class="chip warning">GitHub未接続</span>
+            <span class="chip danger">3 blockers</span>
+            <button class="button secondary" type="button">Export</button>
+          </div>
+        </header>
+
+        <main id="main" class="main-grid">
+          <section id="project" class="screen full">
+            <div class="context-bar">
+              <div>
+                <p class="eyebrow">Project Workspace</p>
+                <h2>実装可能なIssueまでの進行状況</h2>
+              </div>
+              <button class="button primary" type="button">Add Meeting</button>
+            </div>
+
+            <div class="pipeline" aria-label="Pipeline status">
+              <div class="stage done">
+                <span>Meeting</span>
+                <strong>approved</strong>
+              </div>
+              <div class="stage review">
+                <span>Minutes</span>
+                <strong>in review</strong>
+              </div>
+              <div class="stage blocked">
+                <span>Requirement</span>
+                <strong>blocked</strong>
+              </div>
+              <div class="stage locked">
+                <span>Issue</span>
+                <strong>locked</strong>
+              </div>
+            </div>
+
+            <div class="columns two">
+              <section class="panel">
+                <div class="panel-header">
+                  <h3>Review blockers</h3>
+                  <span class="chip danger">P0</span>
+                </div>
+                <ul class="blocker-list">
+                  <li>
+                    <strong>Requirement has 2 open questions</strong>
+                    <span>Issue/OpenAPI生成を停止中</span>
+                  </li>
+                  <li>
+                    <strong>GitHub integration is not connected</strong>
+                    <span>Issue公開を停止中</span>
+                  </li>
+                  <li>
+                    <strong>Minutes review action unresolved</strong>
+                    <span>要件承認を停止中</span>
+                  </li>
+                </ul>
+              </section>
+              <section class="panel">
+                <div class="panel-header">
+                  <h3>Recent audit events</h3>
+                  <span class="chip neutral">live</span>
+                </div>
+                <ol class="event-list">
+                  <li>Generated minutes draft</li>
+                  <li>Created screen design review</li>
+                  <li>Updated Issue draft gate</li>
+                  <li>Secret scan clear</li>
+                </ol>
+              </section>
+            </div>
+          </section>
+
+          <section id="meeting" class="screen split">
+            <div class="context-bar span-all">
+              <div>
+                <p class="eyebrow">Meeting Workspace</p>
+                <h2>Discordログから議事録を生成</h2>
+              </div>
+              <button class="button primary" type="button">Request Review</button>
+            </div>
+            <section class="panel transcript">
+              <div class="panel-header">
+                <h3>Transcript</h3>
+                <span class="chip success">scan clear</span>
+              </div>
+              <div class="log-box">
+                <p><strong>10:00 Kazuya</strong> AI PMとして議事録からIssueまで自動化したい。</p>
+                <p><strong>10:02 Tech Lead</strong> OpenAPIレビューを実装前ゲートにしたい。</p>
+                <p><strong>10:05 PM</strong> Discord-firstでMVPを切る。</p>
+              </div>
+            </section>
+            <section class="panel editor">
+              <div class="panel-header">
+                <h3>Minutes editor</h3>
+                <span class="chip review">in review</span>
+              </div>
+              <h4>Summary</h4>
+              <p>会議ログから、Discord-firstのAI PM MVPを構築する方針を確認した。</p>
+              <h4>Decisions</h4>
+              <ul>
+                <li>GitHub Issue生成をMVPの中心価値にする。</li>
+                <li>OpenAPIレビューを実装前ゲートにする。</li>
+              </ul>
+              <h4>Open questions</h4>
+              <ul>
+                <li>GitHub AppとOAuth Appのどちらを採用するか。</li>
+              </ul>
+            </section>
+            <aside class="inspector">
+              <h3>Review gate</h3>
+              <div class="blocker-card danger">
+                <strong>Review missing</strong>
+                <span>Requirement生成前にMinutesレビューが必要です。</span>
+              </div>
+              <button class="button full-width" type="button">Open Review</button>
+            </aside>
+          </section>
+
+          <section id="requirement" class="screen split">
+            <div class="context-bar span-all">
+              <div>
+                <p class="eyebrow">Requirement Workspace</p>
+                <h2>要件定義をIssue/OpenAPI品質へ引き上げる</h2>
+              </div>
+              <button class="button primary" type="button">Approve</button>
+            </div>
+            <section class="panel editor wide">
+              <div class="panel-header">
+                <h3>Requirement</h3>
+                <span class="chip warning">needs changes</span>
+              </div>
+              <h4>Goal</h4>
+              <p>会議ログから議事録、要件、Issue、OpenAPI、レビューを生成し、実装前の曖昧さを減らす。</p>
+              <h4>Acceptance criteria</h4>
+              <ul>
+                <li>レビュー未実施の成果物は次工程へ進めない。</li>
+                <li>GitHub publish前にIssue Draftがapprovedである。</li>
+                <li>secret scan blockedの場合はAI送信を停止する。</li>
+              </ul>
+            </section>
+            <aside class="inspector">
+              <h3>Blockers</h3>
+              <div class="blocker-card danger">
+                <strong>2 open questions</strong>
+                <span>Issue/OpenAPI生成を停止中</span>
+              </div>
+              <div class="blocker-card warning">
+                <strong>Accepted risk required</strong>
+                <span>P1の未解決事項があります。</span>
+              </div>
+            </aside>
+          </section>
+
+          <section id="reviews" class="screen reviews">
+            <div class="context-bar">
+              <div>
+                <p class="eyebrow">Review Center</p>
+                <h2>改善アクションを閉じるまで次へ進めない</h2>
+              </div>
+              <button class="button primary" type="button">Create Review</button>
+            </div>
+            <div class="review-board">
+              <section class="panel review-list">
+                <h3>Open reviews</h3>
+                <button class="review-row active" type="button">
+                  <span class="chip danger">P0</span>
+                  <strong>API/DB hardening</strong>
+                  <span>4 actions open</span>
+                </button>
+                <button class="review-row" type="button">
+                  <span class="chip warning">P1</span>
+                  <strong>Wireframe UX</strong>
+                  <span>2 actions open</span>
+                </button>
+                <button class="review-row" type="button">
+                  <span class="chip success">OK</span>
+                  <strong>Market review</strong>
+                  <span>resolved</span>
+                </button>
+              </section>
+              <section class="panel review-detail">
+                <div class="panel-header">
+                  <h3>API/DB hardening</h3>
+                  <span class="chip danger">action required</span>
+                </div>
+                <h4>Improvements</h4>
+                <ul class="check-list">
+                  <li><input type="checkbox"> Jobs APIを追加</li>
+                  <li><input type="checkbox"> secret_scan_resultsをDB設計へ追加</li>
+                  <li><input type="checkbox"> accepted_risk監査を追加</li>
+                  <li><input type="checkbox"> error masking方針を追加</li>
+                </ul>
+                <div class="actions">
+                  <button class="button secondary" type="button">Mark resolved</button>
+                  <button class="button secondary" type="button">Create Issue</button>
+                </div>
+              </section>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>
+
