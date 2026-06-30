@@ -114,6 +114,8 @@ P0として妥当。ただし、いきなりBot実装へ進むと権限と運用
 - CIでPostgreSQL service、Rails DB prepare、RSpec、Zeitwerk check、OpenAPI verify、Frontend build、Rails API起動、Playwright E2Eを実行する構成を追加
 - OpenAI API keyに依存しないよう `MINUTES_GENERATION_PROVIDER=deterministic` をCIに明示
 - 失敗時にPlaywright artifactsとbackend server logを保存する設定を追加
+- GitHub Actions初回Run `28417183475` は `Gemfile.lock` のLinux platform不足で失敗
+- `bundle lock --add-platform x86_64-linux` によりCI runner向けplatformを追加
 
 未完了:
 
