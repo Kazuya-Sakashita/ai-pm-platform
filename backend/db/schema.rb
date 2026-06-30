@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_06_30_075000) do
+ActiveRecord::Schema[7.1].define(version: 2026_06_30_075600) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pgcrypto"
   enable_extension "plpgsql"
@@ -88,6 +88,26 @@ ActiveRecord::Schema[7.1].define(version: 2026_06_30_075000) do
     t.index ["status"], name: "index_projects_on_status"
   end
 
+  create_table "requirements", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "minutes_id", null: false
+    t.string "status", default: "generated", null: false
+    t.text "background", null: false
+    t.text "goal", null: false
+    t.jsonb "user_stories", default: [], null: false
+    t.jsonb "functional_requirements", default: [], null: false
+    t.jsonb "non_functional_requirements", default: [], null: false
+    t.jsonb "acceptance_criteria", default: [], null: false
+    t.jsonb "out_of_scope", default: [], null: false
+    t.jsonb "open_questions", default: [], null: false
+    t.jsonb "risks", default: [], null: false
+    t.string "generated_by_model"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["minutes_id", "created_at"], name: "index_requirements_on_minutes_id_and_created_at"
+    t.index ["minutes_id"], name: "index_requirements_on_minutes_id"
+    t.index ["status"], name: "index_requirements_on_status"
+  end
+
   create_table "reviews", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "target_type", null: false
     t.string "target_id", null: false
@@ -111,4 +131,5 @@ ActiveRecord::Schema[7.1].define(version: 2026_06_30_075000) do
   add_foreign_key "jobs", "projects"
   add_foreign_key "meetings", "projects"
   add_foreign_key "minutes", "meetings"
+  add_foreign_key "requirements", "minutes", column: "minutes_id"
 end

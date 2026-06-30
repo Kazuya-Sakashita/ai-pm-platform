@@ -7,6 +7,7 @@ import {
   ClipboardList,
   Database,
   FileCheck2,
+  ListChecks,
   Loader2,
   Play,
   Plus,
@@ -21,6 +22,7 @@ import type { components } from "@/lib/api/schema";
 type Project = components["schemas"]["Project"];
 type Meeting = components["schemas"]["Meeting"];
 type Minutes = components["schemas"]["Minutes"];
+type Requirement = components["schemas"]["Requirement"];
 type Job = components["schemas"]["Job"];
 type Review = components["schemas"]["Review"];
 type MeetingSourceType = components["schemas"]["MeetingSourceType"];
@@ -86,6 +88,7 @@ export default function MeetingWorkspace() {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [minutes, setMinutes] = useState<Minutes | null>(null);
+  const [requirement, setRequirement] = useState<Requirement | null>(null);
   const [lastJob, setLastJob] = useState<Job | null>(null);
   const [lastReview, setLastReview] = useState<Review | null>(null);
   const [statusMessage, setStatusMessage] = useState("API接続待機中");
@@ -104,6 +107,15 @@ export default function MeetingWorkspace() {
   const [decisionsDraft, setDecisionsDraft] = useState("");
   const [questionsDraft, setQuestionsDraft] = useState("");
   const [actionsDraft, setActionsDraft] = useState("");
+  const [requirementBackgroundDraft, setRequirementBackgroundDraft] = useState("");
+  const [requirementGoalDraft, setRequirementGoalDraft] = useState("");
+  const [userStoriesDraft, setUserStoriesDraft] = useState("");
+  const [functionalRequirementsDraft, setFunctionalRequirementsDraft] = useState("");
+  const [nonFunctionalRequirementsDraft, setNonFunctionalRequirementsDraft] = useState("");
+  const [acceptanceCriteriaDraft, setAcceptanceCriteriaDraft] = useState("");
+  const [outOfScopeDraft, setOutOfScopeDraft] = useState("");
+  const [requirementOpenQuestionsDraft, setRequirementOpenQuestionsDraft] = useState("");
+  const [risksDraft, setRisksDraft] = useState("");
 
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === selectedProjectId) ?? null,
@@ -206,7 +218,9 @@ export default function MeetingWorkspace() {
     setMeetings((current) => [data.data, ...current]);
     setSelectedMeeting(data.data);
     setMinutes(null);
+    setRequirement(null);
     clearMinutesDrafts();
+    clearRequirementDrafts();
     setStatusMessage("Meeting saved");
   }
 
@@ -274,6 +288,8 @@ export default function MeetingWorkspace() {
     }
 
     applyMinutes(minutesResult.data.data);
+    setRequirement(null);
+    clearRequirementDrafts();
     setStatusMessage("Minutes generated");
   }
 
@@ -327,7 +343,99 @@ export default function MeetingWorkspace() {
     setStatusMessage("Minutes approved");
   }
 
-  async function requestReview() {
+  async function generateRequirement() {
+    if (!minutes) {
+      setApiError("Requirement生成対象のMinutesがありません。");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setStatusMessage("Requirements generating");
+    const { data, error: apiError } = await apiClient.POST("/minutes/{minutes_id}/generate-requirement", {
+      params: { path: { minutes_id: minutes.id } },
+    });
+
+    if (apiError) {
+      await loadFailedJob(errorJobId(apiError));
+      setLoading(false);
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    await loadJobAndRequirement(data.data.job_id);
+    setLoading(false);
+  }
+
+  async function loadJobAndRequirement(jobId: string) {
+    const { data, error: apiError } = await apiClient.GET("/jobs/{job_id}", {
+      params: { path: { job_id: jobId } },
+    });
+
+    if (apiError) {
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    const job = data.data;
+    setLastJob(job);
+    if (job.status === "failed") {
+      setApiError(job.safe_error_detail ?? "Requirement generation failed.");
+      return;
+    }
+
+    if (!job.target_id) {
+      setStatusMessage("Requirement job finished without target_id");
+      return;
+    }
+
+    const requirementResult = await apiClient.GET("/requirements/{requirement_id}", {
+      params: { path: { requirement_id: job.target_id } },
+    });
+
+    if (requirementResult.error) {
+      setApiError(errorMessage(requirementResult.error));
+      return;
+    }
+
+    applyRequirement(requirementResult.data.data);
+    setStatusMessage("Requirements generated");
+  }
+
+  async function saveRequirement() {
+    if (!requirement) {
+      setApiError("保存するRequirementがありません。");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    const { data, error: apiError } = await apiClient.PATCH("/requirements/{requirement_id}", {
+      params: { path: { requirement_id: requirement.id } },
+      body: {
+        background: requirementBackgroundDraft,
+        goal: requirementGoalDraft,
+        user_stories: compactLines(userStoriesDraft),
+        functional_requirements: compactLines(functionalRequirementsDraft),
+        non_functional_requirements: compactLines(nonFunctionalRequirementsDraft),
+        acceptance_criteria: compactLines(acceptanceCriteriaDraft),
+        out_of_scope: compactLines(outOfScopeDraft),
+        open_questions: compactLines(requirementOpenQuestionsDraft),
+        risks: compactLines(risksDraft),
+      },
+    });
+    setLoading(false);
+
+    if (apiError) {
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    applyRequirement(data.data);
+    setStatusMessage("Requirements saved");
+  }
+
+  async function requestMinutesReview() {
     if (!minutes) {
       setApiError("Review対象のMinutesがありません。");
       return;
@@ -359,10 +467,44 @@ export default function MeetingWorkspace() {
     setStatusMessage("Review requested");
   }
 
+  async function requestRequirementReview() {
+    if (!requirement) {
+      setApiError("Review対象のRequirementがありません。");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    const { data, error: apiError } = await apiClient.POST("/reviews", {
+      body: {
+        target_type: "requirement",
+        target_id: requirement.id,
+        reviewer_role: "Product Manager",
+        framework: ["G-STACK", "MoSCoW", "ISO25010"],
+        positives: ["Requirement draft was generated from approved minutes."],
+        improvements: ["Open questions must be resolved before GitHub Issue generation."],
+        priority: ["P0: Resolve requirement ambiguity before Issue generation."],
+        next_actions: ["Review background, goal, acceptance criteria, open questions, and risks."],
+        issue_numbers: ["#3"],
+      },
+    });
+    setLoading(false);
+
+    if (apiError) {
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    setLastReview(data.data);
+    setStatusMessage("Requirement review requested");
+  }
+
   function selectMeeting(meeting: Meeting) {
     setSelectedMeeting(meeting);
     setMinutes(null);
+    setRequirement(null);
     clearMinutesDrafts();
+    clearRequirementDrafts();
     setStatusMessage("Meeting selected");
   }
 
@@ -374,11 +516,36 @@ export default function MeetingWorkspace() {
     setActionsDraft(linesToText(nextMinutes.action_items.map((action) => action.text)));
   }
 
+  function applyRequirement(nextRequirement: Requirement) {
+    setRequirement(nextRequirement);
+    setRequirementBackgroundDraft(nextRequirement.background);
+    setRequirementGoalDraft(nextRequirement.goal);
+    setUserStoriesDraft(linesToText(nextRequirement.user_stories ?? []));
+    setFunctionalRequirementsDraft(linesToText(nextRequirement.functional_requirements));
+    setNonFunctionalRequirementsDraft(linesToText(nextRequirement.non_functional_requirements ?? []));
+    setAcceptanceCriteriaDraft(linesToText(nextRequirement.acceptance_criteria));
+    setOutOfScopeDraft(linesToText(nextRequirement.out_of_scope ?? []));
+    setRequirementOpenQuestionsDraft(linesToText(nextRequirement.open_questions ?? []));
+    setRisksDraft(linesToText(nextRequirement.risks ?? []));
+  }
+
   function clearMinutesDrafts() {
     setSummaryDraft("");
     setDecisionsDraft("");
     setQuestionsDraft("");
     setActionsDraft("");
+  }
+
+  function clearRequirementDrafts() {
+    setRequirementBackgroundDraft("");
+    setRequirementGoalDraft("");
+    setUserStoriesDraft("");
+    setFunctionalRequirementsDraft("");
+    setNonFunctionalRequirementsDraft("");
+    setAcceptanceCriteriaDraft("");
+    setOutOfScopeDraft("");
+    setRequirementOpenQuestionsDraft("");
+    setRisksDraft("");
   }
 
   return (
@@ -396,6 +563,10 @@ export default function MeetingWorkspace() {
           <a className="nav-item" href="#minutes">
             <FileCheck2 size={16} />
             Minutes
+          </a>
+          <a className="nav-item" href="#requirements">
+            <ListChecks size={16} />
+            Requirements
           </a>
           <a className="nav-item" href="#review">
             <CheckCircle2 size={16} />
@@ -430,9 +601,17 @@ export default function MeetingWorkspace() {
                 <Save size={16} />
                 Save
               </button>
+              <button className="button secondary" type="button" onClick={saveRequirement} disabled={!requirement || loading}>
+                <Save size={16} />
+                Save Req
+              </button>
               <button className="button primary" type="button" onClick={generateMinutes} disabled={!selectedMeeting || loading}>
                 {loading ? <Loader2 className="spin" size={16} /> : <Play size={16} />}
                 Generate
+              </button>
+              <button className="button primary" type="button" onClick={generateRequirement} disabled={!minutes || minutes.status !== "approved" || loading}>
+                {loading ? <Loader2 className="spin" size={16} /> : <ListChecks size={16} />}
+                Requirements
               </button>
             </div>
           </section>
@@ -580,8 +759,13 @@ export default function MeetingWorkspace() {
                   <span>Review requested</span>
                   <strong>{lastReview ? "yes" : "no"}</strong>
                 </div>
+                <div className="gate-row">
+                  <CircleDot size={16} />
+                  <span>Requirements generated</span>
+                  <strong>{requirement ? "yes" : "no"}</strong>
+                </div>
               </div>
-              <button className="button full-width" type="button" onClick={requestReview} disabled={!minutes || loading}>
+              <button className="button full-width" type="button" onClick={requestMinutesReview} disabled={!minutes || loading}>
                 <Send size={16} />
                 Request Review
               </button>
@@ -593,11 +777,73 @@ export default function MeetingWorkspace() {
                 <strong>Latest job</strong>
                 <span>{lastJob ? `${lastJob.status} / ${lastJob.target_type}` : "-"}</span>
                 <strong>Model</strong>
-                <span>{minutes?.generated_by_model ?? "-"}</span>
+                <span>{requirement?.generated_by_model ?? minutes?.generated_by_model ?? "-"}</span>
                 <strong>Review</strong>
                 <span>{lastReview ? `${lastReview.status} / ${lastReview.reviewer_role}` : "-"}</span>
               </div>
             </aside>
+          </section>
+
+          <section className="tool-panel requirement-panel" id="requirements">
+            <div className="panel-header">
+              <div>
+                <p className="eyebrow">Requirement Workspace</p>
+                <h3>Requirement draft</h3>
+              </div>
+              <span className={`chip ${statusTone(requirement?.status)}`}>{requirement?.status ?? "not generated"}</span>
+            </div>
+            <div className="requirement-actions">
+              <button className="button primary" type="button" onClick={generateRequirement} disabled={!minutes || minutes.status !== "approved" || loading}>
+                <ListChecks size={16} />
+                Generate Requirements
+              </button>
+              <button className="button secondary" type="button" onClick={saveRequirement} disabled={!requirement || loading}>
+                <Save size={16} />
+                Save Requirements
+              </button>
+              <button className="button" type="button" onClick={requestRequirementReview} disabled={!requirement || loading}>
+                <Send size={16} />
+                Request Requirement Review
+              </button>
+            </div>
+            <div className="requirement-editor-grid">
+              <label>
+                Background
+                <textarea value={requirementBackgroundDraft} onChange={(event) => setRequirementBackgroundDraft(event.target.value)} />
+              </label>
+              <label>
+                Goal
+                <textarea value={requirementGoalDraft} onChange={(event) => setRequirementGoalDraft(event.target.value)} />
+              </label>
+              <label>
+                User stories
+                <textarea value={userStoriesDraft} onChange={(event) => setUserStoriesDraft(event.target.value)} />
+              </label>
+              <label>
+                Functional requirements
+                <textarea value={functionalRequirementsDraft} onChange={(event) => setFunctionalRequirementsDraft(event.target.value)} />
+              </label>
+              <label>
+                Non-functional requirements
+                <textarea value={nonFunctionalRequirementsDraft} onChange={(event) => setNonFunctionalRequirementsDraft(event.target.value)} />
+              </label>
+              <label>
+                Acceptance criteria
+                <textarea value={acceptanceCriteriaDraft} onChange={(event) => setAcceptanceCriteriaDraft(event.target.value)} />
+              </label>
+              <label>
+                Out of scope
+                <textarea value={outOfScopeDraft} onChange={(event) => setOutOfScopeDraft(event.target.value)} />
+              </label>
+              <label>
+                Open questions
+                <textarea value={requirementOpenQuestionsDraft} onChange={(event) => setRequirementOpenQuestionsDraft(event.target.value)} />
+              </label>
+              <label>
+                Risks
+                <textarea value={risksDraft} onChange={(event) => setRisksDraft(event.target.value)} />
+              </label>
+            </div>
           </section>
         </div>
       </main>

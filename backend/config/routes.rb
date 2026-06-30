@@ -13,7 +13,9 @@ Rails.application.routes.draw do
       end
       resources :minutes, only: %i[show update] do
         post "approve", on: :member
+        post "generate-requirement", to: "requirements#generate", on: :member
       end
+      resources :requirements, only: %i[show update]
       resources :reviews, only: %i[index create] do
         post "resolve-action", to: "reviews#resolve_action", on: :member
         post "accept-risk", to: "reviews#accept_risk", on: :member

@@ -1185,6 +1185,8 @@ components:
           type: array
           items:
             type: string
+        generated_by_model:
+          type: string
         created_at:
           type: string
           format: date-time

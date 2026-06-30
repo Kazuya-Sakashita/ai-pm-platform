@@ -585,6 +585,7 @@ export interface components {
             out_of_scope?: string[];
             open_questions?: string[];
             risks?: string[];
+            generated_by_model?: string;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */

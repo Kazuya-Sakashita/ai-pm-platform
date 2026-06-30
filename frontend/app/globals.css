@@ -140,6 +140,7 @@ button:disabled {
 .action-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   min-width: 0;
 }
@@ -256,6 +257,26 @@ textarea {
 
 .editor-columns {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.requirement-panel {
+  gap: 14px;
+}
+
+.requirement-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.requirement-editor-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.requirement-editor-grid textarea {
+  min-height: 132px;
 }
 
 .button,
@@ -479,7 +500,8 @@ textarea {
   }
 
   .form-grid,
-  .editor-columns {
+  .editor-columns,
+  .requirement-editor-grid {
     grid-template-columns: 1fr;
   }
 }
