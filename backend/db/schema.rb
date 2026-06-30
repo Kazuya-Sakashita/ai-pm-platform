@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_06_30_075600) do
+ActiveRecord::Schema[7.1].define(version: 2026_06_30_080100) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pgcrypto"
   enable_extension "plpgsql"
@@ -28,6 +28,24 @@ ActiveRecord::Schema[7.1].define(version: 2026_06_30_075600) do
     t.index ["project_id", "created_at"], name: "index_audit_logs_on_project_id_and_created_at"
     t.index ["project_id"], name: "index_audit_logs_on_project_id"
     t.index ["target_type", "target_id"], name: "index_audit_logs_on_target_type_and_target_id"
+  end
+
+  create_table "issue_drafts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "requirement_id", null: false
+    t.string "status", default: "draft", null: false
+    t.string "title", null: false
+    t.text "body", null: false
+    t.jsonb "acceptance_criteria", default: [], null: false
+    t.jsonb "labels", default: [], null: false
+    t.integer "github_issue_number"
+    t.string "github_issue_url"
+    t.text "publish_error"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["github_issue_number"], name: "index_issue_drafts_on_github_issue_number"
+    t.index ["requirement_id", "created_at"], name: "index_issue_drafts_on_requirement_id_and_created_at"
+    t.index ["requirement_id"], name: "index_issue_drafts_on_requirement_id"
+    t.index ["status"], name: "index_issue_drafts_on_status"
   end
 
   create_table "jobs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -76,6 +94,20 @@ ActiveRecord::Schema[7.1].define(version: 2026_06_30_075600) do
     t.index ["meeting_id", "created_at"], name: "index_minutes_on_meeting_id_and_created_at"
     t.index ["meeting_id"], name: "index_minutes_on_meeting_id"
     t.index ["status"], name: "index_minutes_on_status"
+  end
+
+  create_table "open_api_drafts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "requirement_id", null: false
+    t.string "status", default: "draft", null: false
+    t.string "title", null: false
+    t.text "content", null: false
+    t.jsonb "validation_errors", default: [], null: false
+    t.string "generated_by_model"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["requirement_id", "created_at"], name: "index_open_api_drafts_on_requirement_id_and_created_at"
+    t.index ["requirement_id"], name: "index_open_api_drafts_on_requirement_id"
+    t.index ["status"], name: "index_open_api_drafts_on_status"
   end
 
   create_table "projects", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -128,8 +160,10 @@ ActiveRecord::Schema[7.1].define(version: 2026_06_30_075600) do
   end
 
   add_foreign_key "audit_logs", "projects"
+  add_foreign_key "issue_drafts", "requirements"
   add_foreign_key "jobs", "projects"
   add_foreign_key "meetings", "projects"
   add_foreign_key "minutes", "meetings"
+  add_foreign_key "open_api_drafts", "requirements"
   add_foreign_key "requirements", "minutes", column: "minutes_id"
 end

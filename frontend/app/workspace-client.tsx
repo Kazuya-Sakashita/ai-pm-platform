@@ -7,6 +7,7 @@ import {
   ClipboardList,
   Database,
   FileCheck2,
+  FileCode2,
   ListChecks,
   Loader2,
   Play,
@@ -23,6 +24,8 @@ type Project = components["schemas"]["Project"];
 type Meeting = components["schemas"]["Meeting"];
 type Minutes = components["schemas"]["Minutes"];
 type Requirement = components["schemas"]["Requirement"];
+type IssueDraft = components["schemas"]["IssueDraft"];
+type OpenApiDraft = components["schemas"]["OpenApiDraft"];
 type Job = components["schemas"]["Job"];
 type Review = components["schemas"]["Review"];
 type MeetingSourceType = components["schemas"]["MeetingSourceType"];
@@ -89,6 +92,8 @@ export default function MeetingWorkspace() {
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [minutes, setMinutes] = useState<Minutes | null>(null);
   const [requirement, setRequirement] = useState<Requirement | null>(null);
+  const [issueDraft, setIssueDraft] = useState<IssueDraft | null>(null);
+  const [openApiDraft, setOpenApiDraft] = useState<OpenApiDraft | null>(null);
   const [lastJob, setLastJob] = useState<Job | null>(null);
   const [lastReview, setLastReview] = useState<Review | null>(null);
   const [statusMessage, setStatusMessage] = useState("API接続待機中");
@@ -116,6 +121,12 @@ export default function MeetingWorkspace() {
   const [outOfScopeDraft, setOutOfScopeDraft] = useState("");
   const [requirementOpenQuestionsDraft, setRequirementOpenQuestionsDraft] = useState("");
   const [risksDraft, setRisksDraft] = useState("");
+  const [issueTitleDraft, setIssueTitleDraft] = useState("");
+  const [issueBodyDraft, setIssueBodyDraft] = useState("");
+  const [issueAcceptanceDraft, setIssueAcceptanceDraft] = useState("");
+  const [issueLabelsDraft, setIssueLabelsDraft] = useState("");
+  const [openApiTitleDraft, setOpenApiTitleDraft] = useState("");
+  const [openApiContentDraft, setOpenApiContentDraft] = useState("");
 
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === selectedProjectId) ?? null,
@@ -219,8 +230,12 @@ export default function MeetingWorkspace() {
     setSelectedMeeting(data.data);
     setMinutes(null);
     setRequirement(null);
+    setIssueDraft(null);
+    setOpenApiDraft(null);
     clearMinutesDrafts();
     clearRequirementDrafts();
+    clearIssueDrafts();
+    clearOpenApiDrafts();
     setStatusMessage("Meeting saved");
   }
 
@@ -289,7 +304,11 @@ export default function MeetingWorkspace() {
 
     applyMinutes(minutesResult.data.data);
     setRequirement(null);
+    setIssueDraft(null);
+    setOpenApiDraft(null);
     clearRequirementDrafts();
+    clearIssueDrafts();
+    clearOpenApiDrafts();
     setStatusMessage("Minutes generated");
   }
 
@@ -457,6 +476,178 @@ export default function MeetingWorkspace() {
     setStatusMessage("Requirements approved");
   }
 
+  async function generateIssueDraft() {
+    if (!requirement) {
+      setApiError("Issue Draft生成対象のRequirementがありません。");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setStatusMessage("Issue draft generating");
+    const { data, error: apiError } = await apiClient.POST("/requirements/{requirement_id}/generate-issue-draft", {
+      params: { path: { requirement_id: requirement.id } },
+    });
+
+    if (apiError) {
+      await loadFailedJob(errorJobId(apiError));
+      setLoading(false);
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    await loadJobAndIssueDraft(data.data.job_id);
+    setLoading(false);
+  }
+
+  async function loadJobAndIssueDraft(jobId: string) {
+    const { data, error: apiError } = await apiClient.GET("/jobs/{job_id}", {
+      params: { path: { job_id: jobId } },
+    });
+
+    if (apiError) {
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    const job = data.data;
+    setLastJob(job);
+    if (job.status === "failed") {
+      setApiError(job.safe_error_detail ?? "Issue draft generation failed.");
+      return;
+    }
+
+    if (!job.target_id) {
+      setStatusMessage("Issue draft job finished without target_id");
+      return;
+    }
+
+    const issueDraftResult = await apiClient.GET("/issue-drafts/{issue_draft_id}", {
+      params: { path: { issue_draft_id: job.target_id } },
+    });
+
+    if (issueDraftResult.error) {
+      setApiError(errorMessage(issueDraftResult.error));
+      return;
+    }
+
+    applyIssueDraft(issueDraftResult.data.data);
+    setStatusMessage("Issue draft generated");
+  }
+
+  async function saveIssueDraft() {
+    if (!issueDraft) {
+      setApiError("保存するIssue Draftがありません。");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    const { data, error: apiError } = await apiClient.PATCH("/issue-drafts/{issue_draft_id}", {
+      params: { path: { issue_draft_id: issueDraft.id } },
+      body: {
+        title: issueTitleDraft,
+        body: issueBodyDraft,
+        acceptance_criteria: compactLines(issueAcceptanceDraft),
+        labels: compactLines(issueLabelsDraft.replaceAll(",", "\n")),
+      },
+    });
+    setLoading(false);
+
+    if (apiError) {
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    applyIssueDraft(data.data);
+    setStatusMessage("Issue draft saved");
+  }
+
+  async function generateOpenApiDraft() {
+    if (!requirement) {
+      setApiError("OpenAPI Draft生成対象のRequirementがありません。");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setStatusMessage("OpenAPI draft generating");
+    const { data, error: apiError } = await apiClient.POST("/requirements/{requirement_id}/generate-openapi-draft", {
+      params: { path: { requirement_id: requirement.id } },
+    });
+
+    if (apiError) {
+      await loadFailedJob(errorJobId(apiError));
+      setLoading(false);
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    await loadJobAndOpenApiDraft(data.data.job_id);
+    setLoading(false);
+  }
+
+  async function loadJobAndOpenApiDraft(jobId: string) {
+    const { data, error: apiError } = await apiClient.GET("/jobs/{job_id}", {
+      params: { path: { job_id: jobId } },
+    });
+
+    if (apiError) {
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    const job = data.data;
+    setLastJob(job);
+    if (job.status === "failed") {
+      setApiError(job.safe_error_detail ?? "OpenAPI draft generation failed.");
+      return;
+    }
+
+    if (!job.target_id) {
+      setStatusMessage("OpenAPI draft job finished without target_id");
+      return;
+    }
+
+    const openApiDraftResult = await apiClient.GET("/openapi-drafts/{openapi_draft_id}", {
+      params: { path: { openapi_draft_id: job.target_id } },
+    });
+
+    if (openApiDraftResult.error) {
+      setApiError(errorMessage(openApiDraftResult.error));
+      return;
+    }
+
+    applyOpenApiDraft(openApiDraftResult.data.data);
+    setStatusMessage("OpenAPI draft generated");
+  }
+
+  async function saveOpenApiDraft() {
+    if (!openApiDraft) {
+      setApiError("保存するOpenAPI Draftがありません。");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    const { data, error: apiError } = await apiClient.PATCH("/openapi-drafts/{openapi_draft_id}", {
+      params: { path: { openapi_draft_id: openApiDraft.id } },
+      body: {
+        title: openApiTitleDraft,
+        content: openApiContentDraft,
+      },
+    });
+    setLoading(false);
+
+    if (apiError) {
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    applyOpenApiDraft(data.data);
+    setStatusMessage("OpenAPI draft saved");
+  }
+
   async function requestMinutesReview() {
     if (!minutes) {
       setApiError("Review対象のMinutesがありません。");
@@ -525,8 +716,12 @@ export default function MeetingWorkspace() {
     setSelectedMeeting(meeting);
     setMinutes(null);
     setRequirement(null);
+    setIssueDraft(null);
+    setOpenApiDraft(null);
     clearMinutesDrafts();
     clearRequirementDrafts();
+    clearIssueDrafts();
+    clearOpenApiDrafts();
     setStatusMessage("Meeting selected");
   }
 
@@ -540,6 +735,8 @@ export default function MeetingWorkspace() {
 
   function applyRequirement(nextRequirement: Requirement) {
     setRequirement(nextRequirement);
+    setIssueDraft(null);
+    setOpenApiDraft(null);
     setRequirementBackgroundDraft(nextRequirement.background);
     setRequirementGoalDraft(nextRequirement.goal);
     setUserStoriesDraft(linesToText(nextRequirement.user_stories ?? []));
@@ -549,6 +746,22 @@ export default function MeetingWorkspace() {
     setOutOfScopeDraft(linesToText(nextRequirement.out_of_scope ?? []));
     setRequirementOpenQuestionsDraft(linesToText(nextRequirement.open_questions ?? []));
     setRisksDraft(linesToText(nextRequirement.risks ?? []));
+    clearIssueDrafts();
+    clearOpenApiDrafts();
+  }
+
+  function applyIssueDraft(nextIssueDraft: IssueDraft) {
+    setIssueDraft(nextIssueDraft);
+    setIssueTitleDraft(nextIssueDraft.title);
+    setIssueBodyDraft(nextIssueDraft.body);
+    setIssueAcceptanceDraft(linesToText(nextIssueDraft.acceptance_criteria));
+    setIssueLabelsDraft(linesToText(nextIssueDraft.labels));
+  }
+
+  function applyOpenApiDraft(nextOpenApiDraft: OpenApiDraft) {
+    setOpenApiDraft(nextOpenApiDraft);
+    setOpenApiTitleDraft(nextOpenApiDraft.title);
+    setOpenApiContentDraft(nextOpenApiDraft.content);
   }
 
   function clearMinutesDrafts() {
@@ -570,6 +783,18 @@ export default function MeetingWorkspace() {
     setRisksDraft("");
   }
 
+  function clearIssueDrafts() {
+    setIssueTitleDraft("");
+    setIssueBodyDraft("");
+    setIssueAcceptanceDraft("");
+    setIssueLabelsDraft("");
+  }
+
+  function clearOpenApiDrafts() {
+    setOpenApiTitleDraft("");
+    setOpenApiContentDraft("");
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar" aria-label="Primary navigation">
@@ -589,6 +814,14 @@ export default function MeetingWorkspace() {
           <a className="nav-item" href="#requirements">
             <ListChecks size={16} />
             Requirements
+          </a>
+          <a className="nav-item" href="#issue-draft">
+            <ClipboardList size={16} />
+            Issue Draft
+          </a>
+          <a className="nav-item" href="#openapi-draft">
+            <FileCode2 size={16} />
+            OpenAPI Draft
           </a>
           <a className="nav-item" href="#review">
             <CheckCircle2 size={16} />
@@ -627,6 +860,14 @@ export default function MeetingWorkspace() {
                 <Save size={16} />
                 Save Req
               </button>
+              <button className="button secondary" type="button" onClick={saveIssueDraft} disabled={!issueDraft || loading}>
+                <Save size={16} />
+                Save Issue
+              </button>
+              <button className="button secondary" type="button" onClick={saveOpenApiDraft} disabled={!openApiDraft || loading}>
+                <Save size={16} />
+                Save API
+              </button>
               <button className="button primary" type="button" onClick={generateMinutes} disabled={!selectedMeeting || loading}>
                 {loading ? <Loader2 className="spin" size={16} /> : <Play size={16} />}
                 Generate
@@ -634,6 +875,14 @@ export default function MeetingWorkspace() {
               <button className="button primary" type="button" onClick={generateRequirement} disabled={!minutes || minutes.status !== "approved" || loading}>
                 {loading ? <Loader2 className="spin" size={16} /> : <ListChecks size={16} />}
                 Requirements
+              </button>
+              <button className="button primary" type="button" onClick={generateIssueDraft} disabled={!requirement || requirement.status !== "approved" || loading}>
+                {loading ? <Loader2 className="spin" size={16} /> : <ClipboardList size={16} />}
+                Issue Draft
+              </button>
+              <button className="button primary" type="button" onClick={generateOpenApiDraft} disabled={!requirement || requirement.status !== "approved" || loading}>
+                {loading ? <Loader2 className="spin" size={16} /> : <FileCode2 size={16} />}
+                OpenAPI
               </button>
             </div>
           </section>
@@ -791,6 +1040,16 @@ export default function MeetingWorkspace() {
                   <span>Requirements approved</span>
                   <strong>{requirement?.status === "approved" ? "yes" : "no"}</strong>
                 </div>
+                <div className="gate-row">
+                  <CircleDot size={16} />
+                  <span>Issue draft generated</span>
+                  <strong>{issueDraft ? "yes" : "no"}</strong>
+                </div>
+                <div className="gate-row">
+                  <CircleDot size={16} />
+                  <span>OpenAPI draft generated</span>
+                  <strong>{openApiDraft ? "yes" : "no"}</strong>
+                </div>
               </div>
               <button className="button full-width" type="button" onClick={requestMinutesReview} disabled={!minutes || loading}>
                 <Send size={16} />
@@ -873,6 +1132,74 @@ export default function MeetingWorkspace() {
               <label>
                 Risks
                 <textarea value={risksDraft} onChange={(event) => setRisksDraft(event.target.value)} />
+              </label>
+            </div>
+          </section>
+
+          <section className="tool-panel issue-draft-panel" id="issue-draft">
+            <div className="panel-header">
+              <div>
+                <p className="eyebrow">Issue Draft</p>
+                <h3>GitHub issue draft</h3>
+              </div>
+              <span className={`chip ${statusTone(issueDraft?.status)}`}>{issueDraft?.status ?? "not generated"}</span>
+            </div>
+            <div className="requirement-actions">
+              <button className="button primary" type="button" onClick={generateIssueDraft} disabled={!requirement || requirement.status !== "approved" || loading}>
+                <ClipboardList size={16} />
+                Generate Issue Draft
+              </button>
+              <button className="button secondary" type="button" onClick={saveIssueDraft} disabled={!issueDraft || loading}>
+                <Save size={16} />
+                Save Issue Draft
+              </button>
+            </div>
+            <div className="issue-editor-grid">
+              <label>
+                Issue title
+                <input value={issueTitleDraft} onChange={(event) => setIssueTitleDraft(event.target.value)} />
+              </label>
+              <label>
+                Labels
+                <input value={issueLabelsDraft} onChange={(event) => setIssueLabelsDraft(event.target.value)} />
+              </label>
+              <label className="issue-body-field">
+                Issue body
+                <textarea value={issueBodyDraft} onChange={(event) => setIssueBodyDraft(event.target.value)} />
+              </label>
+              <label>
+                Issue acceptance criteria
+                <textarea value={issueAcceptanceDraft} onChange={(event) => setIssueAcceptanceDraft(event.target.value)} />
+              </label>
+            </div>
+          </section>
+
+          <section className="tool-panel openapi-draft-panel" id="openapi-draft">
+            <div className="panel-header">
+              <div>
+                <p className="eyebrow">OpenAPI Draft</p>
+                <h3>API contract draft</h3>
+              </div>
+              <span className={`chip ${statusTone(openApiDraft?.status)}`}>{openApiDraft?.status ?? "not generated"}</span>
+            </div>
+            <div className="requirement-actions">
+              <button className="button primary" type="button" onClick={generateOpenApiDraft} disabled={!requirement || requirement.status !== "approved" || loading}>
+                <FileCode2 size={16} />
+                Generate OpenAPI Draft
+              </button>
+              <button className="button secondary" type="button" onClick={saveOpenApiDraft} disabled={!openApiDraft || loading}>
+                <Save size={16} />
+                Save OpenAPI Draft
+              </button>
+            </div>
+            <div className="openapi-editor-grid">
+              <label>
+                OpenAPI title
+                <input value={openApiTitleDraft} onChange={(event) => setOpenApiTitleDraft(event.target.value)} />
+              </label>
+              <label className="openapi-content-field">
+                OpenAPI YAML
+                <textarea value={openApiContentDraft} onChange={(event) => setOpenApiContentDraft(event.target.value)} />
               </label>
             </div>
           </section>

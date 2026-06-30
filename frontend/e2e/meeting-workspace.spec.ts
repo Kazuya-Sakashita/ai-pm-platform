@@ -54,7 +54,7 @@ test.describe("Meeting Workspace", () => {
   }
 
   async function saveMeeting(page: Page, meetingTitle: string, rawText: string) {
-    await page.getByLabel("Title").fill(meetingTitle);
+    await page.locator("#meeting").getByLabel("Title").fill(meetingTitle);
     await page.getByLabel("Raw text").fill(rawText);
     await page.getByRole("button", { name: "Save Meeting" }).click();
     await expect(page.getByRole("button", { name: new RegExp(meetingTitle) })).toBeVisible();
@@ -153,6 +153,28 @@ test.describe("Meeting Workspace", () => {
     await page.getByRole("button", { name: "Approve Requirements" }).click();
     await expect(page.locator("header").getByText("Requirements approved")).toBeVisible();
     await expect(page.locator("#requirements .panel-header .chip")).toHaveText("approved");
+
+    await page.getByRole("button", { name: "Generate Issue Draft" }).click();
+    await expect(page.locator("header").getByText("Issue draft generated")).toBeVisible();
+    await expect(page.getByLabel("Issue title")).toHaveValue(/Updated requirement goal from E2E/);
+    await expect(page.getByLabel("Issue body")).toHaveValue(/## Acceptance Criteria/);
+    await expect(page.getByLabel("Issue acceptance criteria")).toHaveValue(/connect Playwright smoke coverage/);
+
+    await page.getByLabel("Issue title").fill("Updated issue draft title from E2E.");
+    await page.getByRole("button", { name: "Save Issue Draft" }).click();
+    await expect(page.locator("header").getByText("Issue draft saved")).toBeVisible();
+    await expect(page.getByLabel("Issue title")).toHaveValue("Updated issue draft title from E2E.");
+
+    await page.getByRole("button", { name: "Generate OpenAPI Draft" }).click();
+    await expect(page.locator("header").getByText("OpenAPI draft generated")).toBeVisible();
+    await expect(page.getByLabel("OpenAPI title")).toHaveValue(/Updated requirement goal from E2E/);
+    await expect(page.getByLabel("OpenAPI YAML")).toHaveValue(/openapi: 3.1.0/);
+    await expect(page.getByLabel("OpenAPI YAML")).toHaveValue(/paths:/);
+
+    await page.getByLabel("OpenAPI title").fill("Updated OpenAPI draft title from E2E.");
+    await page.getByRole("button", { name: "Save OpenAPI Draft" }).click();
+    await expect(page.locator("header").getByText("OpenAPI draft saved")).toBeVisible();
+    await expect(page.getByLabel("OpenAPI title")).toHaveValue("Updated OpenAPI draft title from E2E.");
   });
 
   test("shows validation errors when required meeting fields are missing", async ({ page, request }) => {
@@ -160,7 +182,7 @@ test.describe("Meeting Workspace", () => {
     const stamp = Date.now();
 
     await createProject(page, `E2E Validation Project ${stamp}`);
-    await page.getByLabel("Title").fill("");
+    await page.locator("#meeting").getByLabel("Title").fill("");
     await page.getByLabel("Raw text").fill("");
     await page.getByRole("button", { name: "Save Meeting" }).click();
 
@@ -181,7 +203,7 @@ test.describe("Meeting Workspace", () => {
     await expect(page.locator("section[role='alert']")).toContainText("Meeting text includes sensitive content");
     await expect(page.locator("header").getByText("job failed")).toBeVisible();
     await expect(page.locator("#review").getByText("Minutes generated")).toBeVisible();
-    await expect(page.locator("#review").getByText("no")).toHaveCount(4);
+    await expect(page.locator("#review").getByText("no")).toHaveCount(6);
   });
 
   for (const failure of providerFailures) {
@@ -201,7 +223,7 @@ test.describe("Meeting Workspace", () => {
       await expect(page.locator("header").getByText("job failed")).toBeVisible();
       await expect(page.getByText("failed / minutes")).toBeVisible();
       await expect(page.locator("#review").getByText("Minutes generated")).toBeVisible();
-      await expect(page.locator("#review").getByText("no")).toHaveCount(4);
+      await expect(page.locator("#review").getByText("no")).toHaveCount(6);
     });
   }
 });

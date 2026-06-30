@@ -279,6 +279,38 @@ textarea {
   min-height: 132px;
 }
 
+.issue-draft-panel,
+.openapi-draft-panel {
+  gap: 14px;
+}
+
+.issue-editor-grid,
+.openapi-editor-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 12px;
+}
+
+.issue-editor-grid textarea,
+.openapi-editor-grid textarea {
+  min-height: 160px;
+}
+
+.issue-body-field,
+.openapi-content-field {
+  grid-column: 1 / -1;
+}
+
+.issue-body-field textarea {
+  min-height: 320px;
+}
+
+.openapi-content-field textarea {
+  min-height: 360px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+}
+
 .button,
 .icon-button {
   display: inline-flex;
@@ -501,7 +533,14 @@ textarea {
 
   .form-grid,
   .editor-columns,
-  .requirement-editor-grid {
+  .requirement-editor-grid,
+  .issue-editor-grid,
+  .openapi-editor-grid {
     grid-template-columns: 1fr;
+  }
+
+  .issue-body-field,
+  .openapi-content-field {
+    grid-column: auto;
   }
 }

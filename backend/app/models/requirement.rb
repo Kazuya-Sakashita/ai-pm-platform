@@ -2,6 +2,8 @@ class Requirement < ApplicationRecord
   STATUSES = %w[draft generating generated in_review needs_changes approved failed].freeze
 
   belongs_to :minute, foreign_key: :minutes_id, inverse_of: :requirements
+  has_many :issue_drafts, dependent: :destroy
+  has_many :open_api_drafts, dependent: :destroy, inverse_of: :requirement
 
   validates :status, inclusion: { in: STATUSES }
   validates :background, :goal, presence: true
