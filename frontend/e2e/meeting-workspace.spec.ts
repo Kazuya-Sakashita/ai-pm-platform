@@ -120,7 +120,7 @@ test.describe("Meeting Workspace", () => {
     await saveMeeting(page, meetingTitle, rawText);
 
     await page.getByRole("button", { name: "Generate", exact: true }).click();
-    await expect(page.getByText("Minutes generated")).toBeVisible();
+    await expect(page.locator("header").getByText("Minutes generated")).toBeVisible();
     await expect(page.getByLabel("Summary")).toHaveValue(/Playwright smoke coverage/);
     await expect(page.getByLabel("Decisions")).toHaveValue(/connect Playwright smoke coverage/);
     await expect(page.locator("#minutes").getByLabel("Open questions")).toHaveValue(/who reviews/);
@@ -131,18 +131,18 @@ test.describe("Meeting Workspace", () => {
     await expect(page.getByText("open / Product Manager")).toBeVisible();
 
     await page.getByRole("button", { name: "Approve Minutes" }).click();
-    await expect(page.getByText("Minutes approved")).toBeVisible();
+    await expect(page.locator("header").getByText("Minutes approved")).toBeVisible();
     await expect(page.locator("#review").getByText("clear")).toBeVisible();
 
     await page.getByRole("button", { name: "Generate Requirements" }).click();
-    await expect(page.getByText("Requirements generated")).toBeVisible();
+    await expect(page.locator("header").getByText("Requirements generated")).toBeVisible();
     await expect(page.getByLabel("Background")).toHaveValue(/Playwright smoke coverage/);
     await expect(page.locator("#requirements").getByRole("textbox", { name: "Functional requirements", exact: true })).toHaveValue(/connect Playwright smoke coverage/);
     await expect(page.locator("#requirements").getByLabel("Open questions")).toHaveValue(/who reviews/);
 
     await page.getByLabel("Goal").fill("Updated requirement goal from E2E.");
     await page.getByRole("button", { name: "Save Requirements" }).click();
-    await expect(page.getByText("Requirements saved")).toBeVisible();
+    await expect(page.locator("header").getByText("Requirements saved")).toBeVisible();
     await expect(page.getByLabel("Goal")).toHaveValue("Updated requirement goal from E2E.");
 
     await page.getByRole("button", { name: "Request Requirement Review" }).click();
