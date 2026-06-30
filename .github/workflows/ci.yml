@@ -1,0 +1,112 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ai_pm
+          POSTGRES_PASSWORD: ai_pm_password
+          POSTGRES_DB: ai_pm_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ai_pm -d ai_pm_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgres://ai_pm:ai_pm_password@localhost:5432/ai_pm_test
+      TEST_DATABASE_URL: postgres://ai_pm:ai_pm_password@localhost:5432/ai_pm_test
+      FRONTEND_ORIGIN: http://localhost:3000
+      MINUTES_GENERATION_PROVIDER: deterministic
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:3001/api/v1
+      FRONTEND_URL: http://localhost:3000
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.2.2
+          bundler-cache: true
+          working-directory: backend
+
+      - name: Prepare test database
+        working-directory: backend
+        env:
+          RAILS_ENV: test
+        run: bundle exec rails db:prepare
+
+      - name: Run backend specs
+        working-directory: backend
+        env:
+          RAILS_ENV: test
+        run: bundle exec rspec
+
+      - name: Check Rails autoloading
+        working-directory: backend
+        env:
+          RAILS_ENV: test
+        run: bundle exec rails zeitwerk:check
+
+      - name: Verify OpenAPI contract and generated types
+        run: npm run api:verify
+
+      - name: Build frontend
+        run: npm run frontend:build
+
+      - name: Start Rails API for E2E
+        working-directory: backend
+        env:
+          RAILS_ENV: test
+        run: |
+          bundle exec rails server -p 3001 -b 127.0.0.1 > ../backend-server.log 2>&1 &
+
+      - name: Wait for Rails API
+        run: |
+          for i in {1..30}; do
+            if curl -fsS http://localhost:3001/api/v1/health; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat backend-server.log
+          exit 1
+
+      - name: Run frontend E2E
+        run: npm run frontend:e2e
+
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+            backend-server.log
+          if-no-files-found: ignore

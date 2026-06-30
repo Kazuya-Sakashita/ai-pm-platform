@@ -47,6 +47,7 @@ https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/2
 - `docs/review/20260630_openai_minutes_generation_provider_review.md`
 - `docs/review/20260630_frontend_meeting_workspace_api_connection_review.md`
 - `docs/review/20260630_frontend_playwright_smoke_review.md`
+- `docs/review/20260630_ci_frontend_e2e_review.md`
 
 ## レビュー結果
 
@@ -107,9 +108,16 @@ P0として妥当。ただし、いきなりBot実装へ進むと権限と運用
 - `npm audit --omit=dev`: 0 vulnerabilities
 - `bundle exec rspec`: 24 examples, 0 failures
 
+2026-06-30 11:05 JST追加:
+
+- `.github/workflows/ci.yml` を追加
+- CIでPostgreSQL service、Rails DB prepare、RSpec、Zeitwerk check、OpenAPI verify、Frontend build、Rails API起動、Playwright E2Eを実行する構成を追加
+- OpenAI API keyに依存しないよう `MINUTES_GENERATION_PROVIDER=deterministic` をCIに明示
+- 失敗時にPlaywright artifactsとbackend server logを保存する設定を追加
+
 未完了:
 
 - 本番OpenAI API keyでのlive generation検証
 - Review Center本体との統合
 - failed job / secret blocked / validation errorのE2E
-- CIでのfrontend e2e実行
+- GitHub Actions上のCI初回green確認
