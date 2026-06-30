@@ -803,10 +803,18 @@ export interface components {
             provider: components["schemas"]["IntegrationProvider"];
             /** @enum {string} */
             status: "not_connected" | "connected" | "error" | "revoked";
-            scopes: string[];
+            external_account_id?: string;
+            repository_owner: string;
+            repository_name: string;
+            github_installation_id?: string;
+            github_account_login?: string;
+            github_account_type?: string;
+            granted_permissions: {
+                [key: string]: "read" | "write";
+            };
             /** Format: date-time */
             last_sync_at?: string;
-            last_error?: string;
+            last_error_safe?: string;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -824,13 +832,22 @@ export interface components {
         StartGitHubConnectionResponse: {
             data: {
                 /** Format: uri */
-                authorization_url: string;
+                installation_url: string;
                 state: string;
+                /** Format: date-time */
+                expires_at: string;
             };
         };
         GitHubCallbackRequest: {
-            code: string;
+            installation_id: string;
             state: string;
+            /** @enum {string} */
+            setup_action?: "install" | "update";
+            account_login?: string;
+            account_type?: string;
+            granted_permissions: {
+                [key: string]: "read" | "write";
+            };
         };
         WebhookAcceptedResponse: {
             data: {
@@ -1790,6 +1807,7 @@ export interface operations {
                     "application/json": components["schemas"]["IntegrationAccountResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
             422: components["responses"]["ValidationError"];
         };
     };

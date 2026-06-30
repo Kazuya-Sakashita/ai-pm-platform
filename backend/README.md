@@ -37,9 +37,12 @@ Default behavior is safe-disabled. Set the following variables only after a GitH
 ```bash
 GITHUB_ISSUE_PUBLISH_PROVIDER=github_app
 GITHUB_APP_ID=123456
+GITHUB_APP_SLUG=ai-pm-platform
 GITHUB_APP_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"
 # or
 GITHUB_APP_PRIVATE_KEY_BASE64="base64-encoded-pem"
+# optional, when the app uses a custom installation URL
+GITHUB_APP_INSTALLATION_URL="https://github.com/apps/ai-pm-platform/installations/new"
 ```
 
 Required GitHub App permissions:

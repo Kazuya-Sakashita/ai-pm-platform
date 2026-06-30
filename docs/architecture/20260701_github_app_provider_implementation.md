@@ -21,6 +21,14 @@
   - raw token、private key、raw GitHub response全文は保存しない。
 - `GithubIssuePublish::HttpClient`
   - GitHub REST API呼び出しを薄く分離し、RSpecではfake clientに差し替える。
+- `GithubIntegration::ConnectionState`
+  - Project、repository、expiryをRails署名付きstateとして発行する。
+  - callback時にstateを検証し、リクエスト本文でrepositoryを差し替えられないようにする。
+- `IntegrationAccountsController`
+  - `GET /projects/{project_id}/integrations`
+  - `POST /projects/{project_id}/integrations/github/connect`
+  - `POST /integrations/github/callback`
+  - `POST /projects/{project_id}/integrations/github/disconnect`
 
 ## Provider選択
 
@@ -47,6 +55,24 @@ GITHUB_ISSUE_PUBLISH_PROVIDER=github_app
 - Projectに対象repositoryのconnected `integration_accounts` がある
 - `granted_permissions["issues"] == "write"`
 
+## GitHub接続flow
+
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant API as AI PM API
+  participant GH as GitHub
+
+  U->>API: Start GitHub connection(repository)
+  API->>API: Sign state(project_id, repository, expires_at)
+  API-->>U: installation_url + state
+  U->>GH: Install GitHub App with state
+  GH->>API: Callback(installation_id, state, granted_permissions)
+  API->>API: Verify signed state
+  API->>API: Upsert integration_accounts
+  API-->>U: connected integration account
+```
+
 ## 失敗時の扱い
 
 - 未接続: `github_integration_not_connected`
@@ -66,7 +92,7 @@ GITHUB_ISSUE_PUBLISH_PROVIDER=github_app
 
 ## 残課題
 
-- GitHub App installation callback/APIで `integration_accounts` を自動作成する。
 - 実GitHub App credentialを使ったstaging/live publish検証を行う。
 - 外部API成功後、DB保存前に障害が起きた場合のreconciliationを設計する。
 - GitHub webhook署名検証とinstallation revoked/permissions changed同期を追加する。
+- GitHub App callbackがGitHubから受け取る実payloadとの差分をstaging smokeで確認する。

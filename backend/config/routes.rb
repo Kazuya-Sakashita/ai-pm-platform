@@ -6,7 +6,11 @@ Rails.application.routes.draw do
       resources :projects, only: %i[index show create update destroy] do
         resources :meetings, only: %i[index create]
         resources :audit_logs, only: %i[index], path: "audit-logs"
+        resources :integration_accounts, only: %i[index], path: "integrations"
+        post "integrations/github/connect", to: "integration_accounts#start_github_connection"
+        post "integrations/github/disconnect", to: "integration_accounts#disconnect_github"
       end
+      post "integrations/github/callback", to: "integration_accounts#github_callback"
 
       resources :meetings, only: %i[show] do
         post "generate-minutes", to: "minutes#generate", on: :member

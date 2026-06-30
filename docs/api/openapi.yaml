@@ -689,6 +689,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/IntegrationAccountResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "422":
           $ref: "#/components/responses/ValidationError"
 
@@ -1644,7 +1646,7 @@ components:
 
     IntegrationAccount:
       type: object
-      required: [id, project_id, provider, status, scopes, created_at, updated_at]
+      required: [id, project_id, provider, status, repository_owner, repository_name, granted_permissions, created_at, updated_at]
       properties:
         id:
           type: string
@@ -1657,14 +1659,27 @@ components:
         status:
           type: string
           enum: [not_connected, connected, error, revoked]
-        scopes:
-          type: array
-          items:
+        external_account_id:
+          type: string
+        repository_owner:
+          type: string
+        repository_name:
+          type: string
+        github_installation_id:
+          type: string
+        github_account_login:
+          type: string
+        github_account_type:
+          type: string
+        granted_permissions:
+          type: object
+          additionalProperties:
             type: string
+            enum: [read, write]
         last_sync_at:
           type: string
           format: date-time
-        last_error:
+        last_error_safe:
           type: string
         created_at:
           type: string
@@ -1697,22 +1712,37 @@ components:
       properties:
         data:
           type: object
-          required: [authorization_url, state]
+          required: [installation_url, state, expires_at]
           properties:
-            authorization_url:
+            installation_url:
               type: string
               format: uri
             state:
               type: string
+            expires_at:
+              type: string
+              format: date-time
 
     GitHubCallbackRequest:
       type: object
-      required: [code, state]
+      required: [installation_id, state, granted_permissions]
       properties:
-        code:
+        installation_id:
           type: string
         state:
           type: string
+        setup_action:
+          type: string
+          enum: [install, update]
+        account_login:
+          type: string
+        account_type:
+          type: string
+        granted_permissions:
+          type: object
+          additionalProperties:
+            type: string
+            enum: [read, write]
 
     WebhookAcceptedResponse:
       type: object
