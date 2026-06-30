@@ -4,6 +4,7 @@ class Project < ApplicationRecord
   has_many :meetings, dependent: :destroy
   has_many :jobs, dependent: :destroy
   has_many :audit_logs, dependent: :destroy
+  has_many :integration_accounts, dependent: :destroy
 
   validates :name, presence: true, length: { maximum: 120 }
   validates :status, inclusion: { in: STATUSES }

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_07_01_044300) do
+ActiveRecord::Schema[7.1].define(version: 2026_07_01_065000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pgcrypto"
   enable_extension "plpgsql"
@@ -28,6 +28,27 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_01_044300) do
     t.index ["project_id", "created_at"], name: "index_audit_logs_on_project_id_and_created_at"
     t.index ["project_id"], name: "index_audit_logs_on_project_id"
     t.index ["target_type", "target_id"], name: "index_audit_logs_on_target_type_and_target_id"
+  end
+
+  create_table "integration_accounts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "project_id", null: false
+    t.string "provider", default: "github", null: false
+    t.string "status", default: "not_connected", null: false
+    t.string "external_account_id"
+    t.string "repository_owner", null: false
+    t.string "repository_name", null: false
+    t.string "github_installation_id"
+    t.string "github_account_login"
+    t.string "github_account_type"
+    t.jsonb "granted_permissions", default: {}, null: false
+    t.datetime "last_sync_at"
+    t.text "last_error_safe"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["github_installation_id"], name: "index_integration_accounts_on_github_installation_id"
+    t.index ["project_id", "provider", "repository_owner", "repository_name"], name: "index_integration_accounts_on_project_provider_repository", unique: true
+    t.index ["project_id"], name: "index_integration_accounts_on_project_id"
+    t.index ["provider", "status"], name: "index_integration_accounts_on_provider_and_status"
   end
 
   create_table "issue_drafts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -167,6 +188,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_01_044300) do
   end
 
   add_foreign_key "audit_logs", "projects"
+  add_foreign_key "integration_accounts", "projects"
   add_foreign_key "issue_drafts", "requirements"
   add_foreign_key "jobs", "projects"
   add_foreign_key "meetings", "projects"

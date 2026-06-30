@@ -29,3 +29,22 @@ bundle exec rspec
 The API is mounted under `/api/v1`.
 
 `ai_pm_password` is a local Docker development password only. Production must use `DATABASE_URL`.
+
+## GitHub App issue publishing
+
+Default behavior is safe-disabled. Set the following variables only after a GitHub App is installed for the target repository and an `integration_accounts` row exists for that project.
+
+```bash
+GITHUB_ISSUE_PUBLISH_PROVIDER=github_app
+GITHUB_APP_ID=123456
+GITHUB_APP_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"
+# or
+GITHUB_APP_PRIVATE_KEY_BASE64="base64-encoded-pem"
+```
+
+Required GitHub App permissions:
+
+- Metadata: read
+- Issues: write
+
+Installation access tokens are generated on demand and are not stored.
