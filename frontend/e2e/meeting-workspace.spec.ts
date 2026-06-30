@@ -165,6 +165,10 @@ test.describe("Meeting Workspace", () => {
     await expect(page.locator("header").getByText("Issue draft saved")).toBeVisible();
     await expect(page.getByLabel("Issue title")).toHaveValue("Updated issue draft title from E2E.");
 
+    await page.getByRole("button", { name: "Approve Issue Draft" }).click();
+    await expect(page.locator("header").getByText("Issue draft approved")).toBeVisible();
+    await expect(page.locator("#issue-draft .panel-header .chip")).toHaveText("approved");
+
     await page.getByRole("button", { name: "Generate OpenAPI Draft" }).click();
     await expect(page.locator("header").getByText("OpenAPI draft generated")).toBeVisible();
     await expect(page.getByLabel("OpenAPI title")).toHaveValue(/Updated requirement goal from E2E/);
@@ -215,6 +219,11 @@ test.describe("Meeting Workspace", () => {
     await expect(page.locator("header").getByText("OpenAPI validation passed")).toBeVisible();
     await expect(page.locator("#openapi-draft").getByText("Validation passed")).toBeVisible();
     await expect(page.getByText("resolved / OpenAPI Validator")).toBeVisible();
+
+    await page.getByRole("button", { name: "Publish GitHub Issue" }).click();
+    await expect(page.locator("section[role='alert']")).toContainText("GitHub integration is not connected.");
+    await expect(page.locator("#issue-draft").getByText("Publish blocked")).toBeVisible();
+    await expect(page.locator("#issue-draft .validation-panel", { hasText: "Publish blocked" }).locator(".chip")).toHaveText("publish_failed");
   });
 
   test("shows validation errors when required meeting fields are missing", async ({ page, request }) => {

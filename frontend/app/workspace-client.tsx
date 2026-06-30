@@ -80,9 +80,9 @@ function formatDateTime(value?: string) {
 }
 
 function statusTone(status?: string) {
-  if (status === "approved" || status === "succeeded" || status === "valid") return "success";
-  if (status === "failed" || status === "needs_changes" || status === "invalid") return "danger";
-  if (status === "in_review" || status === "running" || status === "generating") return "review";
+  if (status === "approved" || status === "succeeded" || status === "valid" || status === "published") return "success";
+  if (status === "failed" || status === "needs_changes" || status === "invalid" || status === "publish_failed") return "danger";
+  if (status === "in_review" || status === "running" || status === "generating" || status === "publishing") return "review";
   return "neutral";
 }
 
@@ -566,6 +566,66 @@ export default function MeetingWorkspace() {
     setStatusMessage("Issue draft saved");
   }
 
+  async function approveIssueDraft() {
+    if (!issueDraft) {
+      setApiError("承認するIssue Draftがありません。");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    const { data, error: apiError } = await apiClient.PATCH("/issue-drafts/{issue_draft_id}", {
+      params: { path: { issue_draft_id: issueDraft.id } },
+      body: {
+        title: issueTitleDraft,
+        body: issueBodyDraft,
+        acceptance_criteria: compactLines(issueAcceptanceDraft),
+        labels: compactLines(issueLabelsDraft.replaceAll(",", "\n")),
+        status: "approved",
+      },
+    });
+    setLoading(false);
+
+    if (apiError) {
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    applyIssueDraft(data.data);
+    setStatusMessage("Issue draft approved");
+  }
+
+  async function publishIssueDraft() {
+    if (!issueDraft) {
+      setApiError("公開するIssue Draftがありません。");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    const idempotencyKey = `issue-${issueDraft.id}-${Date.now()}`;
+    const { data, error: apiError } = await apiClient.POST("/issue-drafts/{issue_draft_id}/publish-github", {
+      params: {
+        header: { "Idempotency-Key": idempotencyKey },
+        path: { issue_draft_id: issueDraft.id },
+      },
+    });
+
+    const refreshedIssueDraft = await apiClient.GET("/issue-drafts/{issue_draft_id}", {
+      params: { path: { issue_draft_id: issueDraft.id } },
+    });
+    if (refreshedIssueDraft.data) applyIssueDraft(refreshedIssueDraft.data.data);
+
+    setLoading(false);
+
+    if (apiError) {
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    setStatusMessage(data.data.status === "published" ? "GitHub issue published" : "GitHub issue publishing");
+  }
+
   async function generateOpenApiDraft() {
     if (!requirement) {
       setApiError("OpenAPI Draft生成対象のRequirementがありません。");
@@ -872,6 +932,11 @@ export default function MeetingWorkspace() {
     setOpenApiReview(null);
   }
 
+  const canPublishIssueDraft =
+    issueDraft?.status === "approved" &&
+    (openApiDraft?.status === "valid" || openApiDraft?.status === "approved") &&
+    openApiReview?.status !== "action_required";
+
   return (
     <div className="app-shell">
       <aside className="sidebar" aria-label="Primary navigation">
@@ -940,6 +1005,14 @@ export default function MeetingWorkspace() {
               <button className="button secondary" type="button" onClick={saveIssueDraft} disabled={!issueDraft || loading}>
                 <Save size={16} />
                 Save Issue
+              </button>
+              <button className="button secondary" type="button" onClick={approveIssueDraft} disabled={!issueDraft || loading}>
+                <CheckCircle2 size={16} />
+                Approve Issue
+              </button>
+              <button className="button primary" type="button" onClick={publishIssueDraft} disabled={!canPublishIssueDraft || loading}>
+                <Send size={16} />
+                Publish GitHub
               </button>
               <button className="button secondary" type="button" onClick={saveOpenApiDraft} disabled={!openApiDraft || loading}>
                 <Save size={16} />
@@ -1128,6 +1201,11 @@ export default function MeetingWorkspace() {
                 </div>
                 <div className="gate-row">
                   <CircleDot size={16} />
+                  <span>Issue draft approved</span>
+                  <strong>{issueDraft?.status === "approved" || issueDraft?.status === "published" ? "approved" : issueDraft?.status === "publish_failed" ? "failed" : "pending"}</strong>
+                </div>
+                <div className="gate-row">
+                  <CircleDot size={16} />
                   <span>OpenAPI draft generated</span>
                   <strong>{openApiDraft ? "yes" : "no"}</strong>
                 </div>
@@ -1140,6 +1218,11 @@ export default function MeetingWorkspace() {
                   <CircleDot size={16} />
                   <span>OpenAPI blocker</span>
                   <strong>{openApiReview ? openApiReview.status : "clear"}</strong>
+                </div>
+                <div className="gate-row">
+                  <CircleDot size={16} />
+                  <span>GitHub issue published</span>
+                  <strong>{issueDraft?.github_issue_url ? "published" : issueDraft?.status === "publish_failed" ? "failed" : "pending"}</strong>
                 </div>
               </div>
               <button className="button full-width" type="button" onClick={requestMinutesReview} disabled={!minutes || loading}>
@@ -1246,6 +1329,14 @@ export default function MeetingWorkspace() {
                 <Save size={16} />
                 Save Issue Draft
               </button>
+              <button className="button secondary" type="button" onClick={approveIssueDraft} disabled={!issueDraft || loading}>
+                <CheckCircle2 size={16} />
+                Approve Issue Draft
+              </button>
+              <button className="button primary" type="button" onClick={publishIssueDraft} disabled={!canPublishIssueDraft || loading}>
+                <Send size={16} />
+                Publish GitHub Issue
+              </button>
             </div>
             <div className="issue-editor-grid">
               <label>
@@ -1265,6 +1356,31 @@ export default function MeetingWorkspace() {
                 <textarea value={issueAcceptanceDraft} onChange={(event) => setIssueAcceptanceDraft(event.target.value)} />
               </label>
             </div>
+            {issueDraft?.publish_error ? (
+              <div className="validation-panel danger">
+                <div className="panel-header">
+                  <h3>Publish blocked</h3>
+                  <span className="chip danger">{issueDraft.status}</span>
+                </div>
+                <div className="validation-row">
+                  <strong>GitHub</strong>
+                  <span>integration</span>
+                  <p>{issueDraft.publish_error}</p>
+                </div>
+              </div>
+            ) : issueDraft?.github_issue_url ? (
+              <div className="validation-panel success">
+                <div className="panel-header">
+                  <h3>GitHub issue</h3>
+                  <span className="chip success">published</span>
+                </div>
+                <div className="validation-row warning">
+                  <strong>#{issueDraft.github_issue_number}</strong>
+                  <span>GitHub</span>
+                  <p>{issueDraft.github_issue_url}</p>
+                </div>
+              </div>
+            ) : null}
           </section>
 
           <section className="tool-panel openapi-draft-panel" id="openapi-draft">

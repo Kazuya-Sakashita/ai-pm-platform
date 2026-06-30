@@ -20,7 +20,9 @@ Rails.application.routes.draw do
         post "generate-issue-draft", to: "issue_drafts#generate", on: :member
         post "generate-openapi-draft", to: "open_api_drafts#generate", on: :member
       end
-      resources :issue_drafts, only: %i[show update], path: "issue-drafts"
+      resources :issue_drafts, only: %i[show update], path: "issue-drafts", param: :issue_draft_id do
+        post "publish-github", on: :member
+      end
       resources :openapi_drafts, only: %i[show update], controller: "open_api_drafts", path: "openapi-drafts", param: :openapi_draft_id do
         post "validate", on: :member
       end
