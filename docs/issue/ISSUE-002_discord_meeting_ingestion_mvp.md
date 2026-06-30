@@ -116,10 +116,11 @@ P0として妥当。ただし、いきなりBot実装へ進むと権限と運用
 - 失敗時にPlaywright artifactsとbackend server logを保存する設定を追加
 - GitHub Actions初回Run `28417183475` は `Gemfile.lock` のLinux platform不足で失敗
 - `bundle lock --add-platform x86_64-linux` によりCI runner向けplatformを追加
+- GitHub Actions修正後Run `28417288092`: 成功。verify job 1m45s
 
 未完了:
 
 - 本番OpenAI API keyでのlive generation検証
 - Review Center本体との統合
 - failed job / secret blocked / validation errorのE2E
-- GitHub Actions上のCI初回green確認
+- branch protection / required checks設定
