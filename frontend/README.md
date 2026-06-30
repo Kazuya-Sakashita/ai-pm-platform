@@ -21,7 +21,10 @@ API:
 ```bash
 npm run frontend:build
 npm run api:verify
+npm run frontend:e2e
 ```
+
+`frontend:e2e` は Rails API が `http://localhost:3001/api/v1` で起動している前提で実行する。
 
 ## 実装済み
 
@@ -32,11 +35,11 @@ npm run api:verify
 - Job取得
 - Minutes取得/編集/承認
 - Review作成
+- Playwright smoke test
+- ブラウザスクリーンショットQA
 
 ## 未完了
 
-- Playwright smoke tests
-- ブラウザスクリーンショットによるビジュアルQA
 - Review Center本体との接続
 - 認証/テナント境界
 

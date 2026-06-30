@@ -16,10 +16,12 @@
     "api:verify": "npm run api:check && npm run api:types",
     "frontend:build": "next build frontend",
     "frontend:dev": "next dev frontend -p 3000",
+    "frontend:e2e": "playwright test -c frontend/playwright.config.ts",
     "github:issues:dry-run": "ruby scripts/sync-github-issues.rb --dry-run",
     "github:issues:sync": "ruby scripts/sync-github-issues.rb --apply"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@redocly/cli": "^2.12.1",
     "@types/node": "^26.0.1",
     "@types/react": "^19.2.17",

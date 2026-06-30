@@ -46,6 +46,7 @@ https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/2
 - `docs/review/20260630_discord_minutes_backend_slice_review.md`
 - `docs/review/20260630_openai_minutes_generation_provider_review.md`
 - `docs/review/20260630_frontend_meeting_workspace_api_connection_review.md`
+- `docs/review/20260630_frontend_playwright_smoke_review.md`
 
 ## レビュー結果
 
@@ -95,9 +96,20 @@ P0として妥当。ただし、いきなりBot実装へ進むと権限と運用
 - local API smokeでProject作成 -> Meeting保存 -> Minutes生成 -> Job取得 -> Minutes取得に成功
 - `docs/decisions/ADR-0005_frontend_next_api_workspace.md` を追加
 
+2026-06-30 10:15 JST追加:
+
+- `@playwright/test` を導入
+- `npm run frontend:e2e` を追加
+- `frontend/e2e/meeting-workspace.spec.ts` でProject作成、Meeting保存、Minutes生成、Review作成、Minutes承認を自動検証
+- スクリーンショットQAで1280px付近のReview gate回り込みを検出し、CSS grid配置を修正
+- `npm run frontend:e2e`: 1 passed
+- `npm run frontend:build`: 成功
+- `npm audit --omit=dev`: 0 vulnerabilities
+- `bundle exec rspec`: 24 examples, 0 failures
+
 未完了:
 
 - 本番OpenAI API keyでのlive generation検証
-- Playwright smoke test
-- ブラウザスクリーンショットによるビジュアルQA
 - Review Center本体との統合
+- failed job / secret blocked / validation errorのE2E
+- CIでのfrontend e2e実行
