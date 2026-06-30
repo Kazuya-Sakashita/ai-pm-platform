@@ -94,6 +94,7 @@ RSpec.describe "API V1 Integration Accounts", type: :request do
       expect(body.dig("data", "repository_name")).to eq("ai-pm-platform")
       expect(body.dig("data", "granted_permissions")).to include("issues" => "write")
       expect(project.integration_accounts.last).to be_issues_write_granted
+      expect(project.github_connection_states.last).to be_consumed
       expect(project.audit_logs.last.action).to eq("github.connect.completed")
       expect(GithubIntegration::InstallationVerifier).to have_received(:verify).with(
         installation_id: "987654",
@@ -140,6 +141,37 @@ RSpec.describe "API V1 Integration Accounts", type: :request do
       expect(body.dig("error", "code")).to eq("github_installation_verification_failed")
       expect(body.dig("error", "message")).to eq("GitHub installation could not be verified.")
       expect(project.integration_accounts).to be_empty
+    end
+
+    it "rejects replayed connection states" do
+      project = create(:project, github_repo: "Kazuya-Sakashita/ai-pm-platform")
+      state = GithubIntegration::ConnectionState.generate(
+        project: project,
+        repository: "Kazuya-Sakashita/ai-pm-platform"
+      ).fetch(:state)
+      verification = GithubIntegration::InstallationVerifier::Result.new(
+        installation_id: "987654",
+        account_login: "Kazuya-Sakashita",
+        account_type: "User",
+        granted_permissions: {
+          "metadata" => "read",
+          "issues" => "write"
+        }
+      )
+      allow(GithubIntegration::InstallationVerifier).to receive(:verify).and_return(verification)
+
+      2.times do
+        post "/api/v1/integrations/github/callback", params: {
+          state: state,
+          installation_id: "987654"
+        }
+      end
+
+      expect(response).to have_http_status(:unauthorized)
+      body = JSON.parse(response.body)
+      expect(body.dig("error", "code")).to eq("github_state_invalid")
+      expect(body.dig("error", "message")).to eq("GitHub connection state already used.")
+      expect(GithubIntegration::InstallationVerifier).to have_received(:verify).once
     end
   end
 

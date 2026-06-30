@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_07_01_065000) do
+ActiveRecord::Schema[7.1].define(version: 2026_07_01_073000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pgcrypto"
   enable_extension "plpgsql"
@@ -28,6 +28,24 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_01_065000) do
     t.index ["project_id", "created_at"], name: "index_audit_logs_on_project_id_and_created_at"
     t.index ["project_id"], name: "index_audit_logs_on_project_id"
     t.index ["target_type", "target_id"], name: "index_audit_logs_on_target_type_and_target_id"
+  end
+
+  create_table "github_connection_states", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "project_id", null: false
+    t.string "repository_owner", null: false
+    t.string "repository_name", null: false
+    t.string "nonce_digest", null: false
+    t.string "state_digest", null: false
+    t.string "redirect_uri"
+    t.datetime "expires_at", null: false
+    t.datetime "consumed_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["consumed_at"], name: "index_github_connection_states_on_consumed_at"
+    t.index ["nonce_digest"], name: "index_github_connection_states_on_nonce_digest", unique: true
+    t.index ["project_id", "expires_at"], name: "index_github_connection_states_on_project_id_and_expires_at"
+    t.index ["project_id"], name: "index_github_connection_states_on_project_id"
+    t.index ["state_digest"], name: "index_github_connection_states_on_state_digest", unique: true
   end
 
   create_table "integration_accounts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -188,6 +206,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_01_065000) do
   end
 
   add_foreign_key "audit_logs", "projects"
+  add_foreign_key "github_connection_states", "projects"
   add_foreign_key "integration_accounts", "projects"
   add_foreign_key "issue_drafts", "requirements"
   add_foreign_key "jobs", "projects"

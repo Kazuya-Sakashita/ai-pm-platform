@@ -37,7 +37,7 @@ module Api
       end
 
       def github_callback
-        state_payload = GithubIntegration::ConnectionState.verify!(params.require(:state))
+        state_payload = GithubIntegration::ConnectionState.consume!(params.require(:state))
         connected_project = Project.find(state_payload.fetch("project_id"))
         repository = normalized_repository(state_payload.fetch("repository"))
         owner, name = repository.split("/", 2)
