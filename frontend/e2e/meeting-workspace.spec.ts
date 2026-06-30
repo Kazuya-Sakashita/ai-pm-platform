@@ -132,7 +132,7 @@ test.describe("Meeting Workspace", () => {
 
     await page.getByRole("button", { name: "Approve Minutes" }).click();
     await expect(page.locator("header").getByText("Minutes approved")).toBeVisible();
-    await expect(page.locator("#review").getByText("clear")).toBeVisible();
+    await expect(page.locator("#review .panel-header .chip")).toHaveText("clear");
 
     await page.getByRole("button", { name: "Generate Requirements" }).click();
     await expect(page.locator("header").getByText("Requirements generated")).toBeVisible();
@@ -186,7 +186,35 @@ test.describe("Meeting Workspace", () => {
     await page.getByRole("button", { name: "Validate OpenAPI" }).click();
     await expect(page.locator("header").getByText("OpenAPI validation failed")).toBeVisible();
     await expect(page.locator("#openapi-draft").getByText("Validation failed")).toBeVisible();
-    await expect(page.locator("#openapi-draft").getByText("empty_paths")).toBeVisible();
+    await expect(page.locator("#openapi-draft").getByText("empty_paths", { exact: true })).toBeVisible();
+    await expect(page.locator("#openapi-draft").getByText("Review blocker")).toBeVisible();
+    await expect(page.locator("#openapi-draft .validation-panel", { hasText: "Review blocker" }).locator(".chip")).toHaveText("action_required");
+    await expect(page.getByText("action_required / OpenAPI Validator")).toBeVisible();
+
+    await page.getByLabel("OpenAPI YAML").fill([
+      "openapi: 3.1.0",
+      "info:",
+      "  title: Valid draft",
+      "  version: 0.1.0",
+      "paths:",
+      "  /drafts:",
+      "    post:",
+      "      summary: Create draft",
+      "      operationId: createDraft",
+      "      responses:",
+      "        \"201\":",
+      "          description: Created",
+      "        \"422\":",
+      "          description: Validation failed",
+      "components:",
+      "  schemas:",
+      "    DraftResponse:",
+      "      type: object",
+    ].join("\n"));
+    await page.getByRole("button", { name: "Validate OpenAPI" }).click();
+    await expect(page.locator("header").getByText("OpenAPI validation passed")).toBeVisible();
+    await expect(page.locator("#openapi-draft").getByText("Validation passed")).toBeVisible();
+    await expect(page.getByText("resolved / OpenAPI Validator")).toBeVisible();
   });
 
   test("shows validation errors when required meeting fields are missing", async ({ page, request }) => {

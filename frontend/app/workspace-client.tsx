@@ -98,6 +98,7 @@ export default function MeetingWorkspace() {
   const [openApiValidation, setOpenApiValidation] = useState<OpenApiValidationResult | null>(null);
   const [lastJob, setLastJob] = useState<Job | null>(null);
   const [lastReview, setLastReview] = useState<Review | null>(null);
+  const [openApiReview, setOpenApiReview] = useState<Review | null>(null);
   const [statusMessage, setStatusMessage] = useState("API接続待機中");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -648,6 +649,7 @@ export default function MeetingWorkspace() {
 
     applyOpenApiDraft(data.data);
     setOpenApiValidation(null);
+    setOpenApiReview(null);
     setStatusMessage("OpenAPI draft saved");
   }
 
@@ -697,8 +699,28 @@ export default function MeetingWorkspace() {
     }
 
     applyOpenApiDraft(refreshedDraft.data.data);
+    await loadOpenApiReview(refreshedDraft.data.data.id);
     setStatusMessage(validationResult.data.data.valid ? "OpenAPI validation passed" : "OpenAPI validation failed");
     setLoading(false);
+  }
+
+  async function loadOpenApiReview(openApiDraftId: string) {
+    const { data, error: apiError } = await apiClient.GET("/reviews", {
+      params: {
+        query: {
+          target_type: "openapi_draft",
+          target_id: openApiDraftId,
+        },
+      },
+    });
+
+    if (apiError) {
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    const validatorReview = data.data.find((review) => review.reviewer_role === "OpenAPI Validator") ?? null;
+    setOpenApiReview(validatorReview);
   }
 
   async function requestMinutesReview() {
@@ -847,6 +869,7 @@ export default function MeetingWorkspace() {
     setOpenApiTitleDraft("");
     setOpenApiContentDraft("");
     setOpenApiValidation(null);
+    setOpenApiReview(null);
   }
 
   return (
@@ -1113,6 +1136,11 @@ export default function MeetingWorkspace() {
                   <span>OpenAPI validated</span>
                   <strong>{openApiDraft?.status === "valid" || openApiDraft?.status === "approved" ? "valid" : openApiDraft?.status === "invalid" ? "invalid" : "pending"}</strong>
                 </div>
+                <div className="gate-row">
+                  <CircleDot size={16} />
+                  <span>OpenAPI blocker</span>
+                  <strong>{openApiReview ? openApiReview.status : "clear"}</strong>
+                </div>
               </div>
               <button className="button full-width" type="button" onClick={requestMinutesReview} disabled={!minutes || loading}>
                 <Send size={16} />
@@ -1129,6 +1157,8 @@ export default function MeetingWorkspace() {
                 <span>{requirement?.generated_by_model ?? minutes?.generated_by_model ?? "-"}</span>
                 <strong>Review</strong>
                 <span>{lastReview ? `${lastReview.status} / ${lastReview.reviewer_role}` : "-"}</span>
+                <strong>API blocker</strong>
+                <span>{openApiReview ? `${openApiReview.status} / ${openApiReview.reviewer_role}` : "-"}</span>
               </div>
             </aside>
           </section>
@@ -1271,10 +1301,28 @@ export default function MeetingWorkspace() {
                   onChange={(event) => {
                     setOpenApiContentDraft(event.target.value);
                     setOpenApiValidation(null);
+                    setOpenApiReview(null);
                   }}
                 />
               </label>
             </div>
+            {openApiReview ? (
+              <div className={`validation-panel ${openApiReview.status === "action_required" ? "danger" : "success"}`}>
+                <div className="panel-header">
+                  <h3>Review blocker</h3>
+                  <span className={`chip ${openApiReview.status === "action_required" ? "danger" : "success"}`}>{openApiReview.status}</span>
+                </div>
+                <div className="validation-list">
+                  {openApiReview.improvements.map((message) => (
+                    <div className="validation-row" key={message}>
+                      <strong>{openApiReview.reviewer_role}</strong>
+                      <span>{openApiReview.status}</span>
+                      <p>{message}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             {openApiValidation ? (
               <div className={`validation-panel ${openApiValidation.valid ? "success" : "danger"}`}>
                 <div className="panel-header">

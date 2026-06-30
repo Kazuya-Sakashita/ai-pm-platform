@@ -86,6 +86,7 @@ module Api
         )
 
         result = OpenApiDraftValidationService.new(draft).call
+        review = OpenApiDraftReviewGateService.new(draft, result).call
         draft.reload
         job.update!(status: "succeeded", progress: 100)
 
@@ -101,8 +102,10 @@ module Api
             error_count: result.fetch(:errors).size,
             warning_count: result.fetch(:warnings).size,
             status_from: previous_status,
-            status_to: draft.status
-          }
+            status_to: draft.status,
+            review_id: review&.id,
+            review_status: review&.status
+          }.compact
         )
 
         render json: { data: result }

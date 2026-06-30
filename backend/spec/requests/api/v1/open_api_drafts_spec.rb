@@ -114,7 +114,30 @@ RSpec.describe "API V1 OpenAPI Drafts", type: :request do
       job = Job.where(job_type: "validation", target_type: "openapi_draft", target_id: open_api_draft.id).last
       expect(job.status).to eq("succeeded")
       audit_log = open_api_draft.requirement.minute.meeting.project.audit_logs.find_by!(action: "openapi_draft.validation_succeeded")
-      expect(audit_log.metadata).to include("valid" => false, "error_count" => 2, "job_id" => job.id)
+      review = Review.find_by!(target_type: "openapi_draft", target_id: open_api_draft.id, reviewer_role: "OpenAPI Validator")
+      expect(review.status).to eq("action_required")
+      expect(review.improvements).to include(a_string_including("empty_paths"))
+      expect(audit_log.metadata).to include("valid" => false, "error_count" => 2, "job_id" => job.id, "review_id" => review.id, "review_status" => "action_required")
+    end
+
+    it "resolves an existing validation review blocker when content becomes valid" do
+      open_api_draft = create(:open_api_draft, content: "openapi: 3.1.0\ninfo:\n  title: Invalid draft\npaths: {}\n")
+      create(
+        :review,
+        target_type: "openapi_draft",
+        target_id: open_api_draft.id,
+        reviewer_role: "OpenAPI Validator",
+        status: "action_required"
+      )
+      open_api_draft.update!(content: create(:open_api_draft).content)
+
+      post "/api/v1/openapi-drafts/#{open_api_draft.id}/validate"
+
+      expect(response).to have_http_status(:ok)
+      expect(JSON.parse(response.body).dig("data", "valid")).to be(true)
+      review = Review.find_by!(target_type: "openapi_draft", target_id: open_api_draft.id, reviewer_role: "OpenAPI Validator")
+      expect(review.status).to eq("resolved")
+      expect(review.resolution_note).to include("OpenAPI validation passed")
     end
   end
 end
