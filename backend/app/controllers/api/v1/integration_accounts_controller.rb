@@ -41,13 +41,17 @@ module Api
         connected_project = Project.find(state_payload.fetch("project_id"))
         repository = normalized_repository(state_payload.fetch("repository"))
         owner, name = repository.split("/", 2)
+        verification = GithubIntegration::InstallationVerifier.verify(
+          installation_id: params.require(:installation_id),
+          repository: repository
+        )
 
         account = connected_project.integration_accounts.find_or_initialize_by(
           provider: "github",
           repository_owner: owner,
           repository_name: name
         )
-        account.assign_attributes(github_callback_attributes)
+        account.assign_attributes(github_callback_attributes(verification))
         account.save!
         connected_project.update!(github_repo: repository) if connected_project.github_repo.blank?
 
@@ -65,6 +69,8 @@ module Api
         render json: { data: account.api_json }
       rescue GithubIntegration::StateError => e
         render_error("github_state_invalid", e.message, :unauthorized)
+      rescue GithubIntegration::VerifierError => e
+        render_error(e.code, e.safe_detail, e.http_status)
       rescue ActionController::ParameterMissing => e
         render_error("validation_error", e.message, :unprocessable_entity)
       end
@@ -96,21 +102,14 @@ module Api
         @project ||= Project.find(params[:project_id])
       end
 
-      def github_callback_attributes
-        permitted = params.permit(
-          :installation_id,
-          :account_login,
-          :account_type,
-          granted_permissions: {}
-        )
-
+      def github_callback_attributes(verification)
         {
           status: "connected",
-          external_account_id: permitted.require(:installation_id).to_s,
-          github_installation_id: permitted.require(:installation_id).to_s,
-          github_account_login: permitted[:account_login],
-          github_account_type: permitted[:account_type],
-          granted_permissions: permitted[:granted_permissions]&.to_h || {},
+          external_account_id: verification.installation_id,
+          github_installation_id: verification.installation_id,
+          github_account_login: verification.account_login,
+          github_account_type: verification.account_type,
+          granted_permissions: verification.granted_permissions,
           last_error_safe: nil,
           last_sync_at: Time.current
         }

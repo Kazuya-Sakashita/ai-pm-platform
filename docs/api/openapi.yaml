@@ -693,6 +693,10 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "422":
           $ref: "#/components/responses/ValidationError"
+        "424":
+          $ref: "#/components/responses/IntegrationNotConnected"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
 
   /webhooks/github:
     post:
@@ -1725,7 +1729,7 @@ components:
 
     GitHubCallbackRequest:
       type: object
-      required: [installation_id, state, granted_permissions]
+      required: [installation_id, state]
       properties:
         installation_id:
           type: string

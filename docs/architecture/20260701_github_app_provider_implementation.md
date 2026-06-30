@@ -24,6 +24,10 @@
 - `GithubIntegration::ConnectionState`
   - Project、repository、expiryをRails署名付きstateとして発行する。
   - callback時にstateを検証し、リクエスト本文でrepositoryを差し替えられないようにする。
+- `GithubIntegration::InstallationVerifier`
+  - GitHub App JWTで `GET /app/installations/{installation_id}` を呼び、installation実在と権限を確認する。
+  - installation access tokenを都度発行し、`GET /installation/repositories` で対象repositoryへのアクセスを確認する。
+  - callback本文の `granted_permissions` は信頼せず、GitHub APIから取得したpermissionsを保存する。
 - `IntegrationAccountsController`
   - `GET /projects/{project_id}/integrations`
   - `POST /projects/{project_id}/integrations/github/connect`
@@ -67,8 +71,9 @@ sequenceDiagram
   API->>API: Sign state(project_id, repository, expires_at)
   API-->>U: installation_url + state
   U->>GH: Install GitHub App with state
-  GH->>API: Callback(installation_id, state, granted_permissions)
+  GH->>API: Callback(installation_id, state)
   API->>API: Verify signed state
+  API->>GH: Verify installation and repository access
   API->>API: Upsert integration_accounts
   API-->>U: connected integration account
 ```
@@ -96,3 +101,4 @@ sequenceDiagram
 - 外部API成功後、DB保存前に障害が起きた場合のreconciliationを設計する。
 - GitHub webhook署名検証とinstallation revoked/permissions changed同期を追加する。
 - GitHub App callbackがGitHubから受け取る実payloadとの差分をstaging smokeで確認する。
+- callback state replayを防ぐnonce保存を追加する。

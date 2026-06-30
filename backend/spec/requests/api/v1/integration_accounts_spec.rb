@@ -68,17 +68,22 @@ RSpec.describe "API V1 Integration Accounts", type: :request do
         project: project,
         repository: "Kazuya-Sakashita/ai-pm-platform"
       ).fetch(:state)
+      allow(GithubIntegration::InstallationVerifier).to receive(:verify).and_return(
+        GithubIntegration::InstallationVerifier::Result.new(
+          installation_id: "987654",
+          account_login: "Kazuya-Sakashita",
+          account_type: "User",
+          granted_permissions: {
+            "metadata" => "read",
+            "issues" => "write"
+          }
+        )
+      )
 
       post "/api/v1/integrations/github/callback", params: {
         state: state,
         installation_id: "987654",
-        setup_action: "install",
-        account_login: "Kazuya-Sakashita",
-        account_type: "User",
-        granted_permissions: {
-          metadata: "read",
-          issues: "write"
-        }
+        setup_action: "install"
       }
 
       expect(response).to have_http_status(:ok)
@@ -90,6 +95,10 @@ RSpec.describe "API V1 Integration Accounts", type: :request do
       expect(body.dig("data", "granted_permissions")).to include("issues" => "write")
       expect(project.integration_accounts.last).to be_issues_write_granted
       expect(project.audit_logs.last.action).to eq("github.connect.completed")
+      expect(GithubIntegration::InstallationVerifier).to have_received(:verify).with(
+        installation_id: "987654",
+        repository: "Kazuya-Sakashita/ai-pm-platform"
+      )
     end
 
     it "rejects an invalid state" do
@@ -105,6 +114,32 @@ RSpec.describe "API V1 Integration Accounts", type: :request do
       expect(response).to have_http_status(:unauthorized)
       body = JSON.parse(response.body)
       expect(body.dig("error", "code")).to eq("github_state_invalid")
+    end
+
+    it "returns a safe error when GitHub installation verification fails" do
+      project = create(:project, github_repo: "Kazuya-Sakashita/ai-pm-platform")
+      state = GithubIntegration::ConnectionState.generate(
+        project: project,
+        repository: "Kazuya-Sakashita/ai-pm-platform"
+      ).fetch(:state)
+      allow(GithubIntegration::InstallationVerifier).to receive(:verify).and_raise(
+        GithubIntegration::VerifierError.new(
+          code: "github_installation_verification_failed",
+          message: "GitHub installation verification failed with status 404.",
+          safe_detail: "GitHub installation could not be verified."
+        )
+      )
+
+      post "/api/v1/integrations/github/callback", params: {
+        state: state,
+        installation_id: "987654"
+      }
+
+      expect(response).to have_http_status(:failed_dependency)
+      body = JSON.parse(response.body)
+      expect(body.dig("error", "code")).to eq("github_installation_verification_failed")
+      expect(body.dig("error", "message")).to eq("GitHub installation could not be verified.")
+      expect(project.integration_accounts).to be_empty
     end
   end
 

@@ -21,8 +21,20 @@ module GithubIssuePublish
     end
 
     def post_json(path:, headers:, body: nil)
+      request_json(Net::HTTP::Post, path: path, headers: headers, body: body)
+    end
+
+    def get_json(path:, headers:)
+      request_json(Net::HTTP::Get, path: path, headers: headers)
+    end
+
+    private
+
+    attr_reader :api_base_url, :open_timeout, :read_timeout
+
+    def request_json(request_class, path:, headers:, body: nil)
       uri = build_uri(path)
-      request = Net::HTTP::Post.new(uri)
+      request = request_class.new(uri)
       headers.each { |key, value| request[key] = value }
       request["Content-Type"] = "application/json" if body
       request.body = JSON.generate(body) if body
@@ -44,10 +56,6 @@ module GithubIssuePublish
         http_status: :bad_gateway
       )
     end
-
-    private
-
-    attr_reader :api_base_url, :open_timeout, :read_timeout
 
     def build_uri(path)
       base_url = api_base_url.end_with?("/") ? api_base_url : "#{api_base_url}/"

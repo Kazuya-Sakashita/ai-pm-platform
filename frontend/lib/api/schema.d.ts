@@ -845,7 +845,7 @@ export interface components {
             setup_action?: "install" | "update";
             account_login?: string;
             account_type?: string;
-            granted_permissions: {
+            granted_permissions?: {
                 [key: string]: "read" | "write";
             };
         };
@@ -1809,6 +1809,8 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             422: components["responses"]["ValidationError"];
+            424: components["responses"]["IntegrationNotConnected"];
+            502: components["responses"]["UpstreamError"];
         };
     };
     receiveGitHubWebhook: {
