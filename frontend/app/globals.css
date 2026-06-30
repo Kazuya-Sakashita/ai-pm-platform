@@ -311,6 +311,59 @@ textarea {
   font-size: 13px;
 }
 
+.validation-panel {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-alt);
+}
+
+.validation-panel.success {
+  border-color: #9fd5c8;
+}
+
+.validation-panel.danger {
+  border-color: #f0a5b6;
+}
+
+.validation-list {
+  display: grid;
+  gap: 8px;
+}
+
+.validation-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.6fr) minmax(120px, 0.4fr) minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--red);
+  border-radius: 6px;
+  background: white;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.validation-row.warning {
+  border-left-color: var(--amber);
+}
+
+.validation-row strong,
+.validation-row span {
+  overflow-wrap: anywhere;
+}
+
+.validation-row strong {
+  color: var(--text);
+}
+
+.validation-row p {
+  margin: 0;
+}
+
 .button,
 .icon-button {
   display: inline-flex;
@@ -542,5 +595,9 @@ textarea {
   .issue-body-field,
   .openapi-content-field {
     grid-column: auto;
+  }
+
+  .validation-row {
+    grid-template-columns: 1fr;
   }
 }

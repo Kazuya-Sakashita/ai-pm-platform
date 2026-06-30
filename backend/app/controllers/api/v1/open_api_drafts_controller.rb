@@ -1,3 +1,5 @@
+require "digest"
+
 module Api
   module V1
     class OpenApiDraftsController < ApplicationController
@@ -57,6 +59,74 @@ module Api
           target: open_api_draft
         )
         render json: { data: open_api_draft.api_json }
+      end
+
+      def validate
+        draft = open_api_draft
+        project = project_for(draft.requirement)
+        previous_status = draft.status
+        content_hash = Digest::SHA256.hexdigest(draft.content.to_s)
+        job = project.jobs.create!(
+          job_type: "validation",
+          status: "running",
+          target_type: "openapi_draft",
+          target_id: draft.id,
+          progress: 10
+        )
+
+        AuditLog.record!(
+          project: project,
+          action: "openapi_draft.validation_started",
+          target: draft,
+          metadata: {
+            job_id: job.id,
+            validator: "OpenApiDraftValidationService",
+            content_hash: content_hash
+          }
+        )
+
+        result = OpenApiDraftValidationService.new(draft).call
+        draft.reload
+        job.update!(status: "succeeded", progress: 100)
+
+        AuditLog.record!(
+          project: project,
+          action: "openapi_draft.validation_succeeded",
+          target: draft,
+          metadata: {
+            job_id: job.id,
+            validator: "OpenApiDraftValidationService",
+            content_hash: content_hash,
+            valid: result.fetch(:valid),
+            error_count: result.fetch(:errors).size,
+            warning_count: result.fetch(:warnings).size,
+            status_from: previous_status,
+            status_to: draft.status
+          }
+        )
+
+        render json: { data: result }
+      rescue StandardError => e
+        job&.update!(
+          status: "failed",
+          progress: 100,
+          error_code: "openapi_validation_failed",
+          error_message: e.message,
+          safe_error_detail: "OpenAPI validation could not be completed."
+        )
+        AuditLog.record!(
+          project: project,
+          action: "openapi_draft.validation_failed",
+          target: draft || job,
+          metadata: {
+            job_id: job&.id,
+            validator: "OpenApiDraftValidationService",
+            content_hash: content_hash,
+            error_class: e.class.name
+          }.compact
+        ) if project && (draft || job)
+
+        raise
       end
 
       private

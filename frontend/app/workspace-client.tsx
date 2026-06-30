@@ -26,6 +26,7 @@ type Minutes = components["schemas"]["Minutes"];
 type Requirement = components["schemas"]["Requirement"];
 type IssueDraft = components["schemas"]["IssueDraft"];
 type OpenApiDraft = components["schemas"]["OpenApiDraft"];
+type OpenApiValidationResult = components["schemas"]["OpenApiValidationResponse"]["data"];
 type Job = components["schemas"]["Job"];
 type Review = components["schemas"]["Review"];
 type MeetingSourceType = components["schemas"]["MeetingSourceType"];
@@ -79,8 +80,8 @@ function formatDateTime(value?: string) {
 }
 
 function statusTone(status?: string) {
-  if (status === "approved" || status === "succeeded") return "success";
-  if (status === "failed" || status === "needs_changes") return "danger";
+  if (status === "approved" || status === "succeeded" || status === "valid") return "success";
+  if (status === "failed" || status === "needs_changes" || status === "invalid") return "danger";
   if (status === "in_review" || status === "running" || status === "generating") return "review";
   return "neutral";
 }
@@ -94,6 +95,7 @@ export default function MeetingWorkspace() {
   const [requirement, setRequirement] = useState<Requirement | null>(null);
   const [issueDraft, setIssueDraft] = useState<IssueDraft | null>(null);
   const [openApiDraft, setOpenApiDraft] = useState<OpenApiDraft | null>(null);
+  const [openApiValidation, setOpenApiValidation] = useState<OpenApiValidationResult | null>(null);
   const [lastJob, setLastJob] = useState<Job | null>(null);
   const [lastReview, setLastReview] = useState<Review | null>(null);
   const [statusMessage, setStatusMessage] = useState("API接続待機中");
@@ -645,7 +647,58 @@ export default function MeetingWorkspace() {
     }
 
     applyOpenApiDraft(data.data);
+    setOpenApiValidation(null);
     setStatusMessage("OpenAPI draft saved");
+  }
+
+  async function validateOpenApiDraft() {
+    if (!openApiDraft) {
+      setApiError("検証するOpenAPI Draftがありません。");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setOpenApiValidation(null);
+    const savedDraft = await apiClient.PATCH("/openapi-drafts/{openapi_draft_id}", {
+      params: { path: { openapi_draft_id: openApiDraft.id } },
+      body: {
+        title: openApiTitleDraft,
+        content: openApiContentDraft,
+      },
+    });
+
+    if (savedDraft.error) {
+      setLoading(false);
+      setApiError(errorMessage(savedDraft.error));
+      return;
+    }
+
+    applyOpenApiDraft(savedDraft.data.data);
+    const validationResult = await apiClient.POST("/openapi-drafts/{openapi_draft_id}/validate", {
+      params: { path: { openapi_draft_id: savedDraft.data.data.id } },
+    });
+
+    if (validationResult.error) {
+      setLoading(false);
+      setApiError(errorMessage(validationResult.error));
+      return;
+    }
+
+    setOpenApiValidation(validationResult.data.data);
+    const refreshedDraft = await apiClient.GET("/openapi-drafts/{openapi_draft_id}", {
+      params: { path: { openapi_draft_id: savedDraft.data.data.id } },
+    });
+
+    if (refreshedDraft.error) {
+      setLoading(false);
+      setApiError(errorMessage(refreshedDraft.error));
+      return;
+    }
+
+    applyOpenApiDraft(refreshedDraft.data.data);
+    setStatusMessage(validationResult.data.data.valid ? "OpenAPI validation passed" : "OpenAPI validation failed");
+    setLoading(false);
   }
 
   async function requestMinutesReview() {
@@ -793,6 +846,7 @@ export default function MeetingWorkspace() {
   function clearOpenApiDrafts() {
     setOpenApiTitleDraft("");
     setOpenApiContentDraft("");
+    setOpenApiValidation(null);
   }
 
   return (
@@ -867,6 +921,10 @@ export default function MeetingWorkspace() {
               <button className="button secondary" type="button" onClick={saveOpenApiDraft} disabled={!openApiDraft || loading}>
                 <Save size={16} />
                 Save API
+              </button>
+              <button className="button secondary" type="button" onClick={validateOpenApiDraft} disabled={!openApiDraft || loading}>
+                <CheckCircle2 size={16} />
+                Validate API
               </button>
               <button className="button primary" type="button" onClick={generateMinutes} disabled={!selectedMeeting || loading}>
                 {loading ? <Loader2 className="spin" size={16} /> : <Play size={16} />}
@@ -1050,6 +1108,11 @@ export default function MeetingWorkspace() {
                   <span>OpenAPI draft generated</span>
                   <strong>{openApiDraft ? "yes" : "no"}</strong>
                 </div>
+                <div className="gate-row">
+                  <CircleDot size={16} />
+                  <span>OpenAPI validated</span>
+                  <strong>{openApiDraft?.status === "valid" || openApiDraft?.status === "approved" ? "valid" : openApiDraft?.status === "invalid" ? "invalid" : "pending"}</strong>
+                </div>
               </div>
               <button className="button full-width" type="button" onClick={requestMinutesReview} disabled={!minutes || loading}>
                 <Send size={16} />
@@ -1191,6 +1254,10 @@ export default function MeetingWorkspace() {
                 <Save size={16} />
                 Save OpenAPI Draft
               </button>
+              <button className="button secondary" type="button" onClick={validateOpenApiDraft} disabled={!openApiDraft || loading}>
+                <CheckCircle2 size={16} />
+                Validate OpenAPI
+              </button>
             </div>
             <div className="openapi-editor-grid">
               <label>
@@ -1199,9 +1266,63 @@ export default function MeetingWorkspace() {
               </label>
               <label className="openapi-content-field">
                 OpenAPI YAML
-                <textarea value={openApiContentDraft} onChange={(event) => setOpenApiContentDraft(event.target.value)} />
+                <textarea
+                  value={openApiContentDraft}
+                  onChange={(event) => {
+                    setOpenApiContentDraft(event.target.value);
+                    setOpenApiValidation(null);
+                  }}
+                />
               </label>
             </div>
+            {openApiValidation ? (
+              <div className={`validation-panel ${openApiValidation.valid ? "success" : "danger"}`}>
+                <div className="panel-header">
+                  <h3>{openApiValidation.valid ? "Validation passed" : "Validation failed"}</h3>
+                  <span className={`chip ${openApiValidation.valid ? "success" : "danger"}`}>
+                    {openApiValidation.errors.length} errors / {openApiValidation.warnings.length} warnings
+                  </span>
+                </div>
+                {openApiValidation.errors.length > 0 ? (
+                  <div className="validation-list">
+                    {openApiValidation.errors.map((issue) => (
+                      <div className="validation-row" key={`${issue.path}-${issue.code ?? issue.message}`}>
+                        <strong>{issue.path}</strong>
+                        <span>{issue.code ?? issue.severity}</span>
+                        <p>{issue.message}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                {openApiValidation.warnings.length > 0 ? (
+                  <div className="validation-list">
+                    {openApiValidation.warnings.map((issue) => (
+                      <div className="validation-row warning" key={`${issue.path}-${issue.code ?? issue.message}`}>
+                        <strong>{issue.path}</strong>
+                        <span>{issue.code ?? issue.severity}</span>
+                        <p>{issue.message}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : openApiDraft?.validation_errors && openApiDraft.validation_errors.length > 0 ? (
+              <div className="validation-panel danger">
+                <div className="panel-header">
+                  <h3>Saved validation errors</h3>
+                  <span className="chip danger">{openApiDraft.validation_errors.length} errors</span>
+                </div>
+                <div className="validation-list">
+                  {openApiDraft.validation_errors.map((message) => (
+                    <div className="validation-row" key={message}>
+                      <strong>saved</strong>
+                      <span>error</span>
+                      <p>{message}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </section>
         </div>
       </main>

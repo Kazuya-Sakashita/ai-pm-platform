@@ -21,7 +21,9 @@ Rails.application.routes.draw do
         post "generate-openapi-draft", to: "open_api_drafts#generate", on: :member
       end
       resources :issue_drafts, only: %i[show update], path: "issue-drafts"
-      resources :openapi_drafts, only: %i[show update], controller: "open_api_drafts", path: "openapi-drafts", param: :openapi_draft_id
+      resources :openapi_drafts, only: %i[show update], controller: "open_api_drafts", path: "openapi-drafts", param: :openapi_draft_id do
+        post "validate", on: :member
+      end
       resources :reviews, only: %i[index create] do
         post "resolve-action", to: "reviews#resolve_action", on: :member
         post "accept-risk", to: "reviews#accept_risk", on: :member

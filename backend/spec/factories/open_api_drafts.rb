@@ -7,9 +7,26 @@ FactoryBot.define do
       <<~YAML
         openapi: 3.1.0
         info:
-          title: OpenAPI draft: Generate approved requirement API
+          title: "OpenAPI draft: Generate approved requirement API"
           version: 0.1.0
-        paths: {}
+        paths:
+          /requirements:
+            post:
+              summary: Generate approved requirement API
+              operationId: createRequirement
+              responses:
+                "201":
+                  description: Created
+                "422":
+                  description: Validation failed
+        components:
+          schemas:
+            RequirementResponse:
+              type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
       YAML
     end
     validation_errors { [] }

@@ -175,6 +175,18 @@ test.describe("Meeting Workspace", () => {
     await page.getByRole("button", { name: "Save OpenAPI Draft" }).click();
     await expect(page.locator("header").getByText("OpenAPI draft saved")).toBeVisible();
     await expect(page.getByLabel("OpenAPI title")).toHaveValue("Updated OpenAPI draft title from E2E.");
+
+    await page.getByRole("button", { name: "Validate OpenAPI" }).click();
+    await expect(page.locator("header").getByText("OpenAPI validation passed")).toBeVisible();
+    await expect(page.locator("#openapi-draft .panel-header .chip").first()).toHaveText("valid");
+    await expect(page.locator("#openapi-draft").getByText("Validation passed")).toBeVisible();
+    await expect(page.locator("#openapi-draft").getByText("missing_error_response")).toBeVisible();
+
+    await page.getByLabel("OpenAPI YAML").fill("openapi: 3.1.0\ninfo:\n  title: Invalid draft\npaths: {}\n");
+    await page.getByRole("button", { name: "Validate OpenAPI" }).click();
+    await expect(page.locator("header").getByText("OpenAPI validation failed")).toBeVisible();
+    await expect(page.locator("#openapi-draft").getByText("Validation failed")).toBeVisible();
+    await expect(page.locator("#openapi-draft").getByText("empty_paths")).toBeVisible();
   });
 
   test("shows validation errors when required meeting fields are missing", async ({ page, request }) => {
