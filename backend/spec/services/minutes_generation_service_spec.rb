@@ -21,4 +21,17 @@ RSpec.describe MinutesGenerationService do
     expect(minute.generated_by_model).to eq("provider-test")
     expect(minute.decisions.first.fetch("text")).to eq("Provider decision")
   end
+
+  it "blocks sensitive content before calling the provider" do
+    meeting = create(:meeting, raw_text: "Authorization: Bearer secret-token")
+    provider = spy("MinutesProvider")
+
+    expect do
+      described_class.new(meeting, provider: provider).call
+    end.to raise_error(MinutesGeneration::ProviderError) { |error|
+      expect(error.code).to eq("sensitive_content_blocked")
+      expect(error.http_status).to eq(:unprocessable_entity)
+    }
+    expect(provider).not_to have_received(:generate)
+  end
 end

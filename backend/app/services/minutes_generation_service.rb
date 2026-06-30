@@ -7,6 +7,7 @@ class MinutesGenerationService
   end
 
   def call
+    block_sensitive_content!
     attributes = provider.generate(meeting)
 
     meeting.minutes.create!(
@@ -22,6 +23,18 @@ class MinutesGenerationService
   private
 
   attr_reader :meeting, :provider
+
+  def block_sensitive_content!
+    result = SensitiveContentScanner.scan(meeting.raw_text)
+    return unless result.blocked?
+
+    raise MinutesGeneration::ProviderError.new(
+      code: "sensitive_content_blocked",
+      message: "Meeting text contains blocked sensitive content: #{result.finding_types.join(', ')}",
+      safe_detail: "Meeting text includes sensitive content that must be reviewed before AI generation.",
+      http_status: :unprocessable_entity
+    )
+  end
 
   def default_provider
     case configured_provider

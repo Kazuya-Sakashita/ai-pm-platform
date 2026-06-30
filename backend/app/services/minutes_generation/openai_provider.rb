@@ -32,7 +32,6 @@ module MinutesGeneration
 
     def generate(meeting)
       validate_configuration!
-      block_sensitive_content!(meeting.raw_text)
 
       status, response_body, request_id = http_client.call(request_payload(meeting))
       parsed_response = parse_json(response_body, request_id: request_id)
@@ -57,18 +56,6 @@ module MinutesGeneration
         message: "OpenAI API key is not configured",
         safe_detail: "OpenAI API key is not configured.",
         http_status: :failed_dependency
-      )
-    end
-
-    def block_sensitive_content!(text)
-      result = SensitiveContentScanner.scan(text)
-      return unless result.blocked?
-
-      raise ProviderError.new(
-        code: "sensitive_content_blocked",
-        message: "Meeting text contains blocked sensitive content: #{result.finding_types.join(', ')}",
-        safe_detail: "Meeting text includes sensitive content that must be reviewed before AI generation.",
-        http_status: :unprocessable_entity
       )
     end
 

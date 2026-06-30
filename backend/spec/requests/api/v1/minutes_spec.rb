@@ -81,8 +81,6 @@ RSpec.describe "API V1 Minutes", type: :request do
     end
 
     it "blocks sensitive content before OpenAI generation" do
-      ENV["MINUTES_GENERATION_PROVIDER"] = "openai"
-      ENV["OPENAI_API_KEY"] = "test-openai-key"
       meeting = create(
         :meeting,
         source_type: "discord_log",

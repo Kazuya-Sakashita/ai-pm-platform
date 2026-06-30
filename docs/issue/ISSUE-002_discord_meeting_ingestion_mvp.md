@@ -48,6 +48,7 @@ https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/2
 - `docs/review/20260630_frontend_meeting_workspace_api_connection_review.md`
 - `docs/review/20260630_frontend_playwright_smoke_review.md`
 - `docs/review/20260630_ci_frontend_e2e_review.md`
+- `docs/review/20260630_frontend_failure_path_e2e_review.md`
 
 ## レビュー結果
 
@@ -118,9 +119,20 @@ P0として妥当。ただし、いきなりBot実装へ進むと権限と運用
 - `bundle lock --add-platform x86_64-linux` によりCI runner向けplatformを追加
 - GitHub Actions修正後Run `28417288092`: 成功。verify job 1m45s
 
+2026-06-30 12:05 JST追加:
+
+- `MinutesGenerationService` の共通入口でsecret scanを実行するよう変更
+- validation error E2Eを追加
+- secret blocked + failed job E2Eを追加
+- `npm run frontend:e2e`: 3 passed
+- `bundle exec rspec`: 24 examples, 0 failures
+- `bundle exec ruby bin/rails zeitwerk:check`: All is good
+- `npm run frontend:build`: 成功
+- `npm run api:verify`: 成功。OpenAPI contract warningなし
+
 未完了:
 
 - 本番OpenAI API keyでのlive generation検証
 - Review Center本体との統合
-- failed job / secret blocked / validation errorのE2E
+- OpenAI upstream failure / invalid AI response / rate limitのE2E
 - branch protection / required checks設定

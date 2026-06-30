@@ -40,15 +40,4 @@ RSpec.describe MinutesGeneration::OpenaiProvider do
     }
   end
 
-  it "blocks sensitive content before calling OpenAI" do
-    meeting = create(:meeting, raw_text: "Authorization: Bearer secret-token")
-    http_client = instance_double(Proc)
-
-    expect do
-      described_class.new(api_key: "test-key", http_client: http_client).generate(meeting)
-    end.to raise_error(MinutesGeneration::ProviderError) { |error|
-      expect(error.code).to eq("sensitive_content_blocked")
-      expect(error.http_status).to eq(:unprocessable_entity)
-    }
-  end
 end
