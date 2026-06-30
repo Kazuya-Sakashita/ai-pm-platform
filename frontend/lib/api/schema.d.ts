@@ -180,6 +180,23 @@ export interface paths {
         patch: operations["updateRequirement"];
         trace?: never;
     };
+    "/requirements/{requirement_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve requirement */
+        post: operations["approveRequirement"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/requirements/{requirement_id}/generate-issue-draft": {
         parameters: {
             query?: never;
@@ -1341,6 +1358,30 @@ export interface operations {
                 };
             };
             422: components["responses"]["ValidationError"];
+        };
+    };
+    approveRequirement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                requirement_id: components["parameters"]["RequirementId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Requirement approved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequirementResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["ReviewRequired"];
         };
     };
     generateIssueDraft: {

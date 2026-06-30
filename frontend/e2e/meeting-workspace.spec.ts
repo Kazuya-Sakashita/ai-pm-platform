@@ -141,6 +141,7 @@ test.describe("Meeting Workspace", () => {
     await expect(page.locator("#requirements").getByLabel("Open questions")).toHaveValue(/who reviews/);
 
     await page.getByLabel("Goal").fill("Updated requirement goal from E2E.");
+    await page.locator("#requirements").getByLabel("Open questions").fill("");
     await page.getByRole("button", { name: "Save Requirements" }).click();
     await expect(page.locator("header").getByText("Requirements saved")).toBeVisible();
     await expect(page.getByLabel("Goal")).toHaveValue("Updated requirement goal from E2E.");
@@ -148,6 +149,10 @@ test.describe("Meeting Workspace", () => {
     await page.getByRole("button", { name: "Request Requirement Review" }).click();
     await expect(page.locator("header").getByText("Requirement review requested")).toBeVisible();
     await expect(page.getByText("open / Product Manager")).toBeVisible();
+
+    await page.getByRole("button", { name: "Approve Requirements" }).click();
+    await expect(page.locator("header").getByText("Requirements approved")).toBeVisible();
+    await expect(page.locator("#requirements .panel-header .chip")).toHaveText("approved");
   });
 
   test("shows validation errors when required meeting fields are missing", async ({ page, request }) => {
@@ -176,7 +181,7 @@ test.describe("Meeting Workspace", () => {
     await expect(page.locator("section[role='alert']")).toContainText("Meeting text includes sensitive content");
     await expect(page.locator("header").getByText("job failed")).toBeVisible();
     await expect(page.locator("#review").getByText("Minutes generated")).toBeVisible();
-    await expect(page.locator("#review").getByText("no")).toHaveCount(3);
+    await expect(page.locator("#review").getByText("no")).toHaveCount(4);
   });
 
   for (const failure of providerFailures) {
@@ -196,7 +201,7 @@ test.describe("Meeting Workspace", () => {
       await expect(page.locator("header").getByText("job failed")).toBeVisible();
       await expect(page.getByText("failed / minutes")).toBeVisible();
       await expect(page.locator("#review").getByText("Minutes generated")).toBeVisible();
-      await expect(page.locator("#review").getByText("no")).toHaveCount(3);
+      await expect(page.locator("#review").getByText("no")).toHaveCount(4);
     });
   }
 });

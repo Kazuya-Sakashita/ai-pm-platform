@@ -42,6 +42,8 @@ AI議事録ツールとの差別化には、会議内容を実装可能な要件
 - `docs/review/20260630_screen_design_review.md`
 - `docs/review/20260630_db_design_review.md`
 - `docs/review/20260630_requirements_generation_mvp_review.md`
+- `docs/review/20260630_requirement_quality_evaluation_review.md`
+- `docs/review/20260630_requirement_approval_gate_review.md`
 
 ## レビュー結果
 
@@ -63,16 +65,37 @@ AI議事録ツールとの差別化には、会議内容を実装可能な要件
 - `npm run frontend:e2e`: 6 passed
 - `npm audit --omit=dev`: 0 vulnerabilities
 
+2026-06-30 18:50 JST追加:
+
+- Requirement生成品質評価セットを `docs/evaluation/20260630_requirement_generation_quality_eval.md` に文書化
+- G-STACK / ISO25010 / MoSCoW / STRIDEによる評価セットレビューを `docs/review/20260630_requirement_quality_evaluation_review.md` に保存
+- 評価目的、対象出力項目、サンプルケース、採点rubric、合格基準、失敗時の改善アクション、今後の自動化案を定義
+- 品質評価セットは文書化完了。ただし、fixture化、golden dataset、現行providerのbaseline score取得は未完了
+
+2026-06-30 18:52 JST追加:
+
+- `POST /requirements/{requirement_id}/approve` をOpenAPI、Backend、Frontendへ追加
+- Requirementの `open_questions` が残る場合は409 `review_required` で承認をブロック
+- Requirement承認時に `requirement.approved` AuditLogを保存
+- FrontendにApprove Requirements導線を追加
+- Playwright E2EでMinutes承認、Requirement生成、編集保存、Requirement review依頼、Requirement承認まで確認
+- `bundle exec rspec`: 35 examples, 0 failures
+- `bundle exec ruby bin/rails zeitwerk:check`: All is good
+- `npm run api:verify`: 成功。OpenAPI contract warningなし
+- `npm run frontend:build`: 成功
+- `npm run frontend:e2e`: 6 passed
+- `npm audit --omit=dev`: 0 vulnerabilities
+
 未完了:
 
-- Requirement承認APIとReview gate
-- Requirement生成品質評価セット
+- Requirement生成品質評価のfixture化、採点自動化、baseline score取得
 - OpenAI providerによるRequirement生成
 - Issue/OpenAPI生成条件とのapproved Requirement接続
 - Requirement Workspaceの差分、未決事項、リスク強調UX
+- 承認者、承認日時、再編集時の状態戻し
 
 ## 次アクション
 
-- Requirement承認APIとReview gateを追加する
-- 生成品質評価セットを作る
+- 生成品質評価セットをfixture化し、現行providerのbaseline scoreを保存する
 - Issue #4に進む前にRequirement approved状態をIssue/OpenAPI生成条件へ接続する
+- Review Centerのresolved状態とRequirement承認条件を接続する

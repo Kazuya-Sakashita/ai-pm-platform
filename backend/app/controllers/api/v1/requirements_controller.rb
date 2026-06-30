@@ -59,6 +59,18 @@ module Api
         render json: { data: requirement.api_json }
       end
 
+      def approve
+        return render_requirement_review_required(requirement) if requirement.open_questions.any?
+
+        requirement.update!(status: "approved")
+        AuditLog.record!(
+          project: project_for(requirement.minute),
+          action: "requirement.approved",
+          target: requirement
+        )
+        render json: { data: requirement.api_json }
+      end
+
       private
 
       def requirement
@@ -71,6 +83,15 @@ module Api
           "Minutes must be approved before generating requirements.",
           :conflict,
           { minutes_id: minutes.id, status: minutes.status }
+        )
+      end
+
+      def render_requirement_review_required(requirement)
+        render_error(
+          "review_required",
+          "Requirement open questions must be resolved before approval.",
+          :conflict,
+          { requirement_id: requirement.id, open_questions: requirement.open_questions }
         )
       end
 

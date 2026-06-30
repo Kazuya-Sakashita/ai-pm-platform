@@ -435,6 +435,28 @@ export default function MeetingWorkspace() {
     setStatusMessage("Requirements saved");
   }
 
+  async function approveRequirement() {
+    if (!requirement) {
+      setApiError("承認するRequirementがありません。");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    const { data, error: apiError } = await apiClient.POST("/requirements/{requirement_id}/approve", {
+      params: { path: { requirement_id: requirement.id } },
+    });
+    setLoading(false);
+
+    if (apiError) {
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    applyRequirement(data.data);
+    setStatusMessage("Requirements approved");
+  }
+
   async function requestMinutesReview() {
     if (!minutes) {
       setApiError("Review対象のMinutesがありません。");
@@ -764,6 +786,11 @@ export default function MeetingWorkspace() {
                   <span>Requirements generated</span>
                   <strong>{requirement ? "yes" : "no"}</strong>
                 </div>
+                <div className="gate-row">
+                  <CircleDot size={16} />
+                  <span>Requirements approved</span>
+                  <strong>{requirement?.status === "approved" ? "yes" : "no"}</strong>
+                </div>
               </div>
               <button className="button full-width" type="button" onClick={requestMinutesReview} disabled={!minutes || loading}>
                 <Send size={16} />
@@ -800,6 +827,10 @@ export default function MeetingWorkspace() {
               <button className="button secondary" type="button" onClick={saveRequirement} disabled={!requirement || loading}>
                 <Save size={16} />
                 Save Requirements
+              </button>
+              <button className="button primary" type="button" onClick={approveRequirement} disabled={!requirement || loading}>
+                <CheckCircle2 size={16} />
+                Approve Requirements
               </button>
               <button className="button" type="button" onClick={requestRequirementReview} disabled={!requirement || loading}>
                 <Send size={16} />

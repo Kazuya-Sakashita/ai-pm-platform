@@ -341,6 +341,25 @@ paths:
         "422":
           $ref: "#/components/responses/ValidationError"
 
+  /requirements/{requirement_id}/approve:
+    post:
+      tags: [Requirements]
+      summary: Approve requirement
+      operationId: approveRequirement
+      parameters:
+        - $ref: "#/components/parameters/RequirementId"
+      responses:
+        "200":
+          description: Requirement approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RequirementResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/ReviewRequired"
+
   /requirements/{requirement_id}/generate-issue-draft:
     post:
       tags: [IssueDrafts]

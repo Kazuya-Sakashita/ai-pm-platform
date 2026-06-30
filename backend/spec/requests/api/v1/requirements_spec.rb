@@ -71,4 +71,30 @@ RSpec.describe "API V1 Requirements", type: :request do
       expect(requirement.minute.meeting.project.audit_logs.last.action).to eq("requirement.updated")
     end
   end
+
+  describe "POST /api/v1/requirements/:id/approve" do
+    it "approves a requirement when open questions are resolved" do
+      requirement = create(:requirement, open_questions: [])
+
+      post "/api/v1/requirements/#{requirement.id}/approve"
+
+      expect(response).to have_http_status(:ok)
+      body = JSON.parse(response.body)
+      expect(body.dig("data", "status")).to eq("approved")
+      expect(requirement.reload.status).to eq("approved")
+      expect(requirement.minute.meeting.project.audit_logs.last.action).to eq("requirement.approved")
+    end
+
+    it "blocks approval when unresolved open questions remain" do
+      requirement = create(:requirement, open_questions: ["Who owns final approval?"])
+
+      post "/api/v1/requirements/#{requirement.id}/approve"
+
+      expect(response).to have_http_status(:conflict)
+      body = JSON.parse(response.body)
+      expect(body.dig("error", "code")).to eq("review_required")
+      expect(body.dig("error", "details", "open_questions")).to eq(["Who owns final approval?"])
+      expect(requirement.reload.status).to eq("generated")
+    end
+  end
 end
