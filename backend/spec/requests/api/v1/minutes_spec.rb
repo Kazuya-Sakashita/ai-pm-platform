@@ -80,6 +80,36 @@ RSpec.describe "API V1 Minutes", type: :request do
       expect(meeting.project.audit_logs.last.action).to eq("minutes.generation_failed")
     end
 
+    it "stores a failed job with request metadata when the OpenAI provider fails" do
+      ENV["MINUTES_GENERATION_PROVIDER"] = "openai"
+      ENV["OPENAI_API_KEY"] = "test-openai-key"
+      meeting = create(:meeting, source_type: "discord_log", raw_text: "Decision: keep AI failure audit-ready.")
+      provider = instance_double(MinutesGeneration::OpenaiProvider)
+      allow(provider).to receive(:generate).and_raise(
+        MinutesGeneration::ProviderError.new(
+          code: "rate_limit_exceeded",
+          message: "OpenAI request failed with HTTP 429",
+          safe_detail: "OpenAI request was rate limited. Retry after the provider limit resets.",
+          http_status: :too_many_requests,
+          request_id: "req_rate"
+        )
+      )
+      allow(MinutesGeneration::OpenaiProvider).to receive(:new).and_return(provider)
+
+      post "/api/v1/meetings/#{meeting.id}/generate-minutes"
+
+      expect(response).to have_http_status(:too_many_requests)
+      body = JSON.parse(response.body)
+      job = Job.find(body.dig("error", "details", "job_id"))
+      audit_log = meeting.project.audit_logs.last
+      expect(job.status).to eq("failed")
+      expect(job.error_code).to eq("rate_limit_exceeded")
+      expect(job.safe_error_detail).to eq("OpenAI request was rate limited. Retry after the provider limit resets.")
+      expect(body.dig("error", "details", "request_id")).to eq("req_rate")
+      expect(audit_log.action).to eq("minutes.generation_failed")
+      expect(audit_log.metadata).to include("request_id" => "req_rate", "provider_error_code" => "rate_limit_exceeded")
+    end
+
     it "blocks sensitive content before OpenAI generation" do
       meeting = create(
         :meeting,

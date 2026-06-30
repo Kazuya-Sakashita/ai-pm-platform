@@ -49,6 +49,7 @@ https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/2
 - `docs/review/20260630_frontend_playwright_smoke_review.md`
 - `docs/review/20260630_ci_frontend_e2e_review.md`
 - `docs/review/20260630_frontend_failure_path_e2e_review.md`
+- `docs/review/20260630_openai_failure_contract_review.md`
 
 ## レビュー結果
 
@@ -130,9 +131,23 @@ P0として妥当。ただし、いきなりBot実装へ進むと権限と運用
 - `npm run frontend:build`: 成功
 - `npm run api:verify`: 成功。OpenAPI contract warningなし
 
+2026-06-30 12:17 JST追加:
+
+- OpenAI providerのrate limitを429として扱うmappingを追加
+- provider failure時のfailed job / safe error / request_id付きaudit metadataをrequest specで追加
+- FrontendでOpenAI upstream failure / invalid AI response / rate limitのUI failure E2Eを追加
+- 外部OpenAI通信に依存しないAPI contract mock方式でCI再現性を維持
+- `bundle exec rspec`: 27 examples, 0 failures
+- `bundle exec ruby bin/rails zeitwerk:check`: All is good
+- `npm run frontend:build`: 成功
+- `npm run frontend:e2e`: 6 passed
+- `npm run api:verify`: 成功。OpenAPI contract warningなし
+- `npm audit --omit=dev`: 0 vulnerabilities
+
 未完了:
 
 - 本番OpenAI API keyでのlive generation検証
 - Review Center本体との統合
-- OpenAI upstream failure / invalid AI response / rate limitのE2E
+- timeout / auth / quota failureの分類とUI表示
+- rate limit時のRetry UI / backoff guidance
 - branch protection / required checks設定

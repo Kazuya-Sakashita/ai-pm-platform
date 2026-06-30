@@ -201,10 +201,22 @@ module MinutesGeneration
       ProviderError.new(
         code: provider_code,
         message: "OpenAI request failed with HTTP #{status}",
-        safe_detail: "OpenAI request failed. Retry later or check integration settings.",
-        http_status: :bad_gateway,
+        safe_detail: api_error_safe_detail(status),
+        http_status: api_error_http_status(status),
         request_id: request_id
       )
+    end
+
+    def api_error_safe_detail(status)
+      return "OpenAI request was rate limited. Retry after the provider limit resets." if status == 429
+
+      "OpenAI request failed. Retry later or check integration settings."
+    end
+
+    def api_error_http_status(status)
+      return :too_many_requests if status == 429
+
+      :bad_gateway
     end
 
     def extract_output_text(parsed_response, request_id:)

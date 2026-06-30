@@ -40,4 +40,43 @@ RSpec.describe MinutesGeneration::OpenaiProvider do
     }
   end
 
+  it "maps OpenAI rate limits to a retryable safe error" do
+    meeting = create(:meeting)
+    http_client = lambda do |_payload|
+      [
+        429,
+        { error: { code: "rate_limit_exceeded" } }.to_json,
+        "req_rate"
+      ]
+    end
+
+    expect do
+      described_class.new(api_key: "test-key", http_client: http_client).generate(meeting)
+    end.to raise_error(MinutesGeneration::ProviderError) { |error|
+      expect(error.code).to eq("rate_limit_exceeded")
+      expect(error.safe_detail).to eq("OpenAI request was rate limited. Retry after the provider limit resets.")
+      expect(error.http_status).to eq(:too_many_requests)
+      expect(error.request_id).to eq("req_rate")
+    }
+  end
+
+  it "maps upstream OpenAI errors to a safe provider error" do
+    meeting = create(:meeting)
+    http_client = lambda do |_payload|
+      [
+        500,
+        { error: { type: "server_error" } }.to_json,
+        "req_upstream"
+      ]
+    end
+
+    expect do
+      described_class.new(api_key: "test-key", http_client: http_client).generate(meeting)
+    end.to raise_error(MinutesGeneration::ProviderError) { |error|
+      expect(error.code).to eq("server_error")
+      expect(error.safe_detail).to eq("OpenAI request failed. Retry later or check integration settings.")
+      expect(error.http_status).to eq(:bad_gateway)
+      expect(error.request_id).to eq("req_upstream")
+    }
+  end
 end
