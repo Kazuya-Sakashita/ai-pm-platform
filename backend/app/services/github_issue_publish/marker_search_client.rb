@@ -45,9 +45,13 @@ module GithubIssuePublish
           github_issue_number: item.fetch("number"),
           github_issue_url: item.fetch("html_url"),
           github_repository: account.github_repository,
+          github_issue_title: item["title"],
+          github_issue_state: item["state"],
+          github_issue_updated_at: item["updated_at"],
+          github_issue_score: item["score"],
           github_issue_api_id: item["id"],
           github_issue_node_id: item["node_id"]
-        }
+        }.compact
       end
     end
 

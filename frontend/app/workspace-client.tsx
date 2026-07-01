@@ -89,6 +89,12 @@ function statusTone(status?: string) {
   return "neutral";
 }
 
+function githubIssueStateLabel(state?: string) {
+  if (state === "open") return "未解決";
+  if (state === "closed") return "クローズ";
+  return state || "-";
+}
+
 export default function MeetingWorkspace() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState("");
@@ -1548,8 +1554,14 @@ export default function MeetingWorkspace() {
                           {reconciliationMatches.map((match) => (
                             <div className="candidate-row" key={`${match.github_repository}-${match.github_issue_number}`}>
                               <div>
-                                <strong>#{match.github_issue_number}</strong>
+                                <strong>
+                                  #{match.github_issue_number} {match.github_issue_title ?? "タイトル未取得"}
+                                </strong>
                                 <span>{match.github_repository}</span>
+                                <span className="candidate-meta">
+                                  状態 {githubIssueStateLabel(match.github_issue_state)} / 更新 {formatDateTime(match.github_issue_updated_at)} / スコア{" "}
+                                  {match.github_issue_score ?? "-"}
+                                </span>
                                 <a className="github-link" href={match.github_issue_url} target="_blank" rel="noreferrer">
                                   {match.github_issue_url}
                                 </a>

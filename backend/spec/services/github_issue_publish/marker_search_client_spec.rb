@@ -50,7 +50,11 @@ RSpec.describe GithubIssuePublish::MarkerSearchClient do
             items: [
               {
                 number: 42,
+                title: "Reconcile generated Issue",
+                state: "open",
                 html_url: "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/42",
+                updated_at: "2026-07-02T01:23:45Z",
+                score: 17.5,
                 id: 420,
                 node_id: "I_kwSEARCH"
               }
@@ -68,6 +72,10 @@ RSpec.describe GithubIssuePublish::MarkerSearchClient do
         github_issue_number: 42,
         github_issue_url: "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/42",
         github_repository: "Kazuya-Sakashita/ai-pm-platform",
+        github_issue_title: "Reconcile generated Issue",
+        github_issue_state: "open",
+        github_issue_updated_at: "2026-07-02T01:23:45Z",
+        github_issue_score: 17.5,
         github_issue_api_id: 420,
         github_issue_node_id: "I_kwSEARCH"
       )

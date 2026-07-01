@@ -865,6 +865,12 @@ export interface components {
             /** Format: uri */
             github_issue_url: string;
             github_repository: string;
+            github_issue_title?: string;
+            /** @enum {string} */
+            github_issue_state?: "open" | "closed";
+            /** Format: date-time */
+            github_issue_updated_at?: string;
+            github_issue_score?: number;
             github_issue_api_id?: number;
             github_issue_node_id?: string;
         };

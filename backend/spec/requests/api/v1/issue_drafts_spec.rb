@@ -290,6 +290,10 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
           github_issue_number: 42,
           github_issue_url: "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/42",
           github_repository: "Kazuya-Sakashita/ai-pm-platform",
+          github_issue_title: "Candidate Issue A",
+          github_issue_state: "open",
+          github_issue_updated_at: "2026-07-02T01:23:45Z",
+          github_issue_score: 12.7,
           github_issue_api_id: 420,
           github_issue_node_id: "I_kwCANDIDATE_42"
         },
@@ -297,6 +301,10 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
           github_issue_number: 43,
           github_issue_url: "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/43",
           github_repository: "Kazuya-Sakashita/ai-pm-platform",
+          github_issue_title: "Candidate Issue B",
+          github_issue_state: "closed",
+          github_issue_updated_at: "2026-07-02T02:34:56Z",
+          github_issue_score: 18.8,
           github_issue_api_id: 430,
           github_issue_node_id: "I_kwCANDIDATE_43"
         }
@@ -317,6 +325,10 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
           "github_issue_number" => 42,
           "github_issue_url" => "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/42",
           "github_repository" => "Kazuya-Sakashita/ai-pm-platform",
+          "github_issue_title" => "Candidate Issue A",
+          "github_issue_state" => "open",
+          "github_issue_updated_at" => "2026-07-02T01:23:45Z",
+          "github_issue_score" => 12.7,
           "github_issue_api_id" => 420,
           "github_issue_node_id" => "I_kwCANDIDATE_42"
         ),
@@ -324,6 +336,10 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
           "github_issue_number" => 43,
           "github_issue_url" => "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/43",
           "github_repository" => "Kazuya-Sakashita/ai-pm-platform",
+          "github_issue_title" => "Candidate Issue B",
+          "github_issue_state" => "closed",
+          "github_issue_updated_at" => "2026-07-02T02:34:56Z",
+          "github_issue_score" => 18.8,
           "github_issue_api_id" => 430,
           "github_issue_node_id" => "I_kwCANDIDATE_43"
         )

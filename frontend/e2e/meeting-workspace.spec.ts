@@ -17,6 +17,10 @@ test.describe("Meeting Workspace", () => {
     github_issue_number: number;
     github_issue_url: string;
     github_repository: string;
+    github_issue_title?: string;
+    github_issue_state?: "open" | "closed";
+    github_issue_updated_at?: string;
+    github_issue_score?: number;
     github_issue_api_id?: number;
     github_issue_node_id?: string;
   };
@@ -591,6 +595,10 @@ test.describe("Meeting Workspace", () => {
           github_issue_number: 42,
           github_issue_url: "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/42",
           github_repository: "Kazuya-Sakashita/ai-pm-platform",
+          github_issue_title: "Candidate Issue A",
+          github_issue_state: "open",
+          github_issue_updated_at: "2026-07-02T01:23:45Z",
+          github_issue_score: 12.7,
           github_issue_api_id: 420,
           github_issue_node_id: "I_kwCANDIDATE_42",
         },
@@ -598,6 +606,10 @@ test.describe("Meeting Workspace", () => {
           github_issue_number: 43,
           github_issue_url: "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/43",
           github_repository: "Kazuya-Sakashita/ai-pm-platform",
+          github_issue_title: "Candidate Issue B",
+          github_issue_state: "closed",
+          github_issue_updated_at: "2026-07-02T02:34:56Z",
+          github_issue_score: 18.8,
           github_issue_api_id: 430,
           github_issue_node_id: "I_kwCANDIDATE_43",
         },
@@ -610,6 +622,8 @@ test.describe("Meeting Workspace", () => {
     await expect(page.locator("header").getByText("GitHub公開の照合に確認が必要です")).toBeVisible();
     await expect(page.locator("#issue-draft").getByRole("heading", { name: "候補Issue" })).toBeVisible();
     await expect(page.locator("#issue-draft").getByText("2件")).toBeVisible();
+    await expect(page.locator("#issue-draft").getByText("#43 Candidate Issue B")).toBeVisible();
+    await expect(page.locator("#issue-draft").getByText(/状態 クローズ .* スコア 18.8/)).toBeVisible();
     await expect(page.locator("#issue-draft").getByText("https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/43")).toBeVisible();
 
     const candidate = page.locator("#issue-draft .candidate-row", { hasText: "#43" });

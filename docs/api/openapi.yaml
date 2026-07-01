@@ -1766,6 +1766,16 @@ components:
           format: uri
         github_repository:
           type: string
+        github_issue_title:
+          type: string
+        github_issue_state:
+          type: string
+          enum: [open, closed]
+        github_issue_updated_at:
+          type: string
+          format: date-time
+        github_issue_score:
+          type: number
         github_issue_api_id:
           type: integer
         github_issue_node_id:

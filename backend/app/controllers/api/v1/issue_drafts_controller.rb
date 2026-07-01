@@ -251,6 +251,10 @@ module Api
             github_issue_number: match.fetch(:github_issue_number),
             github_issue_url: match.fetch(:github_issue_url),
             github_repository: match.fetch(:github_repository, attempt.github_repository),
+            github_issue_title: match[:github_issue_title],
+            github_issue_state: match[:github_issue_state],
+            github_issue_updated_at: match[:github_issue_updated_at],
+            github_issue_score: match[:github_issue_score],
             github_issue_api_id: match[:github_issue_api_id],
             github_issue_node_id: match[:github_issue_node_id]
           }.compact
