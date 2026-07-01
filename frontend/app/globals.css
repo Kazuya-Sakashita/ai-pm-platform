@@ -364,6 +364,32 @@ textarea {
   margin: 0;
 }
 
+.reconciliation-grid {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 10px;
+  align-items: end;
+}
+
+.reconciliation-note {
+  grid-column: 1 / -1;
+}
+
+.reconciliation-note textarea {
+  min-height: 86px;
+}
+
+.reconciliation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.github-link {
+  color: var(--blue);
+  overflow-wrap: anywhere;
+}
+
 .button,
 .icon-button {
   display: inline-flex;
@@ -588,7 +614,8 @@ textarea {
   .editor-columns,
   .requirement-editor-grid,
   .issue-editor-grid,
-  .openapi-editor-grid {
+  .openapi-editor-grid,
+  .reconciliation-grid {
     grid-template-columns: 1fr;
   }
 

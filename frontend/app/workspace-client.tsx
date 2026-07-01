@@ -30,6 +30,7 @@ type OpenApiValidationResult = components["schemas"]["OpenApiValidationResponse"
 type Job = components["schemas"]["Job"];
 type Review = components["schemas"]["Review"];
 type MeetingSourceType = components["schemas"]["MeetingSourceType"];
+type GitHubReconciliationAction = components["schemas"]["ResolveGitHubReconciliationRequest"]["resolution_action"];
 
 type ApiErrorPayload = {
   error?: {
@@ -128,6 +129,9 @@ export default function MeetingWorkspace() {
   const [issueBodyDraft, setIssueBodyDraft] = useState("");
   const [issueAcceptanceDraft, setIssueAcceptanceDraft] = useState("");
   const [issueLabelsDraft, setIssueLabelsDraft] = useState("");
+  const [reconciliationIssueNumber, setReconciliationIssueNumber] = useState("");
+  const [reconciliationIssueUrl, setReconciliationIssueUrl] = useState("");
+  const [reconciliationNote, setReconciliationNote] = useState("");
   const [openApiTitleDraft, setOpenApiTitleDraft] = useState("");
   const [openApiContentDraft, setOpenApiContentDraft] = useState("");
 
@@ -268,10 +272,19 @@ export default function MeetingWorkspace() {
 
   async function loadFailedJob(jobId?: string) {
     if (!jobId) return;
+    await loadJob(jobId);
+  }
+
+  async function loadJob(jobId: string) {
     const { data } = await apiClient.GET("/jobs/{job_id}", {
       params: { path: { job_id: jobId } },
     });
-    if (data) setLastJob(data.data);
+    if (data) {
+      setLastJob(data.data);
+      return data.data;
+    }
+
+    return null;
   }
 
   async function loadJobAndMinutes(jobId: string) {
@@ -626,6 +639,112 @@ export default function MeetingWorkspace() {
     setStatusMessage(data.data.status === "published" ? "GitHub issue published" : "GitHub issue publishing");
   }
 
+  async function refreshIssueDraft(issueDraftId: string) {
+    const { data, error: apiError } = await apiClient.GET("/issue-drafts/{issue_draft_id}", {
+      params: { path: { issue_draft_id: issueDraftId } },
+    });
+
+    if (apiError) {
+      setApiError(errorMessage(apiError));
+      return null;
+    }
+
+    applyIssueDraft(data.data);
+    return data.data;
+  }
+
+  async function reconcileGitHubPublish() {
+    if (!issueDraft) {
+      setApiError("復旧確認するIssue Draftがありません。");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setStatusMessage("GitHub reconciliation running");
+    const idempotencyKey = `github-reconcile-${issueDraft.id}-${Date.now()}`;
+    const { data, error: apiError } = await apiClient.POST("/issue-drafts/{issue_draft_id}/reconcile-github-publish", {
+      params: {
+        header: { "Idempotency-Key": idempotencyKey },
+        path: { issue_draft_id: issueDraft.id },
+      },
+    });
+
+    if (apiError) {
+      await loadFailedJob(errorJobId(apiError));
+      await refreshIssueDraft(issueDraft.id);
+      setLoading(false);
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    await loadJob(data.data.job_id);
+    await refreshIssueDraft(issueDraft.id);
+    setLoading(false);
+    setStatusMessage(data.data.status === "reconciled" ? "GitHub reconciliation resolved" : "GitHub reconciliation review required");
+  }
+
+  async function resolveGitHubReconciliation(resolutionAction: GitHubReconciliationAction) {
+    if (!issueDraft) {
+      setApiError("復旧処理するIssue Draftがありません。");
+      return;
+    }
+
+    const resolutionNote = reconciliationNote.trim();
+    if (!resolutionNote) {
+      setApiError("Resolution noteを入力してください。");
+      return;
+    }
+
+    const body: components["schemas"]["ResolveGitHubReconciliationRequest"] = {
+      resolution_action: resolutionAction,
+      resolution_note: resolutionNote,
+    };
+
+    if (resolutionAction === "link_existing_issue") {
+      const issueNumber = Number(reconciliationIssueNumber.trim());
+      const issueUrl = reconciliationIssueUrl.trim();
+
+      if (!Number.isInteger(issueNumber) || issueNumber < 1) {
+        setApiError("GitHub issue numberは1以上の整数で入力してください。");
+        return;
+      }
+
+      if (!issueUrl) {
+        setApiError("GitHub issue URLを入力してください。");
+        return;
+      }
+
+      body.github_issue_number = issueNumber;
+      body.github_issue_url = issueUrl;
+    }
+
+    setLoading(true);
+    setError("");
+    const idempotencyKey = `github-reconcile-resolve-${issueDraft.id}-${resolutionAction}-${Date.now()}`;
+    const { data, error: apiError } = await apiClient.POST("/issue-drafts/{issue_draft_id}/resolve-github-reconciliation", {
+      params: {
+        header: { "Idempotency-Key": idempotencyKey },
+        path: { issue_draft_id: issueDraft.id },
+      },
+      body,
+    });
+
+    if (apiError) {
+      await loadFailedJob(errorJobId(apiError));
+      await refreshIssueDraft(issueDraft.id);
+      setLoading(false);
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    await loadJob(data.data.job_id);
+    await refreshIssueDraft(issueDraft.id);
+    setLoading(false);
+    setReconciliationNote("");
+    setStatusMessage(data.data.status === "manually_reconciled" ? "GitHub issue linked" : "GitHub retry approved");
+  }
+
   async function generateOpenApiDraft() {
     if (!requirement) {
       setApiError("OpenAPI Draft生成対象のRequirementがありません。");
@@ -891,6 +1010,8 @@ export default function MeetingWorkspace() {
     setIssueBodyDraft(nextIssueDraft.body);
     setIssueAcceptanceDraft(linesToText(nextIssueDraft.acceptance_criteria));
     setIssueLabelsDraft(linesToText(nextIssueDraft.labels));
+    setReconciliationIssueNumber(nextIssueDraft.github_issue_number ? String(nextIssueDraft.github_issue_number) : "");
+    setReconciliationIssueUrl(nextIssueDraft.github_issue_url ?? "");
   }
 
   function applyOpenApiDraft(nextOpenApiDraft: OpenApiDraft) {
@@ -923,6 +1044,9 @@ export default function MeetingWorkspace() {
     setIssueBodyDraft("");
     setIssueAcceptanceDraft("");
     setIssueLabelsDraft("");
+    setReconciliationIssueNumber("");
+    setReconciliationIssueUrl("");
+    setReconciliationNote("");
   }
 
   function clearOpenApiDrafts() {
@@ -1367,6 +1491,38 @@ export default function MeetingWorkspace() {
                   <span>integration</span>
                   <p>{issueDraft.publish_error}</p>
                 </div>
+                <div className="reconciliation-grid" aria-label="GitHub reconciliation controls">
+                  <label>
+                    GitHub issue number
+                    <input
+                      inputMode="numeric"
+                      value={reconciliationIssueNumber}
+                      onChange={(event) => setReconciliationIssueNumber(event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    GitHub issue URL
+                    <input value={reconciliationIssueUrl} onChange={(event) => setReconciliationIssueUrl(event.target.value)} />
+                  </label>
+                  <label className="reconciliation-note">
+                    Resolution note
+                    <textarea value={reconciliationNote} onChange={(event) => setReconciliationNote(event.target.value)} />
+                  </label>
+                </div>
+                <div className="reconciliation-actions">
+                  <button className="button secondary" type="button" onClick={reconcileGitHubPublish} disabled={!issueDraft || loading}>
+                    <RefreshCw size={16} />
+                    Search Marker
+                  </button>
+                  <button className="button secondary" type="button" onClick={() => resolveGitHubReconciliation("link_existing_issue")} disabled={!issueDraft || loading}>
+                    <CheckCircle2 size={16} />
+                    Link Issue
+                  </button>
+                  <button className="button primary" type="button" onClick={() => resolveGitHubReconciliation("approve_retry")} disabled={!issueDraft || loading}>
+                    <Send size={16} />
+                    Approve Retry
+                  </button>
+                </div>
               </div>
             ) : issueDraft?.github_issue_url ? (
               <div className="validation-panel success">
@@ -1377,7 +1533,11 @@ export default function MeetingWorkspace() {
                 <div className="validation-row warning">
                   <strong>#{issueDraft.github_issue_number}</strong>
                   <span>GitHub</span>
-                  <p>{issueDraft.github_issue_url}</p>
+                  <p>
+                    <a className="github-link" href={issueDraft.github_issue_url} target="_blank" rel="noreferrer">
+                      {issueDraft.github_issue_url}
+                    </a>
+                  </p>
                 </div>
               </div>
             ) : null}
