@@ -12,6 +12,11 @@ test.describe("Meeting Workspace", () => {
     jobId: string;
     requestId?: string;
   };
+  type ReconciliationResolutionAction = "approve_retry" | "link_existing_issue";
+  type ReconciliationScenario = {
+    resolutionAction: ReconciliationResolutionAction;
+    resolutionNote: string;
+  };
 
   const providerFailures: GenerationFailure[] = [
     {
@@ -108,9 +113,17 @@ test.describe("Meeting Workspace", () => {
     });
   }
 
-  async function mockPendingGitHubReconciliationWorkflow(page: Page) {
+  async function mockPendingGitHubReconciliationWorkflow(
+    page: Page,
+    scenario: ReconciliationScenario = {
+      resolutionAction: "approve_retry",
+      resolutionNote: "Confirmed that no GitHub Issue exists.",
+    },
+  ) {
     const now = new Date().toISOString();
-    let retryApproved = false;
+    const githubIssueNumber = 42;
+    const githubIssueUrl = "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/42";
+    let reconciliationResolved = false;
 
     const project = {
       id: "project-github-reconciliation",
@@ -176,8 +189,8 @@ test.describe("Meeting Workspace", () => {
         status: "reconciliation_required",
         safe_error_code: "github_publish_reconciliation_required",
         safe_error_detail: "GitHub issue may have been created. Reconciliation is required.",
-        github_issue_number: 42,
-        github_issue_url: "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/42",
+        github_issue_number: githubIssueNumber,
+        github_issue_url: githubIssueUrl,
         completed_at: now,
       },
       created_at: now,
@@ -187,6 +200,14 @@ test.describe("Meeting Workspace", () => {
       ...pendingIssueDraft,
       status: "approved",
       publish_error: undefined,
+      github_reconciliation: { pending: false },
+    };
+    const linkedIssueDraft = {
+      ...pendingIssueDraft,
+      status: "published",
+      publish_error: undefined,
+      github_issue_number: githubIssueNumber,
+      github_issue_url: githubIssueUrl,
       github_reconciliation: { pending: false },
     };
 
@@ -231,28 +252,40 @@ test.describe("Meeting Workspace", () => {
     });
 
     await page.route(`**/api/v1/issue-drafts/${pendingIssueDraft.id}`, async (route) => {
+      const resolvedIssueDraft = scenario.resolutionAction === "link_existing_issue" ? linkedIssueDraft : approvedIssueDraft;
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ data: retryApproved ? approvedIssueDraft : pendingIssueDraft }),
+        body: JSON.stringify({ data: reconciliationResolved ? resolvedIssueDraft : pendingIssueDraft }),
       });
     });
 
     await page.route(`**/api/v1/issue-drafts/${pendingIssueDraft.id}/resolve-github-reconciliation`, async (route) => {
       const requestBody = route.request().postDataJSON();
-      expect(requestBody).toMatchObject({
-        resolution_action: "approve_retry",
-        resolution_note: "Confirmed that no GitHub Issue exists.",
-      });
-      retryApproved = true;
+      const expectedPayload =
+        scenario.resolutionAction === "link_existing_issue"
+          ? {
+              resolution_action: "link_existing_issue",
+              resolution_note: scenario.resolutionNote,
+              github_issue_number: githubIssueNumber,
+              github_issue_url: githubIssueUrl,
+            }
+          : {
+              resolution_action: "approve_retry",
+              resolution_note: scenario.resolutionNote,
+            };
+      expect(requestBody).toMatchObject(expectedPayload);
+      reconciliationResolved = true;
       await route.fulfill({
         status: 202,
         contentType: "application/json",
         body: JSON.stringify({
           data: {
             job_id: "job-retry-github-reconciliation",
-            status: "retry_approved",
+            status: scenario.resolutionAction === "link_existing_issue" ? "manually_reconciled" : "retry_approved",
             attempt_id: "attempt-github-reconciliation",
+            github_issue_number: scenario.resolutionAction === "link_existing_issue" ? githubIssueNumber : undefined,
+            github_issue_url: scenario.resolutionAction === "link_existing_issue" ? githubIssueUrl : undefined,
           },
         }),
       });
@@ -294,6 +327,27 @@ test.describe("Meeting Workspace", () => {
     await page.route(`**/api/v1/requirements/${requirement.id}`, async (route) => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: requirement }) });
     });
+  }
+
+  async function openPendingGitHubReconciliationDraft(page: Page) {
+    await page.goto("/");
+
+    await expect(page.getByRole("button", { name: "Mock GitHub Reconciliation Meeting" })).toBeVisible();
+    await page.getByRole("button", { name: "議事録生成", exact: true }).click();
+    await expect(page.locator("header").getByText("議事録を生成しました")).toBeVisible();
+
+    await page.getByRole("button", { name: "要件定義を生成", exact: true }).click();
+    await expect(page.locator("header").getByText("要件定義を生成しました")).toBeVisible();
+
+    await page.getByRole("button", { name: "Issueドラフトを生成", exact: true }).click();
+    await expect(page.locator("header").getByText("Issueドラフトを生成しました")).toBeVisible();
+    await expect(page.locator("#issue-draft").getByText("公開ブロック")).toBeVisible();
+    await expect(page.locator("#issue-draft").getByText("照合必要")).toBeVisible();
+    await expect(page.locator("#issue-draft").getByLabel("GitHub Issue番号")).toHaveValue("42");
+    await expect(page.locator("#issue-draft").getByLabel("GitHub Issue URL")).toHaveValue("https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/42");
+    await expect(page.locator("#issue-draft").getByRole("button", { name: "マーカー検索" })).toBeVisible();
+    await expect(page.locator("#issue-draft").getByRole("button", { name: "既存Issueに紐付け" })).toBeVisible();
+    await expect(page.locator("#issue-draft").getByRole("button", { name: "再試行を承認" })).toBeVisible();
   }
 
   test("creates a project, saves a Discord log, generates minutes, and requests review", async ({ page, request }) => {
@@ -436,24 +490,7 @@ test.describe("Meeting Workspace", () => {
 
   test("shows pending GitHub reconciliation controls and approves a controlled retry", async ({ page }) => {
     await mockPendingGitHubReconciliationWorkflow(page);
-    await page.goto("/");
-
-    await expect(page.getByRole("button", { name: "Mock GitHub Reconciliation Meeting" })).toBeVisible();
-    await page.getByRole("button", { name: "議事録生成", exact: true }).click();
-    await expect(page.locator("header").getByText("議事録を生成しました")).toBeVisible();
-
-    await page.getByRole("button", { name: "要件定義を生成", exact: true }).click();
-    await expect(page.locator("header").getByText("要件定義を生成しました")).toBeVisible();
-
-    await page.getByRole("button", { name: "Issueドラフトを生成", exact: true }).click();
-    await expect(page.locator("header").getByText("Issueドラフトを生成しました")).toBeVisible();
-    await expect(page.locator("#issue-draft").getByText("公開ブロック")).toBeVisible();
-    await expect(page.locator("#issue-draft").getByText("照合必要")).toBeVisible();
-    await expect(page.locator("#issue-draft").getByLabel("GitHub Issue番号")).toHaveValue("42");
-    await expect(page.locator("#issue-draft").getByLabel("GitHub Issue URL")).toHaveValue("https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/42");
-    await expect(page.locator("#issue-draft").getByRole("button", { name: "マーカー検索" })).toBeVisible();
-    await expect(page.locator("#issue-draft").getByRole("button", { name: "既存Issueに紐付け" })).toBeVisible();
-    await expect(page.locator("#issue-draft").getByRole("button", { name: "再試行を承認" })).toBeVisible();
+    await openPendingGitHubReconciliationDraft(page);
 
     await page.locator("#issue-draft").getByLabel("解決メモ").fill("Confirmed that no GitHub Issue exists.");
     await page.locator("#issue-draft").getByRole("button", { name: "再試行を承認" }).click();
@@ -461,6 +498,23 @@ test.describe("Meeting Workspace", () => {
     await expect(page.locator("header").getByText("GitHub公開の再試行を承認しました")).toBeVisible();
     await expect(page.locator("#issue-draft .panel-header .chip")).toHaveText("承認済み");
     await expect(page.locator("#issue-draft").getByRole("button", { name: "再試行を承認" })).toHaveCount(0);
+  });
+
+  test("links an existing GitHub Issue from pending reconciliation", async ({ page }) => {
+    await mockPendingGitHubReconciliationWorkflow(page, {
+      resolutionAction: "link_existing_issue",
+      resolutionNote: "Reviewed duplicates and selected the canonical Issue.",
+    });
+    await openPendingGitHubReconciliationDraft(page);
+
+    await page.locator("#issue-draft").getByLabel("解決メモ").fill("Reviewed duplicates and selected the canonical Issue.");
+    await page.locator("#issue-draft").getByRole("button", { name: "既存Issueに紐付け" }).click();
+
+    await expect(page.locator("header").getByText("GitHub Issueに紐付けました")).toBeVisible();
+    await expect(page.locator("#issue-draft").getByRole("heading", { name: "GitHub Issue", exact: true })).toBeVisible();
+    await expect(page.locator("#issue-draft").getByText("https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/42")).toBeVisible();
+    await expect(page.locator("#issue-draft").getByText("公開ブロック")).toHaveCount(0);
+    await expect(page.locator("#issue-draft").getByRole("button", { name: "既存Issueに紐付け" })).toHaveCount(0);
   });
 
   test("blocks secret-like content and surfaces the failed generation job", async ({ page, request }) => {
