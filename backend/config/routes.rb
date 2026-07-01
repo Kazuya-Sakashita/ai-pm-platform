@@ -27,6 +27,7 @@ Rails.application.routes.draw do
       resources :issue_drafts, only: %i[show update], path: "issue-drafts", param: :issue_draft_id do
         post "publish-github", on: :member
         post "reconcile-github-publish", on: :member
+        post "resolve-github-reconciliation", on: :member
       end
       resources :openapi_drafts, only: %i[show update], controller: "open_api_drafts", path: "openapi-drafts", param: :openapi_draft_id do
         post "validate", on: :member

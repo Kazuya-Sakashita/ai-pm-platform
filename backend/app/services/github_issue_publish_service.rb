@@ -40,7 +40,7 @@ class GithubIssuePublishService
     )
     attempt.mark_local_saved!
 
-    published_result
+    published_result(attempt)
   rescue GithubIssuePublish::ProviderError => e
     attempt&.mark_failed!(code: e.code, detail: e.safe_detail)
     issue_draft.update!(
@@ -109,11 +109,13 @@ class GithubIssuePublishService
     nil
   end
 
-  def published_result
-    {
+  def published_result(attempt = nil)
+    result = {
       status: "published",
       github_issue_number: issue_draft.github_issue_number,
       github_issue_url: issue_draft.github_issue_url
     }
+    result[:attempt_id] = attempt.id if attempt
+    result
   end
 end

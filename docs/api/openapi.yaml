@@ -476,6 +476,32 @@ paths:
         "502":
           $ref: "#/components/responses/UpstreamError"
 
+  /issue-drafts/{issue_draft_id}/resolve-github-reconciliation:
+    post:
+      tags: [IssueDrafts]
+      summary: Resolve a GitHub publish reconciliation blocker manually
+      operationId: resolveGitHubIssueReconciliation
+      parameters:
+        - $ref: "#/components/parameters/IssueDraftId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResolveGitHubReconciliationRequest"
+      responses:
+        "202":
+          description: Manual reconciliation resolved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResolveGitHubReconciliationResponse"
+        "409":
+          $ref: "#/components/responses/ReviewRequired"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
   /openapi-drafts/{openapi_draft_id}:
     get:
       tags: [OpenApiDrafts]
@@ -1665,6 +1691,9 @@ components:
               type: integer
             github_issue_url:
               type: string
+            attempt_id:
+              type: string
+              format: uuid
 
     ReconcileGitHubIssueResponse:
       type: object
@@ -1686,6 +1715,56 @@ components:
             match_count:
               type: integer
               minimum: 0
+            review_id:
+              type: string
+              format: uuid
+            github_issue_number:
+              type: integer
+            github_issue_url:
+              type: string
+
+    ResolveGitHubReconciliationRequest:
+      type: object
+      required: [resolution_action, resolution_note]
+      properties:
+        attempt_id:
+          type: string
+          format: uuid
+        resolution_action:
+          type: string
+          enum: [link_existing_issue, approve_retry]
+        resolution_note:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        github_issue_number:
+          type: integer
+          minimum: 1
+        github_issue_url:
+          type: string
+          format: uri
+        github_issue_api_id:
+          type: integer
+        github_issue_node_id:
+          type: string
+
+    ResolveGitHubReconciliationResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [job_id, status, attempt_id]
+          properties:
+            job_id:
+              type: string
+              format: uuid
+            status:
+              type: string
+              enum: [manually_reconciled, retry_approved]
+            attempt_id:
+              type: string
+              format: uuid
             review_id:
               type: string
               format: uuid

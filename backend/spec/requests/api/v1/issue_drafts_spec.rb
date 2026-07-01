@@ -97,12 +97,13 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
       expect(issue_draft.github_issue_url).to eq("https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/42")
       expect(issue_draft.publish_idempotency_key).to eq(Digest::SHA256.hexdigest("publish-key-1"))
       attempt = issue_draft.github_issue_publish_attempts.last
+      expect(body.dig("data", "attempt_id")).to eq(attempt.id)
       expect(attempt.status).to eq("local_saved")
       expect(attempt.github_issue_number).to eq(42)
       job = Job.where(job_type: "github_publish", target_type: "issue_draft", target_id: issue_draft.id).last
       expect(job.status).to eq("succeeded")
       audit_log = issue_draft.requirement.minute.meeting.project.audit_logs.find_by!(action: "issue_draft.github_published")
-      expect(audit_log.metadata).to include("job_id" => job.id, "github_issue_number" => 42, "openapi_draft_id" => open_api_draft.id)
+      expect(audit_log.metadata).to include("job_id" => job.id, "attempt_id" => attempt.id, "github_issue_number" => 42, "openapi_draft_id" => open_api_draft.id)
     end
 
     it "blocks unapproved issue drafts" do
@@ -277,6 +278,126 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
       expect(job.safe_error_detail).to eq("GitHub Issue marker search failed.")
       audit_log = project.audit_logs.find_by!(action: "issue_draft.github_publish_reconciliation_failed")
       expect(audit_log.metadata).to include("job_id" => job.id, "attempt_id" => attempt.id)
+    end
+  end
+
+  describe "POST /api/v1/issue-drafts/:id/resolve-github-reconciliation" do
+    it "manually links an existing GitHub issue" do
+      issue_draft = create(:issue_draft, status: "publish_failed", publish_error: "Reconciliation required.")
+      project = issue_draft.requirement.minute.meeting.project
+      attempt = create(
+        :github_issue_publish_attempt,
+        issue_draft: issue_draft,
+        project: project,
+        status: "reconciliation_required",
+        idempotency_digest: Digest::SHA256.hexdigest("publish-key-4")
+      )
+      review = create(
+        :review,
+        target_type: "issue_draft",
+        target_id: issue_draft.id,
+        reviewer_role: GithubIssuePublish::ReconciliationService::REVIEWER_ROLE,
+        status: "action_required"
+      )
+
+      post "/api/v1/issue-drafts/#{issue_draft.id}/resolve-github-reconciliation", params: {
+        attempt_id: attempt.id,
+        resolution_action: "link_existing_issue",
+        resolution_note: "Reviewed duplicates and selected the canonical issue.",
+        github_issue_number: 42,
+        github_issue_url: "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/42",
+        github_issue_api_id: 420,
+        github_issue_node_id: "I_kwMANUAL"
+      }
+
+      expect(response).to have_http_status(:accepted)
+      body = JSON.parse(response.body)
+      expect(body.dig("data", "status")).to eq("manually_reconciled")
+      expect(body.dig("data", "attempt_id")).to eq(attempt.id)
+      expect(body.dig("data", "review_id")).to eq(review.id)
+      expect(body.dig("data", "github_issue_number")).to eq(42)
+      expect(issue_draft.reload.status).to eq("published")
+      expect(attempt.reload.status).to eq("reconciled")
+      expect(review.reload.status).to eq("resolved")
+      job = Job.find(body.dig("data", "job_id"))
+      expect(job.job_type).to eq("github_reconciliation")
+      expect(job.status).to eq("succeeded")
+    end
+
+    it "approves a controlled retry after human review" do
+      issue_draft = create(:issue_draft, status: "publish_failed", publish_error: "Reconciliation required.")
+      project = issue_draft.requirement.minute.meeting.project
+      attempt = create(
+        :github_issue_publish_attempt,
+        issue_draft: issue_draft,
+        project: project,
+        status: "reconciliation_required",
+        idempotency_digest: Digest::SHA256.hexdigest("publish-key-5")
+      )
+      review = create(
+        :review,
+        target_type: "issue_draft",
+        target_id: issue_draft.id,
+        reviewer_role: GithubIssuePublish::ReconciliationService::REVIEWER_ROLE,
+        status: "action_required"
+      )
+
+      post "/api/v1/issue-drafts/#{issue_draft.id}/resolve-github-reconciliation", params: {
+        attempt_id: attempt.id,
+        resolution_action: "approve_retry",
+        resolution_note: "Confirmed no GitHub Issue exists and approved one controlled retry."
+      }
+
+      expect(response).to have_http_status(:accepted)
+      body = JSON.parse(response.body)
+      expect(body.dig("data", "status")).to eq("retry_approved")
+      expect(body.dig("data", "attempt_id")).to eq(attempt.id)
+      expect(body.dig("data", "review_id")).to eq(review.id)
+      expect(body.dig("data", "github_issue_number")).to be_nil
+      expect(issue_draft.reload.status).to eq("approved")
+      expect(issue_draft.publish_error).to be_nil
+      expect(attempt.reload.status).to eq("retry_approved")
+      expect(review.reload.status).to eq("resolved")
+    end
+
+    it "rejects manual links outside the project repository" do
+      issue_draft = create(:issue_draft, status: "publish_failed", publish_error: "Reconciliation required.")
+      project = issue_draft.requirement.minute.meeting.project
+      attempt = create(
+        :github_issue_publish_attempt,
+        issue_draft: issue_draft,
+        project: project,
+        status: "reconciliation_required",
+        idempotency_digest: Digest::SHA256.hexdigest("publish-key-6")
+      )
+
+      post "/api/v1/issue-drafts/#{issue_draft.id}/resolve-github-reconciliation", params: {
+        attempt_id: attempt.id,
+        resolution_action: "link_existing_issue",
+        resolution_note: "This should fail.",
+        github_issue_number: 42,
+        github_issue_url: "https://github.com/Other/repo/issues/42"
+      }
+
+      expect(response).to have_http_status(422)
+      body = JSON.parse(response.body)
+      expect(body.dig("error", "code")).to eq("github_reconciliation_issue_url_invalid")
+      job = Job.where(job_type: "github_reconciliation", target_id: issue_draft.id).last
+      expect(job.status).to eq("failed")
+      expect(attempt.reload.status).to eq("reconciliation_required")
+    end
+
+    it "blocks when no reconciliation attempt is pending" do
+      issue_draft = create(:issue_draft, status: "approved")
+
+      post "/api/v1/issue-drafts/#{issue_draft.id}/resolve-github-reconciliation", params: {
+        resolution_action: "approve_retry",
+        resolution_note: "No pending attempt."
+      }
+
+      expect(response).to have_http_status(:conflict)
+      body = JSON.parse(response.body)
+      expect(body.dig("error", "code")).to eq("github_publish_reconciliation_not_required")
     end
   end
 end

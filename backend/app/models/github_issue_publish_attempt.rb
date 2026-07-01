@@ -1,5 +1,5 @@
 class GithubIssuePublishAttempt < ApplicationRecord
-  STATUSES = %w[started github_created local_saved failed reconciliation_required reconciled].freeze
+  STATUSES = %w[started github_created local_saved failed reconciliation_required reconciled retry_approved].freeze
 
   belongs_to :issue_draft
   belongs_to :project
@@ -67,6 +67,15 @@ class GithubIssuePublishAttempt < ApplicationRecord
       safe_error_detail: nil,
       completed_at: Time.current,
       reconciled_at: Time.current
+    )
+  end
+
+  def mark_retry_approved!(detail:)
+    update!(
+      status: "retry_approved",
+      safe_error_code: nil,
+      safe_error_detail: detail,
+      completed_at: Time.current
     )
   end
 

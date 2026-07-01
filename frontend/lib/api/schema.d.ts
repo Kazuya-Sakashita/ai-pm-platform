@@ -283,6 +283,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/issue-drafts/{issue_draft_id}/resolve-github-reconciliation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resolve a GitHub publish reconciliation blocker manually */
+        post: operations["resolveGitHubIssueReconciliation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/openapi-drafts/{openapi_draft_id}": {
         parameters: {
             query?: never;
@@ -808,6 +825,8 @@ export interface components {
                 status: "publishing" | "published";
                 github_issue_number?: number;
                 github_issue_url?: string;
+                /** Format: uuid */
+                attempt_id?: string;
             };
         };
         ReconcileGitHubIssueResponse: {
@@ -819,6 +838,32 @@ export interface components {
                 /** Format: uuid */
                 attempt_id: string;
                 match_count: number;
+                /** Format: uuid */
+                review_id?: string;
+                github_issue_number?: number;
+                github_issue_url?: string;
+            };
+        };
+        ResolveGitHubReconciliationRequest: {
+            /** Format: uuid */
+            attempt_id?: string;
+            /** @enum {string} */
+            resolution_action: "link_existing_issue" | "approve_retry";
+            resolution_note: string;
+            github_issue_number?: number;
+            /** Format: uri */
+            github_issue_url?: string;
+            github_issue_api_id?: number;
+            github_issue_node_id?: string;
+        };
+        ResolveGitHubReconciliationResponse: {
+            data: {
+                /** Format: uuid */
+                job_id: string;
+                /** @enum {string} */
+                status: "manually_reconciled" | "retry_approved";
+                /** Format: uuid */
+                attempt_id: string;
                 /** Format: uuid */
                 review_id?: string;
                 github_issue_number?: number;
@@ -1584,6 +1629,36 @@ export interface operations {
             409: components["responses"]["ReviewRequired"];
             424: components["responses"]["IntegrationNotConnected"];
             502: components["responses"]["UpstreamError"];
+        };
+    };
+    resolveGitHubIssueReconciliation: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                issue_draft_id: components["parameters"]["IssueDraftId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveGitHubReconciliationRequest"];
+            };
+        };
+        responses: {
+            /** @description Manual reconciliation resolved */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResolveGitHubReconciliationResponse"];
+                };
+            };
+            409: components["responses"]["ReviewRequired"];
+            422: components["responses"]["ValidationError"];
         };
     };
     getOpenApiDraft: {

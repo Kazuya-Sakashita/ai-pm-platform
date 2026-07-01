@@ -26,6 +26,7 @@ RSpec.describe GithubIssuePublishService do
     expect(issue_draft.publish_idempotency_key).to eq(digest)
     expect(issue_draft.publish_idempotency_key).not_to include("publish-key-1")
     attempt = issue_draft.github_issue_publish_attempts.last
+    expect(result[:attempt_id]).to eq(attempt.id)
     expect(attempt.status).to eq("local_saved")
     expect(attempt.idempotency_digest).to eq(digest)
     expect(attempt.github_issue_number).to eq(42)

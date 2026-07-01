@@ -83,10 +83,11 @@ module Api
           target: issue_draft,
           metadata: {
             job_id: job.id,
+            attempt_id: result[:attempt_id],
             github_issue_number: result[:github_issue_number],
             github_issue_url: result[:github_issue_url],
             openapi_draft_id: gate.details[:openapi_draft_id]
-          }
+          }.compact
         )
 
         render json: { data: result }, status: :accepted
@@ -142,10 +143,55 @@ module Api
         render_error(e.code, e.safe_detail, e.http_status, { job_id: job&.id, attempt_id: attempt&.id }.compact)
       end
 
+      def resolve_github_reconciliation
+        attempt = reconciliation_attempt_for_manual_resolution
+        return render_reconciliation_not_required unless attempt
+
+        job = project_for(issue_draft.requirement).jobs.create!(
+          job_type: "github_reconciliation",
+          status: "running",
+          target_type: "issue_draft",
+          target_id: issue_draft.id,
+          progress: 10
+        )
+
+        result = GithubIssuePublish::ManualReconciliationService.new(
+          attempt,
+          github_reconciliation_resolution_params,
+          job: job
+        ).call
+        job.update!(status: "succeeded", progress: 100)
+
+        render json: { data: manual_reconciliation_response(result, attempt, job) }, status: :accepted
+      rescue GithubIssuePublish::ProviderError => e
+        job&.update!(
+          status: "failed",
+          progress: 100,
+          error_code: e.code,
+          error_message: e.message,
+          safe_error_detail: e.safe_detail
+        )
+        AuditLog.record!(
+          project: project_for(issue_draft.requirement),
+          action: "issue_draft.github_publish_manual_reconciliation_failed",
+          target: issue_draft,
+          metadata: { job_id: job&.id, provider_error_code: e.code, attempt_id: attempt&.id }.compact
+        )
+
+        render_error(e.code, e.safe_detail, e.http_status, { job_id: job&.id, attempt_id: attempt&.id }.compact)
+      end
+
       private
 
       def issue_draft
         @issue_draft ||= IssueDraft.find(params[:issue_draft_id] || params[:id])
+      end
+
+      def reconciliation_attempt_for_manual_resolution
+        scope = issue_draft.github_issue_publish_attempts.where(status: "reconciliation_required")
+        return scope.find_by(id: params[:attempt_id]) if params[:attempt_id].present?
+
+        scope.order(created_at: :desc).first
       end
 
       def latest_reconciliation_attempt
@@ -196,6 +242,28 @@ module Api
           github_issue_number: issue_draft.github_issue_number,
           github_issue_url: issue_draft.github_issue_url
         }.compact
+      end
+
+      def manual_reconciliation_response(result, attempt, job)
+        {
+          job_id: job.id,
+          status: result.status,
+          attempt_id: attempt.id,
+          review_id: result.review&.id,
+          github_issue_number: issue_draft.github_issue_number,
+          github_issue_url: issue_draft.github_issue_url
+        }.compact
+      end
+
+      def github_reconciliation_resolution_params
+        params.permit(
+          :resolution_action,
+          :resolution_note,
+          :github_issue_number,
+          :github_issue_url,
+          :github_issue_api_id,
+          :github_issue_node_id
+        )
       end
 
       def issue_draft_params
