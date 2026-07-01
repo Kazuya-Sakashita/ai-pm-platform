@@ -50,4 +50,22 @@ RSpec.describe IssueDraftPublishGate do
     expect(result.code).to eq("openapi_review_blocker")
     expect(result.details).to include(review_id: review.id, review_status: "action_required")
   end
+
+  it "blocks when a GitHub publish reconciliation review blocker is action-required" do
+    issue_draft = create(:issue_draft, status: "approved")
+    create(:open_api_draft, requirement: issue_draft.requirement, status: "valid")
+    review = create(
+      :review,
+      target_type: "issue_draft",
+      target_id: issue_draft.id,
+      reviewer_role: GithubIssuePublish::ReconciliationService::REVIEWER_ROLE,
+      status: "action_required"
+    )
+
+    result = described_class.new(issue_draft).call
+
+    expect(result.allowed).to be(false)
+    expect(result.code).to eq("github_publish_reconciliation_blocker")
+    expect(result.details).to include(review_id: review.id, review_status: "action_required")
+  end
 end

@@ -219,8 +219,10 @@ Permission, revoked installation, repository mismatch, and missing Issues write 
 - [Done 2026-07-01] `github_issue_publish_attempts` migration/model/service接続を追加する。
 - [Done 2026-07-01] publish attemptは同じ `issue_draft_id` / `idempotency_digest` でも複数記録し、再試行履歴を監査できるようにする。
 - providerでambiguous failureを分類する。
-- marker検索用のGitHub API clientを追加する。
-- exact matchなら自動reconcileするserviceを追加する。
-- 0件/複数件はReview blockerを作成する。
-- reconciliation結果をAuditLogへ保存する。
+- [Done 2026-07-01] marker検索用のGitHub API clientを追加する。
+- [Done 2026-07-01] exact matchなら自動reconcileするserviceを追加する。
+- [Done 2026-07-01] 0件/複数件はReview blockerを作成する。
+- [Done 2026-07-01] reconciliation結果をAuditLogへ保存する。
+- reconciler実行job/APIを追加する。
+- Review blockerから手動紐付け/controlled retryを実装する。
 - Playwrightまたはrequest specで「同じdraftを二重publishしない」導線を追加する。

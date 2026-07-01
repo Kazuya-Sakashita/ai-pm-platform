@@ -56,6 +56,20 @@ class GithubIssuePublishAttempt < ApplicationRecord
     update!(attributes)
   end
 
+  def mark_reconciled!(result)
+    update!(
+      status: "reconciled",
+      github_issue_number: result.fetch(:github_issue_number),
+      github_issue_url: result.fetch(:github_issue_url),
+      github_issue_api_id: result[:github_issue_api_id],
+      github_issue_node_id: result[:github_issue_node_id],
+      safe_error_code: nil,
+      safe_error_detail: nil,
+      completed_at: Time.current,
+      reconciled_at: Time.current
+    )
+  end
+
   private
 
   def set_defaults

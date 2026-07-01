@@ -15,6 +15,9 @@ class IssueDraftPublishGate
     blocker = validation_blocker(open_api_draft)
     return blocked("openapi_review_blocker", "OpenAPI validation blocker must be resolved before publishing.", openapi_draft_id: open_api_draft.id, review_id: blocker.id, review_status: blocker.status) if blocker
 
+    blocker = github_reconciliation_blocker
+    return blocked("github_publish_reconciliation_blocker", "GitHub publish reconciliation blocker must be resolved before publishing.", review_id: blocker.id, review_status: blocker.status) if blocker
+
     Result.new(allowed: true, details: { openapi_draft_id: open_api_draft.id })
   end
 
@@ -31,6 +34,15 @@ class IssueDraftPublishGate
       target_type: "openapi_draft",
       target_id: open_api_draft.id,
       reviewer_role: "OpenAPI Validator",
+      status: "action_required"
+    ).order(created_at: :desc).first
+  end
+
+  def github_reconciliation_blocker
+    Review.where(
+      target_type: "issue_draft",
+      target_id: issue_draft.id,
+      reviewer_role: GithubIssuePublish::ReconciliationService::REVIEWER_ROLE,
       status: "action_required"
     ).order(created_at: :desc).first
   end
