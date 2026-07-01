@@ -627,9 +627,14 @@ test.describe("Meeting Workspace", () => {
     await expect(page.locator("#issue-draft").getByText("https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/43")).toBeVisible();
 
     const candidate = page.locator("#issue-draft .candidate-row", { hasText: "#43" });
+    await expect(candidate).not.toHaveAttribute("aria-current", "true");
+    await expect(candidate.getByRole("button", { name: "候補を選択" })).toHaveAttribute("aria-pressed", "false");
     await candidate.getByRole("button", { name: "候補を選択" }).click();
 
     await expect(page.locator("header").getByText("GitHub Issue #43 を候補として選択しました")).toBeVisible();
+    await expect(candidate).toHaveAttribute("aria-current", "true");
+    await expect(candidate.getByRole("button", { name: "選択中" })).toHaveAttribute("aria-pressed", "true");
+    await expect(candidate.locator(".chip.success")).toHaveText("選択中");
     await expect(page.locator("#issue-draft").getByLabel("GitHub Issue番号")).toHaveValue("43");
     await expect(page.locator("#issue-draft").getByRole("textbox", { name: "GitHub Issue URL", exact: true })).toHaveValue(
       "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/43",

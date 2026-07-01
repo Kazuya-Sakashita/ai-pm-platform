@@ -1551,27 +1551,44 @@ export default function MeetingWorkspace() {
                           <span className="chip warning">{reconciliationMatches.length}件</span>
                         </div>
                         <div className="candidate-list">
-                          {reconciliationMatches.map((match) => (
-                            <div className="candidate-row" key={`${match.github_repository}-${match.github_issue_number}`}>
-                              <div>
-                                <strong>
-                                  #{match.github_issue_number} {match.github_issue_title ?? "タイトル未取得"}
-                                </strong>
-                                <span>{match.github_repository}</span>
-                                <span className="candidate-meta">
-                                  状態 {githubIssueStateLabel(match.github_issue_state)} / 更新 {formatDateTime(match.github_issue_updated_at)} / スコア{" "}
-                                  {match.github_issue_score ?? "-"}
-                                </span>
-                                <a className="github-link" href={match.github_issue_url} target="_blank" rel="noreferrer">
-                                  {match.github_issue_url}
-                                </a>
+                          {reconciliationMatches.map((match) => {
+                            const isSelected =
+                              reconciliationIssueNumber === String(match.github_issue_number) && reconciliationIssueUrl === match.github_issue_url;
+                            return (
+                              <div
+                                aria-current={isSelected ? "true" : undefined}
+                                className={`candidate-row${isSelected ? " selected" : ""}`}
+                                key={`${match.github_repository}-${match.github_issue_number}`}
+                              >
+                                <div>
+                                  <strong>
+                                    #{match.github_issue_number} {match.github_issue_title ?? "タイトル未取得"}
+                                  </strong>
+                                  <span>{match.github_repository}</span>
+                                  <span className="candidate-meta">
+                                    状態 {githubIssueStateLabel(match.github_issue_state)} / 更新 {formatDateTime(match.github_issue_updated_at)} / スコア{" "}
+                                    {match.github_issue_score ?? "-"}
+                                  </span>
+                                  <a className="github-link" href={match.github_issue_url} target="_blank" rel="noreferrer">
+                                    {match.github_issue_url}
+                                  </a>
+                                </div>
+                                <div className="candidate-selection">
+                                  {isSelected ? <span className="chip success">選択中</span> : null}
+                                  <button
+                                    aria-pressed={isSelected}
+                                    className={`button ${isSelected ? "primary" : "secondary"}`}
+                                    type="button"
+                                    onClick={() => selectReconciliationMatch(match)}
+                                    disabled={loading}
+                                  >
+                                    <CheckCircle2 size={16} />
+                                    {isSelected ? "選択中" : "候補を選択"}
+                                  </button>
+                                </div>
                               </div>
-                              <button className="button secondary" type="button" onClick={() => selectReconciliationMatch(match)} disabled={loading}>
-                                <CheckCircle2 size={16} />
-                                候補を選択
-                              </button>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     ) : null}

@@ -411,6 +411,12 @@ textarea {
   background: var(--surface-alt);
 }
 
+.candidate-row.selected {
+  border-color: #9fd5c8;
+  border-left-color: var(--teal);
+  background: #f1fbf8;
+}
+
 .candidate-row div {
   display: grid;
   gap: 4px;
@@ -419,12 +425,17 @@ textarea {
 
 .candidate-row strong {
   color: var(--text);
+  overflow-wrap: anywhere;
 }
 
 .candidate-row span {
   color: var(--muted);
   font-size: 12px;
   overflow-wrap: anywhere;
+}
+
+.candidate-selection {
+  justify-items: end;
 }
 
 .github-link {
