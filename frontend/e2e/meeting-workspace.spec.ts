@@ -7,6 +7,7 @@ test.describe("Meeting Workspace", () => {
     name: string;
     code: string;
     message: string;
+    expectedMessage: string;
     status: number;
     jobId: string;
     requestId?: string;
@@ -17,6 +18,7 @@ test.describe("Meeting Workspace", () => {
       name: "OpenAI upstream failure",
       code: "openai_api_error",
       message: "OpenAI request failed. Retry later or check integration settings.",
+      expectedMessage: "OpenAIリクエストに失敗しました。",
       status: 502,
       jobId: "job_openai_upstream",
       requestId: "req_openai_upstream",
@@ -25,6 +27,7 @@ test.describe("Meeting Workspace", () => {
       name: "invalid AI response",
       code: "invalid_ai_response",
       message: "AI response did not match the expected minutes schema.",
+      expectedMessage: "AI応答が想定された議事録形式に一致しませんでした。",
       status: 502,
       jobId: "job_invalid_ai_response",
       requestId: "req_invalid_ai_response",
@@ -33,6 +36,7 @@ test.describe("Meeting Workspace", () => {
       name: "OpenAI rate limit",
       code: "rate_limit_exceeded",
       message: "OpenAI request was rate limited. Retry after the provider limit resets.",
+      expectedMessage: "OpenAIのレート制限に達しました。",
       status: 429,
       jobId: "job_rate_limit",
       requestId: "req_rate_limit",
@@ -47,16 +51,16 @@ test.describe("Meeting Workspace", () => {
   async function createProject(page: Page, projectName: string) {
     await page.goto("/");
     await expect(page.getByRole("heading", { name: "Discordログから議事録を生成" })).toBeVisible();
-    await page.getByLabel("Name").fill(projectName);
-    await page.getByLabel("GitHub repo").fill("Kazuya-Sakashita/ai-pm-platform");
-    await page.getByRole("button", { name: "Create Project" }).click();
+    await page.getByLabel("名称").fill(projectName);
+    await page.getByLabel("GitHubリポジトリ").fill("Kazuya-Sakashita/ai-pm-platform");
+    await page.getByRole("button", { name: "プロジェクト作成" }).click();
     await expect(page.getByRole("heading", { name: projectName })).toBeVisible();
   }
 
   async function saveMeeting(page: Page, meetingTitle: string, rawText: string) {
-    await page.locator("#meeting").getByLabel("Title").fill(meetingTitle);
-    await page.getByLabel("Raw text").fill(rawText);
-    await page.getByRole("button", { name: "Save Meeting" }).click();
+    await page.locator("#meeting").getByLabel("タイトル").fill(meetingTitle);
+    await page.getByLabel("原文ログ").fill(rawText);
+    await page.getByRole("button", { name: "会議を保存" }).click();
     await expect(page.getByRole("button", { name: new RegExp(meetingTitle) })).toBeVisible();
   }
 
@@ -307,81 +311,81 @@ test.describe("Meeting Workspace", () => {
 
     await saveMeeting(page, meetingTitle, rawText);
 
-    await page.getByRole("button", { name: "Generate", exact: true }).click();
-    await expect(page.locator("header").getByText("Minutes generated")).toBeVisible();
-    await expect(page.getByLabel("Summary")).toHaveValue(/Playwright smoke coverage/);
-    await expect(page.getByLabel("Decisions")).toHaveValue(/connect Playwright smoke coverage/);
-    await expect(page.locator("#minutes").getByLabel("Open questions")).toHaveValue(/who reviews/);
-    await expect(page.getByLabel("Action items")).toHaveValue(/request review/);
+    await page.getByRole("button", { name: "議事録生成", exact: true }).click();
+    await expect(page.locator("header").getByText("議事録を生成しました")).toBeVisible();
+    await expect(page.getByLabel("要約")).toHaveValue(/Playwright smoke coverage/);
+    await expect(page.getByLabel("決定事項")).toHaveValue(/connect Playwright smoke coverage/);
+    await expect(page.locator("#minutes").getByLabel("未解決事項")).toHaveValue(/who reviews/);
+    await expect(page.getByLabel("アクション項目")).toHaveValue(/request review/);
 
-    await page.getByRole("button", { name: "Request Review" }).click();
-    await expect(page.locator("header").getByText("Review requested")).toBeVisible();
-    await expect(page.getByText("open / Product Manager")).toBeVisible();
+    await page.getByRole("button", { name: "レビュー依頼", exact: true }).click();
+    await expect(page.locator("header").getByText("レビューを依頼しました")).toBeVisible();
+    await expect(page.getByText("未対応 / Product Manager")).toBeVisible();
 
-    await page.getByRole("button", { name: "Approve Minutes" }).click();
-    await expect(page.locator("header").getByText("Minutes approved")).toBeVisible();
-    await expect(page.locator("#review .panel-header .chip")).toHaveText("clear");
+    await page.getByRole("button", { name: "議事録を承認", exact: true }).click();
+    await expect(page.locator("header").getByText("議事録を承認しました")).toBeVisible();
+    await expect(page.locator("#review .panel-header .chip")).toHaveText("通過");
 
-    await page.getByRole("button", { name: "Generate Requirements" }).click();
-    await expect(page.locator("header").getByText("Requirements generated")).toBeVisible();
-    await expect(page.getByLabel("Background")).toHaveValue(/Playwright smoke coverage/);
-    await expect(page.locator("#requirements").getByRole("textbox", { name: "Functional requirements", exact: true })).toHaveValue(/connect Playwright smoke coverage/);
-    await expect(page.locator("#requirements").getByLabel("Open questions")).toHaveValue(/who reviews/);
+    await page.getByRole("button", { name: "要件定義を生成", exact: true }).click();
+    await expect(page.locator("header").getByText("要件定義を生成しました")).toBeVisible();
+    await expect(page.getByLabel("背景")).toHaveValue(/Playwright smoke coverage/);
+    await expect(page.locator("#requirements").getByRole("textbox", { name: "機能要件", exact: true })).toHaveValue(/connect Playwright smoke coverage/);
+    await expect(page.locator("#requirements").getByLabel("未解決事項")).toHaveValue(/who reviews/);
 
-    await page.getByLabel("Goal").fill("Updated requirement goal from E2E.");
-    await page.locator("#requirements").getByLabel("Open questions").fill("");
-    await page.getByRole("button", { name: "Save Requirements" }).click();
-    await expect(page.locator("header").getByText("Requirements saved")).toBeVisible();
-    await expect(page.getByLabel("Goal")).toHaveValue("Updated requirement goal from E2E.");
+    await page.getByLabel("目的").fill("Updated requirement goal from E2E.");
+    await page.locator("#requirements").getByLabel("未解決事項").fill("");
+    await page.getByRole("button", { name: "要件定義を保存", exact: true }).click();
+    await expect(page.locator("header").getByText("要件定義を保存しました")).toBeVisible();
+    await expect(page.getByLabel("目的")).toHaveValue("Updated requirement goal from E2E.");
 
-    await page.getByRole("button", { name: "Request Requirement Review" }).click();
-    await expect(page.locator("header").getByText("Requirement review requested")).toBeVisible();
-    await expect(page.getByText("open / Product Manager")).toBeVisible();
+    await page.getByRole("button", { name: "要件レビュー依頼", exact: true }).click();
+    await expect(page.locator("header").getByText("要件レビューを依頼しました")).toBeVisible();
+    await expect(page.getByText("未対応 / Product Manager")).toBeVisible();
 
-    await page.getByRole("button", { name: "Approve Requirements" }).click();
-    await expect(page.locator("header").getByText("Requirements approved")).toBeVisible();
-    await expect(page.locator("#requirements .panel-header .chip")).toHaveText("approved");
+    await page.getByRole("button", { name: "要件定義を承認", exact: true }).click();
+    await expect(page.locator("header").getByText("要件定義を承認しました")).toBeVisible();
+    await expect(page.locator("#requirements .panel-header .chip")).toHaveText("承認済み");
 
-    await page.getByRole("button", { name: "Generate Issue Draft" }).click();
-    await expect(page.locator("header").getByText("Issue draft generated")).toBeVisible();
-    await expect(page.getByLabel("Issue title")).toHaveValue(/Updated requirement goal from E2E/);
-    await expect(page.getByLabel("Issue body")).toHaveValue(/## Acceptance Criteria/);
-    await expect(page.getByLabel("Issue acceptance criteria")).toHaveValue(/connect Playwright smoke coverage/);
+    await page.getByRole("button", { name: "Issueドラフトを生成", exact: true }).click();
+    await expect(page.locator("header").getByText("Issueドラフトを生成しました")).toBeVisible();
+    await expect(page.getByLabel("Issueタイトル")).toHaveValue(/Updated requirement goal from E2E/);
+    await expect(page.getByLabel("Issue本文")).toHaveValue(/## Acceptance Criteria/);
+    await expect(page.getByLabel("Issue受け入れ条件")).toHaveValue(/connect Playwright smoke coverage/);
 
-    await page.getByLabel("Issue title").fill("Updated issue draft title from E2E.");
-    await page.getByRole("button", { name: "Save Issue Draft" }).click();
-    await expect(page.locator("header").getByText("Issue draft saved")).toBeVisible();
-    await expect(page.getByLabel("Issue title")).toHaveValue("Updated issue draft title from E2E.");
+    await page.getByLabel("Issueタイトル").fill("Updated issue draft title from E2E.");
+    await page.getByRole("button", { name: "Issueドラフトを保存", exact: true }).click();
+    await expect(page.locator("header").getByText("Issueドラフトを保存しました")).toBeVisible();
+    await expect(page.getByLabel("Issueタイトル")).toHaveValue("Updated issue draft title from E2E.");
 
-    await page.getByRole("button", { name: "Approve Issue Draft" }).click();
-    await expect(page.locator("header").getByText("Issue draft approved")).toBeVisible();
-    await expect(page.locator("#issue-draft .panel-header .chip")).toHaveText("approved");
+    await page.getByRole("button", { name: "Issueドラフトを承認", exact: true }).click();
+    await expect(page.locator("header").getByText("Issueドラフトを承認しました")).toBeVisible();
+    await expect(page.locator("#issue-draft .panel-header .chip")).toHaveText("承認済み");
 
-    await page.getByRole("button", { name: "Generate OpenAPI Draft" }).click();
-    await expect(page.locator("header").getByText("OpenAPI draft generated")).toBeVisible();
-    await expect(page.getByLabel("OpenAPI title")).toHaveValue(/Updated requirement goal from E2E/);
+    await page.getByRole("button", { name: "OpenAPIドラフトを生成", exact: true }).click();
+    await expect(page.locator("header").getByText("OpenAPIドラフトを生成しました")).toBeVisible();
+    await expect(page.getByLabel("OpenAPIタイトル")).toHaveValue(/Updated requirement goal from E2E/);
     await expect(page.getByLabel("OpenAPI YAML")).toHaveValue(/openapi: 3.1.0/);
     await expect(page.getByLabel("OpenAPI YAML")).toHaveValue(/paths:/);
 
-    await page.getByLabel("OpenAPI title").fill("Updated OpenAPI draft title from E2E.");
-    await page.getByRole("button", { name: "Save OpenAPI Draft" }).click();
-    await expect(page.locator("header").getByText("OpenAPI draft saved")).toBeVisible();
-    await expect(page.getByLabel("OpenAPI title")).toHaveValue("Updated OpenAPI draft title from E2E.");
+    await page.getByLabel("OpenAPIタイトル").fill("Updated OpenAPI draft title from E2E.");
+    await page.getByRole("button", { name: "OpenAPIドラフトを保存", exact: true }).click();
+    await expect(page.locator("header").getByText("OpenAPIドラフトを保存しました")).toBeVisible();
+    await expect(page.getByLabel("OpenAPIタイトル")).toHaveValue("Updated OpenAPI draft title from E2E.");
 
-    await page.getByRole("button", { name: "Validate OpenAPI" }).click();
-    await expect(page.locator("header").getByText("OpenAPI validation passed")).toBeVisible();
-    await expect(page.locator("#openapi-draft .panel-header .chip").first()).toHaveText("valid");
-    await expect(page.locator("#openapi-draft").getByText("Validation passed")).toBeVisible();
+    await page.getByRole("button", { name: "OpenAPIを検証", exact: true }).click();
+    await expect(page.locator("header").getByText("OpenAPI検証に成功しました")).toBeVisible();
+    await expect(page.locator("#openapi-draft .panel-header .chip").first()).toHaveText("検証済み");
+    await expect(page.locator("#openapi-draft").getByRole("heading", { name: "検証成功" })).toBeVisible();
     await expect(page.locator("#openapi-draft").getByText("missing_error_response")).toBeVisible();
 
     await page.getByLabel("OpenAPI YAML").fill("openapi: 3.1.0\ninfo:\n  title: Invalid draft\npaths: {}\n");
-    await page.getByRole("button", { name: "Validate OpenAPI" }).click();
-    await expect(page.locator("header").getByText("OpenAPI validation failed")).toBeVisible();
-    await expect(page.locator("#openapi-draft").getByText("Validation failed")).toBeVisible();
+    await page.getByRole("button", { name: "OpenAPIを検証", exact: true }).click();
+    await expect(page.locator("header").getByText("OpenAPI検証に失敗しました")).toBeVisible();
+    await expect(page.locator("#openapi-draft").getByRole("heading", { name: "検証失敗" })).toBeVisible();
     await expect(page.locator("#openapi-draft").getByText("empty_paths", { exact: true })).toBeVisible();
-    await expect(page.locator("#openapi-draft").getByText("Review blocker")).toBeVisible();
-    await expect(page.locator("#openapi-draft .validation-panel", { hasText: "Review blocker" }).locator(".chip")).toHaveText("action_required");
-    await expect(page.getByText("action_required / OpenAPI Validator")).toBeVisible();
+    await expect(page.locator("#openapi-draft").getByText("レビューブロッカー")).toBeVisible();
+    await expect(page.locator("#openapi-draft .validation-panel", { hasText: "レビューブロッカー" }).locator(".chip")).toHaveText("対応必要");
+    await expect(page.getByText("対応必要 / OpenAPI Validator")).toBeVisible();
 
     await page.getByLabel("OpenAPI YAML").fill([
       "openapi: 3.1.0",
@@ -403,18 +407,18 @@ test.describe("Meeting Workspace", () => {
       "    DraftResponse:",
       "      type: object",
     ].join("\n"));
-    await page.getByRole("button", { name: "Validate OpenAPI" }).click();
-    await expect(page.locator("header").getByText("OpenAPI validation passed")).toBeVisible();
-    await expect(page.locator("#openapi-draft").getByText("Validation passed")).toBeVisible();
-    await expect(page.getByText("resolved / OpenAPI Validator")).toBeVisible();
+    await page.getByRole("button", { name: "OpenAPIを検証", exact: true }).click();
+    await expect(page.locator("header").getByText("OpenAPI検証に成功しました")).toBeVisible();
+    await expect(page.locator("#openapi-draft").getByRole("heading", { name: "検証成功" })).toBeVisible();
+    await expect(page.getByText("解決済み / OpenAPI Validator")).toBeVisible();
 
-    await page.getByRole("button", { name: "Publish GitHub Issue" }).click();
-    await expect(page.locator("section[role='alert']")).toContainText("GitHub integration is not connected.");
-    await expect(page.locator("#issue-draft").getByText("Publish blocked")).toBeVisible();
-    await expect(page.locator("#issue-draft .validation-panel", { hasText: "Publish blocked" }).locator(".chip")).toHaveText("publish_failed");
-    await expect(page.locator("#issue-draft").getByText("not pending")).toBeVisible();
-    await expect(page.locator("#issue-draft").getByLabel("GitHub issue number")).toHaveCount(0);
-    await expect(page.locator("#issue-draft").getByRole("button", { name: "Search Marker" })).toHaveCount(0);
+    await page.getByRole("button", { name: "GitHub Issueへ公開", exact: true }).click();
+    await expect(page.locator("section[role='alert']")).toContainText("GitHub連携が未接続です。");
+    await expect(page.locator("#issue-draft").getByText("公開ブロック")).toBeVisible();
+    await expect(page.locator("#issue-draft .validation-panel", { hasText: "公開ブロック" }).locator(".chip")).toHaveText("公開失敗");
+    await expect(page.locator("#issue-draft").getByText("照合待ちなし")).toBeVisible();
+    await expect(page.locator("#issue-draft").getByLabel("GitHub Issue番号")).toHaveCount(0);
+    await expect(page.locator("#issue-draft").getByRole("button", { name: "マーカー検索" })).toHaveCount(0);
   });
 
   test("shows validation errors when required meeting fields are missing", async ({ page, request }) => {
@@ -422,12 +426,12 @@ test.describe("Meeting Workspace", () => {
     const stamp = Date.now();
 
     await createProject(page, `E2E Validation Project ${stamp}`);
-    await page.locator("#meeting").getByLabel("Title").fill("");
-    await page.getByLabel("Raw text").fill("");
-    await page.getByRole("button", { name: "Save Meeting" }).click();
+    await page.locator("#meeting").getByLabel("タイトル").fill("");
+    await page.getByLabel("原文ログ").fill("");
+    await page.getByRole("button", { name: "会議を保存" }).click();
 
-    await expect(page.locator("section[role='alert']")).toContainText("Validation failed");
-    await expect(page.locator("header").getByText("API error")).toBeVisible();
+    await expect(page.locator("section[role='alert']")).toContainText("入力内容の検証に失敗しました。");
+    await expect(page.locator("header").getByText("APIエラー")).toBeVisible();
   });
 
   test("shows pending GitHub reconciliation controls and approves a controlled retry", async ({ page }) => {
@@ -435,28 +439,28 @@ test.describe("Meeting Workspace", () => {
     await page.goto("/");
 
     await expect(page.getByRole("button", { name: "Mock GitHub Reconciliation Meeting" })).toBeVisible();
-    await page.getByRole("button", { name: "Generate", exact: true }).click();
-    await expect(page.locator("header").getByText("Minutes generated")).toBeVisible();
+    await page.getByRole("button", { name: "議事録生成", exact: true }).click();
+    await expect(page.locator("header").getByText("議事録を生成しました")).toBeVisible();
 
-    await page.getByRole("button", { name: "Generate Requirements" }).click();
-    await expect(page.locator("header").getByText("Requirements generated")).toBeVisible();
+    await page.getByRole("button", { name: "要件定義を生成", exact: true }).click();
+    await expect(page.locator("header").getByText("要件定義を生成しました")).toBeVisible();
 
-    await page.getByRole("button", { name: "Generate Issue Draft" }).click();
-    await expect(page.locator("header").getByText("Issue draft generated")).toBeVisible();
-    await expect(page.locator("#issue-draft").getByText("Publish blocked")).toBeVisible();
-    await expect(page.locator("#issue-draft").getByText("reconciliation_required")).toBeVisible();
-    await expect(page.locator("#issue-draft").getByLabel("GitHub issue number")).toHaveValue("42");
-    await expect(page.locator("#issue-draft").getByLabel("GitHub issue URL")).toHaveValue("https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/42");
-    await expect(page.locator("#issue-draft").getByRole("button", { name: "Search Marker" })).toBeVisible();
-    await expect(page.locator("#issue-draft").getByRole("button", { name: "Link Issue" })).toBeVisible();
-    await expect(page.locator("#issue-draft").getByRole("button", { name: "Approve Retry" })).toBeVisible();
+    await page.getByRole("button", { name: "Issueドラフトを生成", exact: true }).click();
+    await expect(page.locator("header").getByText("Issueドラフトを生成しました")).toBeVisible();
+    await expect(page.locator("#issue-draft").getByText("公開ブロック")).toBeVisible();
+    await expect(page.locator("#issue-draft").getByText("照合必要")).toBeVisible();
+    await expect(page.locator("#issue-draft").getByLabel("GitHub Issue番号")).toHaveValue("42");
+    await expect(page.locator("#issue-draft").getByLabel("GitHub Issue URL")).toHaveValue("https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/42");
+    await expect(page.locator("#issue-draft").getByRole("button", { name: "マーカー検索" })).toBeVisible();
+    await expect(page.locator("#issue-draft").getByRole("button", { name: "既存Issueに紐付け" })).toBeVisible();
+    await expect(page.locator("#issue-draft").getByRole("button", { name: "再試行を承認" })).toBeVisible();
 
-    await page.locator("#issue-draft").getByLabel("Resolution note").fill("Confirmed that no GitHub Issue exists.");
-    await page.locator("#issue-draft").getByRole("button", { name: "Approve Retry" }).click();
+    await page.locator("#issue-draft").getByLabel("解決メモ").fill("Confirmed that no GitHub Issue exists.");
+    await page.locator("#issue-draft").getByRole("button", { name: "再試行を承認" }).click();
 
-    await expect(page.locator("header").getByText("GitHub retry approved")).toBeVisible();
-    await expect(page.locator("#issue-draft .panel-header .chip")).toHaveText("approved");
-    await expect(page.locator("#issue-draft").getByRole("button", { name: "Approve Retry" })).toHaveCount(0);
+    await expect(page.locator("header").getByText("GitHub公開の再試行を承認しました")).toBeVisible();
+    await expect(page.locator("#issue-draft .panel-header .chip")).toHaveText("承認済み");
+    await expect(page.locator("#issue-draft").getByRole("button", { name: "再試行を承認" })).toHaveCount(0);
   });
 
   test("blocks secret-like content and surfaces the failed generation job", async ({ page, request }) => {
@@ -467,12 +471,12 @@ test.describe("Meeting Workspace", () => {
     await createProject(page, `E2E Secret Project ${stamp}`);
     await saveMeeting(page, meetingTitle, "alice: password=super-secret-value");
 
-    await page.getByRole("button", { name: "Generate", exact: true }).click();
+    await page.getByRole("button", { name: "議事録生成", exact: true }).click();
 
-    await expect(page.locator("section[role='alert']")).toContainText("Meeting text includes sensitive content");
-    await expect(page.locator("header").getByText("job failed")).toBeVisible();
-    await expect(page.locator("#review").getByText("Minutes generated")).toBeVisible();
-    await expect(page.locator("#review").getByText("no")).toHaveCount(6);
+    await expect(page.locator("section[role='alert']")).toContainText("会議ログに機密性の高い内容");
+    await expect(page.locator("header").getByText("ジョブ 失敗")).toBeVisible();
+    await expect(page.locator("#review").getByText("議事録生成")).toBeVisible();
+    await expect(page.locator("#review").getByText("いいえ")).toHaveCount(6);
   });
 
   for (const failure of providerFailures) {
@@ -485,14 +489,14 @@ test.describe("Meeting Workspace", () => {
       await saveMeeting(page, meetingTitle, "alice: Decision: keep AI failures visible and recoverable.");
       await mockGenerationFailure(page, failure);
 
-      await page.getByRole("button", { name: "Generate", exact: true }).click();
+      await page.getByRole("button", { name: "議事録生成", exact: true }).click();
 
-      await expect(page.locator("section[role='alert']")).toContainText(failure.message);
-      await expect(page.locator("header").getByText("API error")).toBeVisible();
-      await expect(page.locator("header").getByText("job failed")).toBeVisible();
-      await expect(page.getByText("failed / minutes")).toBeVisible();
-      await expect(page.locator("#review").getByText("Minutes generated")).toBeVisible();
-      await expect(page.locator("#review").getByText("no")).toHaveCount(6);
+      await expect(page.locator("section[role='alert']")).toContainText(failure.expectedMessage);
+      await expect(page.locator("header").getByText("APIエラー")).toBeVisible();
+      await expect(page.locator("header").getByText("ジョブ 失敗")).toBeVisible();
+      await expect(page.getByText("失敗 / 議事録")).toBeVisible();
+      await expect(page.locator("#review").getByText("議事録生成")).toBeVisible();
+      await expect(page.locator("#review").getByText("いいえ")).toHaveCount(6);
     });
   }
 });

@@ -52,10 +52,31 @@ AI PM Platformは日本語で運用されるプロジェクト管理・議事録
 
 - `docs/review/20260701_japanese_display_policy_review.md`
 - `docs/review/20260701_japanese_ui_glossary_review.md`
+- `docs/review/20260701_japanese_frontend_ui_implementation_review.md`
 
 ## レビュー結果
 
-2026-07-01にCodex一次レビューを実施。日本語表示ポリシーとして妥当。追加で日本語UI用語集を作成し、主要ステータス、ボタン、ラベル、エラー文言テンプレートを整理した。実UIの棚卸し、表示変換helper/map、Playwright確認、API safe detailの日本語化範囲整理は未完了。
+2026-07-01にCodex一次レビューを実施。日本語表示ポリシーとして妥当。追加で日本語UI用語集を作成し、主要ステータス、ボタン、ラベル、エラー文言テンプレートを整理した。Frontendの主要画面へ日本語表示を適用し、`statusLabel` / `targetLabel` / `displayMessage` で内部値と表示文言を分離した。Playwrightで主要導線、失敗導線、pending reconciliation導線を日本語UI文言で確認した。API safe detail本体の日本語化範囲整理、AI生成テンプレート日本語統一、表示変換helperの共通化、視覚回帰確認は未完了。
+
+良かった点:
+
+- 主要ボタン、ラベル、見出し、空状態、ステータス、エラー表示を日本語化した。
+- API enumやDB statusの物理値は英語のまま維持し、UI表示のみ日本語化した。
+- GitHub公開、OpenAPI検証、Review blocker、reconciliationなど複雑な導線も日本語で読めるようにした。
+- Playwrightを日本語UI文言へ更新し、主要導線の回帰を確認した。
+
+改善点:
+
+- 表示変換helper/mapが `workspace-client.tsx` 内にあり、画面追加時に共通化が必要。
+- Backend safe detailはまだ英語が中心で、Frontend側のmessage mapに依存している。
+- AI生成されるIssue/Review/要件定義テンプレートの日本語統一は未完了。
+- スクリーンショットによる狭幅/視覚回帰確認は未実施。
+
+検証結果:
+
+- `git diff --check`: pass
+- `npm run frontend:build`: success
+- `npm run frontend:e2e`: 7 passed
 
 ## 優先度
 
@@ -69,11 +90,11 @@ P1
 
 ## 次アクション
 
-- 現在のFrontend表示文言を棚卸しする
-- UI表示変換helper/mapを設計する
-- 主要画面のボタン、ラベル、エラー、空状態を日本語化する
-- Playwrightで主要表示文言を確認する
-- 日本語表示レビューを `docs/review/` に保存する
+- 表示変換helper/mapを `frontend/lib` へ共通化する
+- API safe detailの日本語化範囲を整理する
+- AI生成されるIssue/Review/要件定義テンプレートを日本語運用へ寄せる
+- 日本語UIのスクリーンショット/狭幅表示確認を追加する
+- 日本語表示レビューの外部AIレビュー結果を追記する
 
 ## 関連ドキュメント
 

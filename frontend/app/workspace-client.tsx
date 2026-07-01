@@ -41,8 +41,76 @@ type ApiErrorPayload = {
 };
 
 const defaultLog = `alice: Decision: Discord-firstで議事録MVPを切る。
-bob: Open question: Review requestの担当者は誰にする？
-alice: Action: Meeting WorkspaceからMinutes生成を接続する。`;
+bob: Open question: レビュー依頼の担当者は誰にする？
+alice: Action: 会議ワークスペースから議事録生成を接続する。`;
+
+const messageLabels: Record<string, string> = {
+  "AI response did not match the expected minutes schema.": "AI応答が想定された議事録形式に一致しませんでした。",
+  "GitHub integration is not connected.": "GitHub連携が未接続です。",
+  "GitHub Issue marker search failed.": "GitHub Issueマーカー検索に失敗しました。",
+  "GitHub issue may have been created. Reconciliation is required.": "GitHub Issueが作成済みの可能性があります。照合が必要です。",
+  "Meeting text includes sensitive content that must be reviewed before AI generation.": "会議ログに機密性の高い内容が含まれています。AI生成前にレビューしてください。",
+  "Multiple GitHub Issue marker matches were found.": "GitHub Issueマーカー候補が複数見つかりました。",
+  "OpenAI API key is not configured.": "OpenAI APIキーが未設定です。",
+  "OpenAI request failed before a response was received.": "OpenAIから応答を受け取る前にリクエストが失敗しました。",
+  "OpenAI request failed. Retry later or check integration settings.": "OpenAIリクエストに失敗しました。時間を置いて再試行するか、連携設定を確認してください。",
+  "OpenAI request was rate limited. Retry after the provider limit resets.": "OpenAIのレート制限に達しました。制限解除後に再試行してください。",
+  "OpenAPI validation could not be completed.": "OpenAPI検証を完了できませんでした。",
+  "Reconciliation required.": "照合が必要です。",
+  "Validation failed": "入力内容の検証に失敗しました。",
+};
+
+const statusLabels: Record<string, string> = {
+  action_required: "対応必要",
+  approved: "承認済み",
+  blocked: "ブロック中",
+  clear: "通過",
+  draft: "ドラフト",
+  failed: "失敗",
+  generating: "生成中",
+  in_review: "レビュー中",
+  invalid: "検証失敗",
+  needs_changes: "修正必要",
+  open: "未対応",
+  pending: "未対応",
+  publish_failed: "公開失敗",
+  published: "公開済み",
+  publishing: "公開中",
+  manually_reconciled: "手動照合済み",
+  reconciliation_required: "照合必要",
+  resolved: "解決済み",
+  retry_approved: "再試行承認済み",
+  running: "実行中",
+  saved: "保存済み",
+  succeeded: "成功",
+  valid: "検証済み",
+};
+
+const targetLabels: Record<string, string> = {
+  issue_draft: "Issueドラフト",
+  minutes: "議事録",
+  openapi_draft: "OpenAPIドラフト",
+  requirement: "要件定義",
+};
+
+function displayMessage(message?: string) {
+  if (!message) return "";
+  return messageLabels[message] ?? message;
+}
+
+function statusLabel(status?: string, fallback = "未生成") {
+  if (!status) return fallback;
+  return statusLabels[status] ?? status;
+}
+
+function targetLabel(target?: string) {
+  if (!target) return "-";
+  return targetLabels[target] ?? target;
+}
+
+function yesNoLabel(value: boolean) {
+  return value ? "はい" : "いいえ";
+}
 
 function today() {
   return new Date().toISOString().slice(0, 10);
@@ -61,7 +129,7 @@ function compactLines(value: string) {
 
 function errorMessage(error: unknown) {
   const payload = error as ApiErrorPayload;
-  return payload.error?.message ?? "API request failed.";
+  return displayMessage(payload.error?.message) || "APIリクエストに失敗しました。";
 }
 
 function errorJobId(error: unknown) {
@@ -106,10 +174,10 @@ export default function MeetingWorkspace() {
 
   const [projectName, setProjectName] = useState("AI議事録プラットフォーム");
   const [projectRepo, setProjectRepo] = useState("Kazuya-Sakashita/ai-pm-platform");
-  const [meetingTitle, setMeetingTitle] = useState("Discord Product Sync");
+  const [meetingTitle, setMeetingTitle] = useState("Discordプロダクト同期");
   const [meetingDate, setMeetingDate] = useState(today());
   const [sourceType, setSourceType] = useState<MeetingSourceType>("discord_log");
-  const [participants, setParticipants] = useState("Kazuya, Product, Engineering");
+  const [participants, setParticipants] = useState("Kazuya, プロダクト, エンジニアリング");
   const [rawText, setRawText] = useState(defaultLog);
 
   const [summaryDraft, setSummaryDraft] = useState("");
@@ -151,7 +219,7 @@ export default function MeetingWorkspace() {
 
   function setApiError(message: string) {
     setError(message);
-    setStatusMessage("API error");
+    setStatusMessage("APIエラー");
   }
 
   async function loadProjects() {
@@ -168,7 +236,7 @@ export default function MeetingWorkspace() {
     const loadedProjects = data.data;
     setProjects(loadedProjects);
     setSelectedProjectId((current) => current || loadedProjects[0]?.id || "");
-    setStatusMessage(loadedProjects.length > 0 ? "Projects loaded" : "Project未作成");
+    setStatusMessage(loadedProjects.length > 0 ? "プロジェクトを読み込みました" : "プロジェクト未作成");
   }
 
   async function loadMeetings(projectId: string) {
@@ -193,7 +261,7 @@ export default function MeetingWorkspace() {
       body: {
         name: projectName,
         github_repo: projectRepo,
-        description: "AI PM Platform MVP workspace",
+        description: "AI PM Platform MVPワークスペース",
       },
     });
     setLoading(false);
@@ -205,12 +273,12 @@ export default function MeetingWorkspace() {
 
     setProjects((current) => [data.data, ...current]);
     setSelectedProjectId(data.data.id);
-    setStatusMessage("Project created");
+    setStatusMessage("プロジェクトを作成しました");
   }
 
   async function createMeeting() {
     if (!selectedProjectId) {
-      setApiError("Projectを先に作成または選択してください。");
+      setApiError("プロジェクトを先に作成または選択してください。");
       return;
     }
 
@@ -243,18 +311,18 @@ export default function MeetingWorkspace() {
     clearRequirementDrafts();
     clearIssueDrafts();
     clearOpenApiDrafts();
-    setStatusMessage("Meeting saved");
+    setStatusMessage("会議を保存しました");
   }
 
   async function generateMinutes() {
     if (!selectedMeeting) {
-      setApiError("Meetingを先に保存してください。");
+      setApiError("会議を先に保存してください。");
       return;
     }
 
     setLoading(true);
     setError("");
-    setStatusMessage("Minutes generating");
+    setStatusMessage("議事録を生成中");
     const { data, error: apiError } = await apiClient.POST("/meetings/{meeting_id}/generate-minutes", {
       params: { path: { meeting_id: selectedMeeting.id } },
     });
@@ -300,12 +368,12 @@ export default function MeetingWorkspace() {
     const job = data.data;
     setLastJob(job);
     if (job.status === "failed") {
-      setApiError(job.safe_error_detail ?? "Minutes generation failed.");
+      setApiError(displayMessage(job.safe_error_detail) || "議事録生成に失敗しました。");
       return;
     }
 
     if (!job.target_id) {
-      setStatusMessage("Minutes job finished without target_id");
+      setStatusMessage("議事録生成ジョブは完了しましたが、対象IDがありません");
       return;
     }
 
@@ -325,12 +393,12 @@ export default function MeetingWorkspace() {
     clearRequirementDrafts();
     clearIssueDrafts();
     clearOpenApiDrafts();
-    setStatusMessage("Minutes generated");
+    setStatusMessage("議事録を生成しました");
   }
 
   async function saveMinutes() {
     if (!minutes) {
-      setApiError("保存するMinutesがありません。");
+      setApiError("保存する議事録がありません。");
       return;
     }
 
@@ -353,12 +421,12 @@ export default function MeetingWorkspace() {
     }
 
     applyMinutes(data.data);
-    setStatusMessage("Minutes saved");
+    setStatusMessage("議事録を保存しました");
   }
 
   async function approveMinutes() {
     if (!minutes) {
-      setApiError("承認するMinutesがありません。");
+      setApiError("承認する議事録がありません。");
       return;
     }
 
@@ -375,18 +443,18 @@ export default function MeetingWorkspace() {
     }
 
     applyMinutes(data.data);
-    setStatusMessage("Minutes approved");
+    setStatusMessage("議事録を承認しました");
   }
 
   async function generateRequirement() {
     if (!minutes) {
-      setApiError("Requirement生成対象のMinutesがありません。");
+      setApiError("要件定義の生成対象となる議事録がありません。");
       return;
     }
 
     setLoading(true);
     setError("");
-    setStatusMessage("Requirements generating");
+    setStatusMessage("要件定義を生成中");
     const { data, error: apiError } = await apiClient.POST("/minutes/{minutes_id}/generate-requirement", {
       params: { path: { minutes_id: minutes.id } },
     });
@@ -415,12 +483,12 @@ export default function MeetingWorkspace() {
     const job = data.data;
     setLastJob(job);
     if (job.status === "failed") {
-      setApiError(job.safe_error_detail ?? "Requirement generation failed.");
+      setApiError(displayMessage(job.safe_error_detail) || "要件定義生成に失敗しました。");
       return;
     }
 
     if (!job.target_id) {
-      setStatusMessage("Requirement job finished without target_id");
+      setStatusMessage("要件定義生成ジョブは完了しましたが、対象IDがありません");
       return;
     }
 
@@ -434,12 +502,12 @@ export default function MeetingWorkspace() {
     }
 
     applyRequirement(requirementResult.data.data);
-    setStatusMessage("Requirements generated");
+    setStatusMessage("要件定義を生成しました");
   }
 
   async function saveRequirement() {
     if (!requirement) {
-      setApiError("保存するRequirementがありません。");
+      setApiError("保存する要件定義がありません。");
       return;
     }
 
@@ -467,12 +535,12 @@ export default function MeetingWorkspace() {
     }
 
     applyRequirement(data.data);
-    setStatusMessage("Requirements saved");
+    setStatusMessage("要件定義を保存しました");
   }
 
   async function approveRequirement() {
     if (!requirement) {
-      setApiError("承認するRequirementがありません。");
+      setApiError("承認する要件定義がありません。");
       return;
     }
 
@@ -489,18 +557,18 @@ export default function MeetingWorkspace() {
     }
 
     applyRequirement(data.data);
-    setStatusMessage("Requirements approved");
+    setStatusMessage("要件定義を承認しました");
   }
 
   async function generateIssueDraft() {
     if (!requirement) {
-      setApiError("Issue Draft生成対象のRequirementがありません。");
+      setApiError("Issueドラフトの生成対象となる要件定義がありません。");
       return;
     }
 
     setLoading(true);
     setError("");
-    setStatusMessage("Issue draft generating");
+    setStatusMessage("Issueドラフトを生成中");
     const { data, error: apiError } = await apiClient.POST("/requirements/{requirement_id}/generate-issue-draft", {
       params: { path: { requirement_id: requirement.id } },
     });
@@ -529,12 +597,12 @@ export default function MeetingWorkspace() {
     const job = data.data;
     setLastJob(job);
     if (job.status === "failed") {
-      setApiError(job.safe_error_detail ?? "Issue draft generation failed.");
+      setApiError(displayMessage(job.safe_error_detail) || "Issueドラフト生成に失敗しました。");
       return;
     }
 
     if (!job.target_id) {
-      setStatusMessage("Issue draft job finished without target_id");
+      setStatusMessage("Issueドラフト生成ジョブは完了しましたが、対象IDがありません");
       return;
     }
 
@@ -548,12 +616,12 @@ export default function MeetingWorkspace() {
     }
 
     applyIssueDraft(issueDraftResult.data.data);
-    setStatusMessage("Issue draft generated");
+    setStatusMessage("Issueドラフトを生成しました");
   }
 
   async function saveIssueDraft() {
     if (!issueDraft) {
-      setApiError("保存するIssue Draftがありません。");
+      setApiError("保存するIssueドラフトがありません。");
       return;
     }
 
@@ -576,12 +644,12 @@ export default function MeetingWorkspace() {
     }
 
     applyIssueDraft(data.data);
-    setStatusMessage("Issue draft saved");
+    setStatusMessage("Issueドラフトを保存しました");
   }
 
   async function approveIssueDraft() {
     if (!issueDraft) {
-      setApiError("承認するIssue Draftがありません。");
+      setApiError("承認するIssueドラフトがありません。");
       return;
     }
 
@@ -605,12 +673,12 @@ export default function MeetingWorkspace() {
     }
 
     applyIssueDraft(data.data);
-    setStatusMessage("Issue draft approved");
+    setStatusMessage("Issueドラフトを承認しました");
   }
 
   async function publishIssueDraft() {
     if (!issueDraft) {
-      setApiError("公開するIssue Draftがありません。");
+      setApiError("公開するIssueドラフトがありません。");
       return;
     }
 
@@ -636,7 +704,7 @@ export default function MeetingWorkspace() {
       return;
     }
 
-    setStatusMessage(data.data.status === "published" ? "GitHub issue published" : "GitHub issue publishing");
+    setStatusMessage(data.data.status === "published" ? "GitHub Issueを公開しました" : "GitHub Issueを公開中");
   }
 
   async function refreshIssueDraft(issueDraftId: string) {
@@ -655,13 +723,13 @@ export default function MeetingWorkspace() {
 
   async function reconcileGitHubPublish() {
     if (!issueDraft) {
-      setApiError("復旧確認するIssue Draftがありません。");
+      setApiError("復旧確認するIssueドラフトがありません。");
       return;
     }
 
     setLoading(true);
     setError("");
-    setStatusMessage("GitHub reconciliation running");
+    setStatusMessage("GitHub公開を照合中");
     const idempotencyKey = `github-reconcile-${issueDraft.id}-${Date.now()}`;
     const { data, error: apiError } = await apiClient.POST("/issue-drafts/{issue_draft_id}/reconcile-github-publish", {
       params: {
@@ -681,18 +749,18 @@ export default function MeetingWorkspace() {
     await loadJob(data.data.job_id);
     await refreshIssueDraft(issueDraft.id);
     setLoading(false);
-    setStatusMessage(data.data.status === "reconciled" ? "GitHub reconciliation resolved" : "GitHub reconciliation review required");
+    setStatusMessage(data.data.status === "reconciled" ? "GitHub公開の照合が完了しました" : "GitHub公開の照合に確認が必要です");
   }
 
   async function resolveGitHubReconciliation(resolutionAction: GitHubReconciliationAction) {
     if (!issueDraft) {
-      setApiError("復旧処理するIssue Draftがありません。");
+      setApiError("復旧処理するIssueドラフトがありません。");
       return;
     }
 
     const resolutionNote = reconciliationNote.trim();
     if (!resolutionNote) {
-      setApiError("Resolution noteを入力してください。");
+      setApiError("解決メモを入力してください。");
       return;
     }
 
@@ -706,12 +774,12 @@ export default function MeetingWorkspace() {
       const issueUrl = reconciliationIssueUrl.trim();
 
       if (!Number.isInteger(issueNumber) || issueNumber < 1) {
-        setApiError("GitHub issue numberは1以上の整数で入力してください。");
+        setApiError("GitHub Issue番号は1以上の整数で入力してください。");
         return;
       }
 
       if (!issueUrl) {
-        setApiError("GitHub issue URLを入力してください。");
+        setApiError("GitHub Issue URLを入力してください。");
         return;
       }
 
@@ -742,18 +810,18 @@ export default function MeetingWorkspace() {
     await refreshIssueDraft(issueDraft.id);
     setLoading(false);
     setReconciliationNote("");
-    setStatusMessage(data.data.status === "manually_reconciled" ? "GitHub issue linked" : "GitHub retry approved");
+    setStatusMessage(data.data.status === "manually_reconciled" ? "GitHub Issueに紐付けました" : "GitHub公開の再試行を承認しました");
   }
 
   async function generateOpenApiDraft() {
     if (!requirement) {
-      setApiError("OpenAPI Draft生成対象のRequirementがありません。");
+      setApiError("OpenAPIドラフトの生成対象となる要件定義がありません。");
       return;
     }
 
     setLoading(true);
     setError("");
-    setStatusMessage("OpenAPI draft generating");
+    setStatusMessage("OpenAPIドラフトを生成中");
     const { data, error: apiError } = await apiClient.POST("/requirements/{requirement_id}/generate-openapi-draft", {
       params: { path: { requirement_id: requirement.id } },
     });
@@ -782,12 +850,12 @@ export default function MeetingWorkspace() {
     const job = data.data;
     setLastJob(job);
     if (job.status === "failed") {
-      setApiError(job.safe_error_detail ?? "OpenAPI draft generation failed.");
+      setApiError(displayMessage(job.safe_error_detail) || "OpenAPIドラフト生成に失敗しました。");
       return;
     }
 
     if (!job.target_id) {
-      setStatusMessage("OpenAPI draft job finished without target_id");
+      setStatusMessage("OpenAPIドラフト生成ジョブは完了しましたが、対象IDがありません");
       return;
     }
 
@@ -801,12 +869,12 @@ export default function MeetingWorkspace() {
     }
 
     applyOpenApiDraft(openApiDraftResult.data.data);
-    setStatusMessage("OpenAPI draft generated");
+    setStatusMessage("OpenAPIドラフトを生成しました");
   }
 
   async function saveOpenApiDraft() {
     if (!openApiDraft) {
-      setApiError("保存するOpenAPI Draftがありません。");
+      setApiError("保存するOpenAPIドラフトがありません。");
       return;
     }
 
@@ -829,12 +897,12 @@ export default function MeetingWorkspace() {
     applyOpenApiDraft(data.data);
     setOpenApiValidation(null);
     setOpenApiReview(null);
-    setStatusMessage("OpenAPI draft saved");
+    setStatusMessage("OpenAPIドラフトを保存しました");
   }
 
   async function validateOpenApiDraft() {
     if (!openApiDraft) {
-      setApiError("検証するOpenAPI Draftがありません。");
+      setApiError("検証するOpenAPIドラフトがありません。");
       return;
     }
 
@@ -879,7 +947,7 @@ export default function MeetingWorkspace() {
 
     applyOpenApiDraft(refreshedDraft.data.data);
     await loadOpenApiReview(refreshedDraft.data.data.id);
-    setStatusMessage(validationResult.data.data.valid ? "OpenAPI validation passed" : "OpenAPI validation failed");
+    setStatusMessage(validationResult.data.data.valid ? "OpenAPI検証に成功しました" : "OpenAPI検証に失敗しました");
     setLoading(false);
   }
 
@@ -904,7 +972,7 @@ export default function MeetingWorkspace() {
 
   async function requestMinutesReview() {
     if (!minutes) {
-      setApiError("Review対象のMinutesがありません。");
+      setApiError("レビュー対象の議事録がありません。");
       return;
     }
 
@@ -916,10 +984,10 @@ export default function MeetingWorkspace() {
         target_id: minutes.id,
         reviewer_role: "Product Manager",
         framework: ["G-STACK", "ISO25010"],
-        positives: ["Minutes draft was generated and stored."],
-        improvements: ["Human review is required before generating requirements."],
-        priority: ["P0: Approve minutes before requirement generation."],
-        next_actions: ["Review summary, decisions, open questions, and action items."],
+        positives: ["議事録ドラフトが生成され、保存されている。"],
+        improvements: ["要件定義を生成する前に人間のレビューが必要。"],
+        priority: ["P0: 要件定義生成前に議事録を承認する。"],
+        next_actions: ["要約、決定事項、未解決事項、アクション項目を確認する。"],
         issue_numbers: ["#2"],
       },
     });
@@ -931,12 +999,12 @@ export default function MeetingWorkspace() {
     }
 
     setLastReview(data.data);
-    setStatusMessage("Review requested");
+    setStatusMessage("レビューを依頼しました");
   }
 
   async function requestRequirementReview() {
     if (!requirement) {
-      setApiError("Review対象のRequirementがありません。");
+      setApiError("レビュー対象の要件定義がありません。");
       return;
     }
 
@@ -948,10 +1016,10 @@ export default function MeetingWorkspace() {
         target_id: requirement.id,
         reviewer_role: "Product Manager",
         framework: ["G-STACK", "MoSCoW", "ISO25010"],
-        positives: ["Requirement draft was generated from approved minutes."],
-        improvements: ["Open questions must be resolved before GitHub Issue generation."],
-        priority: ["P0: Resolve requirement ambiguity before Issue generation."],
-        next_actions: ["Review background, goal, acceptance criteria, open questions, and risks."],
+        positives: ["承認済み議事録から要件定義ドラフトが生成されている。"],
+        improvements: ["GitHub Issue生成前に未解決事項を解消する必要がある。"],
+        priority: ["P0: Issue生成前に要件の曖昧さを解消する。"],
+        next_actions: ["背景、目的、受け入れ条件、未解決事項、リスクを確認する。"],
         issue_numbers: ["#3"],
       },
     });
@@ -963,7 +1031,7 @@ export default function MeetingWorkspace() {
     }
 
     setLastReview(data.data);
-    setStatusMessage("Requirement review requested");
+    setStatusMessage("要件レビューを依頼しました");
   }
 
   function selectMeeting(meeting: Meeting) {
@@ -976,7 +1044,7 @@ export default function MeetingWorkspace() {
     clearRequirementDrafts();
     clearIssueDrafts();
     clearOpenApiDrafts();
-    setStatusMessage("Meeting selected");
+    setStatusMessage("会議を選択しました");
   }
 
   function applyMinutes(nextMinutes: Minutes) {
@@ -1070,7 +1138,7 @@ export default function MeetingWorkspace() {
 
   return (
     <div className="app-shell">
-      <aside className="sidebar" aria-label="Primary navigation">
+      <aside className="sidebar" aria-label="主要ナビゲーション">
         <div className="brand">
           <span className="brand-mark">AP</span>
           <span>AI PM</span>
@@ -1078,27 +1146,27 @@ export default function MeetingWorkspace() {
         <nav className="nav-list">
           <a className="nav-item active" href="#meeting">
             <ClipboardList size={16} />
-            Meetings
+            会議
           </a>
           <a className="nav-item" href="#minutes">
             <FileCheck2 size={16} />
-            Minutes
+            議事録
           </a>
           <a className="nav-item" href="#requirements">
             <ListChecks size={16} />
-            Requirements
+            要件定義
           </a>
           <a className="nav-item" href="#issue-draft">
             <ClipboardList size={16} />
-            Issue Draft
+            Issueドラフト
           </a>
           <a className="nav-item" href="#openapi-draft">
             <FileCode2 size={16} />
-            OpenAPI Draft
+            OpenAPIドラフト
           </a>
           <a className="nav-item" href="#review">
             <CheckCircle2 size={16} />
-            Review
+            レビュー
           </a>
         </nav>
       </aside>
@@ -1106,13 +1174,13 @@ export default function MeetingWorkspace() {
       <main className="workspace">
         <header className="top-bar">
           <div>
-            <p className="eyebrow">Project</p>
+            <p className="eyebrow">プロジェクト</p>
             <h1>{selectedProject?.name ?? "AI議事録プラットフォーム"}</h1>
           </div>
           <div className="top-status">
-            <span className={`chip ${error ? "danger" : "success"}`}>{error ? "API error" : statusMessage}</span>
-            {lastJob ? <span className={`chip ${statusTone(lastJob.status)}`}>job {lastJob.status}</span> : null}
-            <button className="icon-button" type="button" onClick={loadProjects} aria-label="Refresh projects">
+            <span className={`chip ${error ? "danger" : "success"}`}>{error ? "APIエラー" : statusMessage}</span>
+            {lastJob ? <span className={`chip ${statusTone(lastJob.status)}`}>ジョブ {statusLabel(lastJob.status)}</span> : null}
+            <button className="icon-button" type="button" onClick={loadProjects} aria-label="プロジェクトを再読み込み">
               <RefreshCw size={16} />
             </button>
           </div>
@@ -1121,53 +1189,53 @@ export default function MeetingWorkspace() {
         <div className="main-grid">
           <section className="context-bar">
             <div>
-              <p className="eyebrow">Meeting Workspace</p>
+              <p className="eyebrow">会議ワークスペース</p>
               <h2>Discordログから議事録を生成</h2>
             </div>
             <div className="action-row">
               <button className="button secondary" type="button" onClick={saveMinutes} disabled={!minutes || loading}>
                 <Save size={16} />
-                Save
+                議事録保存
               </button>
               <button className="button secondary" type="button" onClick={saveRequirement} disabled={!requirement || loading}>
                 <Save size={16} />
-                Save Req
+                要件保存
               </button>
               <button className="button secondary" type="button" onClick={saveIssueDraft} disabled={!issueDraft || loading}>
                 <Save size={16} />
-                Save Issue
+                Issue保存
               </button>
               <button className="button secondary" type="button" onClick={approveIssueDraft} disabled={!issueDraft || loading}>
                 <CheckCircle2 size={16} />
-                Approve Issue
+                Issue承認
               </button>
               <button className="button primary" type="button" onClick={publishIssueDraft} disabled={!canPublishIssueDraft || loading}>
                 <Send size={16} />
-                Publish GitHub
+                GitHub公開
               </button>
               <button className="button secondary" type="button" onClick={saveOpenApiDraft} disabled={!openApiDraft || loading}>
                 <Save size={16} />
-                Save API
+                API保存
               </button>
               <button className="button secondary" type="button" onClick={validateOpenApiDraft} disabled={!openApiDraft || loading}>
                 <CheckCircle2 size={16} />
-                Validate API
+                API検証
               </button>
               <button className="button primary" type="button" onClick={generateMinutes} disabled={!selectedMeeting || loading}>
                 {loading ? <Loader2 className="spin" size={16} /> : <Play size={16} />}
-                Generate
+                議事録生成
               </button>
               <button className="button primary" type="button" onClick={generateRequirement} disabled={!minutes || minutes.status !== "approved" || loading}>
                 {loading ? <Loader2 className="spin" size={16} /> : <ListChecks size={16} />}
-                Requirements
+                要件生成
               </button>
               <button className="button primary" type="button" onClick={generateIssueDraft} disabled={!requirement || requirement.status !== "approved" || loading}>
                 {loading ? <Loader2 className="spin" size={16} /> : <ClipboardList size={16} />}
-                Issue Draft
+                Issue生成
               </button>
               <button className="button primary" type="button" onClick={generateOpenApiDraft} disabled={!requirement || requirement.status !== "approved" || loading}>
                 {loading ? <Loader2 className="spin" size={16} /> : <FileCode2 size={16} />}
-                OpenAPI
+                OpenAPI生成
               </button>
             </div>
           </section>
@@ -1183,23 +1251,23 @@ export default function MeetingWorkspace() {
             <div className="left-rail">
               <section className="tool-panel">
                 <div className="panel-header">
-                  <h3>Project</h3>
+                  <h3>プロジェクト</h3>
                   <span className="chip neutral">{projects.length}</span>
                 </div>
                 <label>
-                  Name
+                  名称
                   <input value={projectName} onChange={(event) => setProjectName(event.target.value)} />
                 </label>
                 <label>
-                  GitHub repo
+                  GitHubリポジトリ
                   <input value={projectRepo} onChange={(event) => setProjectRepo(event.target.value)} />
                 </label>
                 <button className="button full-width" type="button" onClick={createProject} disabled={loading}>
                   <Plus size={16} />
-                  Create Project
+                  プロジェクト作成
                 </button>
                 <select value={selectedProjectId} onChange={(event) => setSelectedProjectId(event.target.value)}>
-                  <option value="">Project未選択</option>
+                  <option value="">プロジェクト未選択</option>
                   {projects.map((project) => (
                     <option key={project.id} value={project.id}>
                       {project.name}
@@ -1210,7 +1278,7 @@ export default function MeetingWorkspace() {
 
               <section className="tool-panel">
                 <div className="panel-header">
-                  <h3>Meetings</h3>
+                  <h3>会議</h3>
                   <span className="chip neutral">{meetings.length}</span>
                 </div>
                 <div className="meeting-list">
@@ -1225,154 +1293,154 @@ export default function MeetingWorkspace() {
                       <span>{formatDateTime(meeting.created_at)}</span>
                     </button>
                   ))}
-                  {meetings.length === 0 ? <p className="empty">Meetingなし</p> : null}
+                  {meetings.length === 0 ? <p className="empty">会議なし</p> : null}
                 </div>
               </section>
             </div>
 
             <section className="tool-panel transcript-panel" id="meeting">
               <div className="panel-header">
-                <h3>Transcript</h3>
-                <span className={`chip ${selectedMeeting ? "success" : "neutral"}`}>{selectedMeeting ? "saved" : "draft"}</span>
+                <h3>会議ログ</h3>
+                <span className={`chip ${selectedMeeting ? "success" : "neutral"}`}>{selectedMeeting ? statusLabel("saved") : statusLabel("draft")}</span>
               </div>
               <div className="form-grid">
                 <label>
-                  Title
+                  タイトル
                   <input value={meetingTitle} onChange={(event) => setMeetingTitle(event.target.value)} />
                 </label>
                 <label>
-                  Date
+                  日付
                   <input type="date" value={meetingDate} onChange={(event) => setMeetingDate(event.target.value)} />
                 </label>
                 <label>
-                  Source
+                  入力元
                   <select value={sourceType} onChange={(event) => setSourceType(event.target.value as MeetingSourceType)}>
-                    <option value="discord_log">Discord log</option>
-                    <option value="manual">Manual</option>
-                    <option value="transcript">Transcript</option>
+                    <option value="discord_log">Discordログ</option>
+                    <option value="manual">手動入力</option>
+                    <option value="transcript">文字起こし</option>
                   </select>
                 </label>
               </div>
               <label>
-                Participants
+                参加者
                 <input value={participants} onChange={(event) => setParticipants(event.target.value)} />
               </label>
               <label className="fill">
-                Raw text
+                原文ログ
                 <textarea value={rawText} onChange={(event) => setRawText(event.target.value)} />
               </label>
               <button className="button full-width" type="button" onClick={createMeeting} disabled={loading}>
                 <Database size={16} />
-                Save Meeting
+                会議を保存
               </button>
             </section>
 
             <section className="tool-panel minutes-panel" id="minutes">
               <div className="panel-header">
-                <h3>Minutes editor</h3>
-                <span className={`chip ${statusTone(minutes?.status)}`}>{minutes?.status ?? "not generated"}</span>
+                <h3>議事録エディタ</h3>
+                <span className={`chip ${statusTone(minutes?.status)}`}>{statusLabel(minutes?.status)}</span>
               </div>
               <label>
-                Summary
+                要約
                 <textarea className="summary-editor" value={summaryDraft} onChange={(event) => setSummaryDraft(event.target.value)} />
               </label>
               <div className="editor-columns">
                 <label>
-                  Decisions
+                  決定事項
                   <textarea value={decisionsDraft} onChange={(event) => setDecisionsDraft(event.target.value)} />
                 </label>
                 <label>
-                  Open questions
+                  未解決事項
                   <textarea value={questionsDraft} onChange={(event) => setQuestionsDraft(event.target.value)} />
                 </label>
               </div>
               <label className="fill">
-                Action items
+                アクション項目
                 <textarea value={actionsDraft} onChange={(event) => setActionsDraft(event.target.value)} />
               </label>
             </section>
 
             <aside className="inspector" id="review">
               <div className="panel-header">
-                <h3>Review gate</h3>
+                <h3>レビューゲート</h3>
                 <span className={`chip ${minutes?.status === "approved" ? "success" : "danger"}`}>
-                  {minutes?.status === "approved" ? "clear" : "blocked"}
+                  {minutes?.status === "approved" ? statusLabel("clear") : statusLabel("blocked")}
                 </span>
               </div>
               <div className="gate-stack">
                 <div className="gate-row">
                   <CircleDot size={16} />
-                  <span>Meeting saved</span>
-                  <strong>{selectedMeeting ? "yes" : "no"}</strong>
+                  <span>会議保存</span>
+                  <strong>{yesNoLabel(Boolean(selectedMeeting))}</strong>
                 </div>
                 <div className="gate-row">
                   <CircleDot size={16} />
-                  <span>Minutes generated</span>
-                  <strong>{minutes ? "yes" : "no"}</strong>
+                  <span>議事録生成</span>
+                  <strong>{yesNoLabel(Boolean(minutes))}</strong>
                 </div>
                 <div className="gate-row">
                   <CircleDot size={16} />
-                  <span>Review requested</span>
-                  <strong>{lastReview ? "yes" : "no"}</strong>
+                  <span>レビュー依頼</span>
+                  <strong>{yesNoLabel(Boolean(lastReview))}</strong>
                 </div>
                 <div className="gate-row">
                   <CircleDot size={16} />
-                  <span>Requirements generated</span>
-                  <strong>{requirement ? "yes" : "no"}</strong>
+                  <span>要件定義生成</span>
+                  <strong>{yesNoLabel(Boolean(requirement))}</strong>
                 </div>
                 <div className="gate-row">
                   <CircleDot size={16} />
-                  <span>Requirements approved</span>
-                  <strong>{requirement?.status === "approved" ? "yes" : "no"}</strong>
+                  <span>要件定義承認</span>
+                  <strong>{yesNoLabel(requirement?.status === "approved")}</strong>
                 </div>
                 <div className="gate-row">
                   <CircleDot size={16} />
-                  <span>Issue draft generated</span>
-                  <strong>{issueDraft ? "yes" : "no"}</strong>
+                  <span>Issueドラフト生成</span>
+                  <strong>{yesNoLabel(Boolean(issueDraft))}</strong>
                 </div>
                 <div className="gate-row">
                   <CircleDot size={16} />
-                  <span>Issue draft approved</span>
-                  <strong>{issueDraft?.status === "approved" || issueDraft?.status === "published" ? "approved" : issueDraft?.status === "publish_failed" ? "failed" : "pending"}</strong>
+                  <span>Issueドラフト承認</span>
+                  <strong>{issueDraft?.status === "approved" || issueDraft?.status === "published" ? statusLabel("approved") : issueDraft?.status === "publish_failed" ? statusLabel("failed") : statusLabel("pending")}</strong>
                 </div>
                 <div className="gate-row">
                   <CircleDot size={16} />
-                  <span>OpenAPI draft generated</span>
-                  <strong>{openApiDraft ? "yes" : "no"}</strong>
+                  <span>OpenAPIドラフト生成</span>
+                  <strong>{yesNoLabel(Boolean(openApiDraft))}</strong>
                 </div>
                 <div className="gate-row">
                   <CircleDot size={16} />
-                  <span>OpenAPI validated</span>
-                  <strong>{openApiDraft?.status === "valid" || openApiDraft?.status === "approved" ? "valid" : openApiDraft?.status === "invalid" ? "invalid" : "pending"}</strong>
+                  <span>OpenAPI検証</span>
+                  <strong>{openApiDraft?.status === "valid" || openApiDraft?.status === "approved" ? statusLabel("valid") : openApiDraft?.status === "invalid" ? statusLabel("invalid") : statusLabel("pending")}</strong>
                 </div>
                 <div className="gate-row">
                   <CircleDot size={16} />
-                  <span>OpenAPI blocker</span>
-                  <strong>{openApiReview ? openApiReview.status : "clear"}</strong>
+                  <span>OpenAPIブロッカー</span>
+                  <strong>{openApiReview ? statusLabel(openApiReview.status) : statusLabel("clear")}</strong>
                 </div>
                 <div className="gate-row">
                   <CircleDot size={16} />
-                  <span>GitHub issue published</span>
-                  <strong>{issueDraft?.github_issue_url ? "published" : issueDraft?.status === "publish_failed" ? "failed" : "pending"}</strong>
+                  <span>GitHub Issue公開</span>
+                  <strong>{issueDraft?.github_issue_url ? statusLabel("published") : issueDraft?.status === "publish_failed" ? statusLabel("failed") : statusLabel("pending")}</strong>
                 </div>
               </div>
               <button className="button full-width" type="button" onClick={requestMinutesReview} disabled={!minutes || loading}>
                 <Send size={16} />
-                Request Review
+                レビュー依頼
               </button>
               <button className="button primary full-width" type="button" onClick={approveMinutes} disabled={!minutes || loading}>
                 <CheckCircle2 size={16} />
-                Approve Minutes
+                議事録を承認
               </button>
               <div className="audit-box">
-                <strong>Latest job</strong>
-                <span>{lastJob ? `${lastJob.status} / ${lastJob.target_type}` : "-"}</span>
-                <strong>Model</strong>
+                <strong>最新ジョブ</strong>
+                <span>{lastJob ? `${statusLabel(lastJob.status)} / ${targetLabel(lastJob.target_type)}` : "-"}</span>
+                <strong>モデル</strong>
                 <span>{requirement?.generated_by_model ?? minutes?.generated_by_model ?? "-"}</span>
-                <strong>Review</strong>
-                <span>{lastReview ? `${lastReview.status} / ${lastReview.reviewer_role}` : "-"}</span>
-                <strong>API blocker</strong>
-                <span>{openApiReview ? `${openApiReview.status} / ${openApiReview.reviewer_role}` : "-"}</span>
+                <strong>レビュー</strong>
+                <span>{lastReview ? `${statusLabel(lastReview.status)} / ${lastReview.reviewer_role}` : "-"}</span>
+                <strong>APIブロッカー</strong>
+                <span>{openApiReview ? `${statusLabel(openApiReview.status)} / ${openApiReview.reviewer_role}` : "-"}</span>
               </div>
             </aside>
           </section>
@@ -1380,64 +1448,64 @@ export default function MeetingWorkspace() {
           <section className="tool-panel requirement-panel" id="requirements">
             <div className="panel-header">
               <div>
-                <p className="eyebrow">Requirement Workspace</p>
-                <h3>Requirement draft</h3>
+                <p className="eyebrow">要件定義ワークスペース</p>
+                <h3>要件定義ドラフト</h3>
               </div>
-              <span className={`chip ${statusTone(requirement?.status)}`}>{requirement?.status ?? "not generated"}</span>
+              <span className={`chip ${statusTone(requirement?.status)}`}>{statusLabel(requirement?.status)}</span>
             </div>
             <div className="requirement-actions">
               <button className="button primary" type="button" onClick={generateRequirement} disabled={!minutes || minutes.status !== "approved" || loading}>
                 <ListChecks size={16} />
-                Generate Requirements
+                要件定義を生成
               </button>
               <button className="button secondary" type="button" onClick={saveRequirement} disabled={!requirement || loading}>
                 <Save size={16} />
-                Save Requirements
+                要件定義を保存
               </button>
               <button className="button primary" type="button" onClick={approveRequirement} disabled={!requirement || loading}>
                 <CheckCircle2 size={16} />
-                Approve Requirements
+                要件定義を承認
               </button>
               <button className="button" type="button" onClick={requestRequirementReview} disabled={!requirement || loading}>
                 <Send size={16} />
-                Request Requirement Review
+                要件レビュー依頼
               </button>
             </div>
             <div className="requirement-editor-grid">
               <label>
-                Background
+                背景
                 <textarea value={requirementBackgroundDraft} onChange={(event) => setRequirementBackgroundDraft(event.target.value)} />
               </label>
               <label>
-                Goal
+                目的
                 <textarea value={requirementGoalDraft} onChange={(event) => setRequirementGoalDraft(event.target.value)} />
               </label>
               <label>
-                User stories
+                ユーザーストーリー
                 <textarea value={userStoriesDraft} onChange={(event) => setUserStoriesDraft(event.target.value)} />
               </label>
               <label>
-                Functional requirements
+                機能要件
                 <textarea value={functionalRequirementsDraft} onChange={(event) => setFunctionalRequirementsDraft(event.target.value)} />
               </label>
               <label>
-                Non-functional requirements
+                非機能要件
                 <textarea value={nonFunctionalRequirementsDraft} onChange={(event) => setNonFunctionalRequirementsDraft(event.target.value)} />
               </label>
               <label>
-                Acceptance criteria
+                受け入れ条件
                 <textarea value={acceptanceCriteriaDraft} onChange={(event) => setAcceptanceCriteriaDraft(event.target.value)} />
               </label>
               <label>
-                Out of scope
+                スコープ外
                 <textarea value={outOfScopeDraft} onChange={(event) => setOutOfScopeDraft(event.target.value)} />
               </label>
               <label>
-                Open questions
+                未解決事項
                 <textarea value={requirementOpenQuestionsDraft} onChange={(event) => setRequirementOpenQuestionsDraft(event.target.value)} />
               </label>
               <label>
-                Risks
+                リスク
                 <textarea value={risksDraft} onChange={(event) => setRisksDraft(event.target.value)} />
               </label>
             </div>
@@ -1446,68 +1514,68 @@ export default function MeetingWorkspace() {
           <section className="tool-panel issue-draft-panel" id="issue-draft">
             <div className="panel-header">
               <div>
-                <p className="eyebrow">Issue Draft</p>
-                <h3>GitHub issue draft</h3>
+                <p className="eyebrow">Issueドラフト</p>
+                <h3>GitHub Issueドラフト</h3>
               </div>
-              <span className={`chip ${statusTone(issueDraft?.status)}`}>{issueDraft?.status ?? "not generated"}</span>
+              <span className={`chip ${statusTone(issueDraft?.status)}`}>{statusLabel(issueDraft?.status)}</span>
             </div>
             <div className="requirement-actions">
               <button className="button primary" type="button" onClick={generateIssueDraft} disabled={!requirement || requirement.status !== "approved" || loading}>
                 <ClipboardList size={16} />
-                Generate Issue Draft
+                Issueドラフトを生成
               </button>
               <button className="button secondary" type="button" onClick={saveIssueDraft} disabled={!issueDraft || loading}>
                 <Save size={16} />
-                Save Issue Draft
+                Issueドラフトを保存
               </button>
               <button className="button secondary" type="button" onClick={approveIssueDraft} disabled={!issueDraft || loading}>
                 <CheckCircle2 size={16} />
-                Approve Issue Draft
+                Issueドラフトを承認
               </button>
               <button className="button primary" type="button" onClick={publishIssueDraft} disabled={!canPublishIssueDraft || loading}>
                 <Send size={16} />
-                Publish GitHub Issue
+                GitHub Issueへ公開
               </button>
             </div>
             <div className="issue-editor-grid">
               <label>
-                Issue title
+                Issueタイトル
                 <input value={issueTitleDraft} onChange={(event) => setIssueTitleDraft(event.target.value)} />
               </label>
               <label>
-                Labels
+                ラベル
                 <input value={issueLabelsDraft} onChange={(event) => setIssueLabelsDraft(event.target.value)} />
               </label>
               <label className="issue-body-field">
-                Issue body
+                Issue本文
                 <textarea value={issueBodyDraft} onChange={(event) => setIssueBodyDraft(event.target.value)} />
               </label>
               <label>
-                Issue acceptance criteria
+                Issue受け入れ条件
                 <textarea value={issueAcceptanceDraft} onChange={(event) => setIssueAcceptanceDraft(event.target.value)} />
               </label>
             </div>
             {issueDraft?.publish_error ? (
               <div className="validation-panel danger">
                 <div className="panel-header">
-                  <h3>Publish blocked</h3>
-                  <span className="chip danger">{issueDraft.status}</span>
+                  <h3>公開ブロック</h3>
+                  <span className="chip danger">{statusLabel(issueDraft.status)}</span>
                 </div>
                 <div className="validation-row">
                   <strong>GitHub</strong>
-                  <span>integration</span>
-                  <p>{issueDraft.publish_error}</p>
+                  <span>連携</span>
+                  <p>{displayMessage(issueDraft.publish_error)}</p>
                 </div>
                 {hasPendingGitHubReconciliation ? (
                   <>
                     <div className="validation-row warning">
-                      <strong>Reconciliation</strong>
-                      <span>{issueDraft.github_reconciliation?.status}</span>
-                      <p>{issueDraft.github_reconciliation?.safe_error_detail}</p>
+                      <strong>照合</strong>
+                      <span>{statusLabel(issueDraft.github_reconciliation?.status)}</span>
+                      <p>{displayMessage(issueDraft.github_reconciliation?.safe_error_detail)}</p>
                     </div>
-                    <div className="reconciliation-grid" aria-label="GitHub reconciliation controls">
+                    <div className="reconciliation-grid" aria-label="GitHub公開照合コントロール">
                       <label>
-                        GitHub issue number
+                        GitHub Issue番号
                         <input
                           inputMode="numeric"
                           value={reconciliationIssueNumber}
@@ -1515,18 +1583,18 @@ export default function MeetingWorkspace() {
                         />
                       </label>
                       <label>
-                        GitHub issue URL
+                        GitHub Issue URL
                         <input value={reconciliationIssueUrl} onChange={(event) => setReconciliationIssueUrl(event.target.value)} />
                       </label>
                       <label className="reconciliation-note">
-                        Resolution note
+                        解決メモ
                         <textarea value={reconciliationNote} onChange={(event) => setReconciliationNote(event.target.value)} />
                       </label>
                     </div>
                     <div className="reconciliation-actions">
                       <button className="button secondary" type="button" onClick={reconcileGitHubPublish} disabled={!hasPendingGitHubReconciliation || loading}>
                         <RefreshCw size={16} />
-                        Search Marker
+                        マーカー検索
                       </button>
                       <button
                         className="button secondary"
@@ -1535,7 +1603,7 @@ export default function MeetingWorkspace() {
                         disabled={!hasPendingGitHubReconciliation || loading}
                       >
                         <CheckCircle2 size={16} />
-                        Link Issue
+                        既存Issueに紐付け
                       </button>
                       <button
                         className="button primary"
@@ -1544,23 +1612,23 @@ export default function MeetingWorkspace() {
                         disabled={!hasPendingGitHubReconciliation || loading}
                       >
                         <Send size={16} />
-                        Approve Retry
+                        再試行を承認
                       </button>
                     </div>
                   </>
                 ) : (
                   <div className="validation-row warning">
-                    <strong>Reconciliation</strong>
-                    <span>not pending</span>
-                    <p>No pending GitHub reconciliation attempt.</p>
+                    <strong>照合</strong>
+                    <span>照合待ちなし</span>
+                    <p>保留中のGitHub照合はありません。</p>
                   </div>
                 )}
               </div>
             ) : issueDraft?.github_issue_url ? (
               <div className="validation-panel success">
                 <div className="panel-header">
-                  <h3>GitHub issue</h3>
-                  <span className="chip success">published</span>
+                  <h3>GitHub Issue</h3>
+                  <span className="chip success">公開済み</span>
                 </div>
                 <div className="validation-row warning">
                   <strong>#{issueDraft.github_issue_number}</strong>
@@ -1578,28 +1646,28 @@ export default function MeetingWorkspace() {
           <section className="tool-panel openapi-draft-panel" id="openapi-draft">
             <div className="panel-header">
               <div>
-                <p className="eyebrow">OpenAPI Draft</p>
-                <h3>API contract draft</h3>
+                <p className="eyebrow">OpenAPIドラフト</p>
+                <h3>API契約ドラフト</h3>
               </div>
-              <span className={`chip ${statusTone(openApiDraft?.status)}`}>{openApiDraft?.status ?? "not generated"}</span>
+              <span className={`chip ${statusTone(openApiDraft?.status)}`}>{statusLabel(openApiDraft?.status)}</span>
             </div>
             <div className="requirement-actions">
               <button className="button primary" type="button" onClick={generateOpenApiDraft} disabled={!requirement || requirement.status !== "approved" || loading}>
                 <FileCode2 size={16} />
-                Generate OpenAPI Draft
+                OpenAPIドラフトを生成
               </button>
               <button className="button secondary" type="button" onClick={saveOpenApiDraft} disabled={!openApiDraft || loading}>
                 <Save size={16} />
-                Save OpenAPI Draft
+                OpenAPIドラフトを保存
               </button>
               <button className="button secondary" type="button" onClick={validateOpenApiDraft} disabled={!openApiDraft || loading}>
                 <CheckCircle2 size={16} />
-                Validate OpenAPI
+                OpenAPIを検証
               </button>
             </div>
             <div className="openapi-editor-grid">
               <label>
-                OpenAPI title
+                OpenAPIタイトル
                 <input value={openApiTitleDraft} onChange={(event) => setOpenApiTitleDraft(event.target.value)} />
               </label>
               <label className="openapi-content-field">
@@ -1617,15 +1685,15 @@ export default function MeetingWorkspace() {
             {openApiReview ? (
               <div className={`validation-panel ${openApiReview.status === "action_required" ? "danger" : "success"}`}>
                 <div className="panel-header">
-                  <h3>Review blocker</h3>
-                  <span className={`chip ${openApiReview.status === "action_required" ? "danger" : "success"}`}>{openApiReview.status}</span>
+                  <h3>レビューブロッカー</h3>
+                  <span className={`chip ${openApiReview.status === "action_required" ? "danger" : "success"}`}>{statusLabel(openApiReview.status)}</span>
                 </div>
                 <div className="validation-list">
                   {openApiReview.improvements.map((message) => (
                     <div className="validation-row" key={message}>
                       <strong>{openApiReview.reviewer_role}</strong>
-                      <span>{openApiReview.status}</span>
-                      <p>{message}</p>
+                      <span>{statusLabel(openApiReview.status)}</span>
+                      <p>{displayMessage(message)}</p>
                     </div>
                   ))}
                 </div>
@@ -1634,9 +1702,9 @@ export default function MeetingWorkspace() {
             {openApiValidation ? (
               <div className={`validation-panel ${openApiValidation.valid ? "success" : "danger"}`}>
                 <div className="panel-header">
-                  <h3>{openApiValidation.valid ? "Validation passed" : "Validation failed"}</h3>
+                  <h3>{openApiValidation.valid ? "検証成功" : "検証失敗"}</h3>
                   <span className={`chip ${openApiValidation.valid ? "success" : "danger"}`}>
-                    {openApiValidation.errors.length} errors / {openApiValidation.warnings.length} warnings
+                    エラー{openApiValidation.errors.length}件 / 警告{openApiValidation.warnings.length}件
                   </span>
                 </div>
                 {openApiValidation.errors.length > 0 ? (
@@ -1645,7 +1713,7 @@ export default function MeetingWorkspace() {
                       <div className="validation-row" key={`${issue.path}-${issue.code ?? issue.message}`}>
                         <strong>{issue.path}</strong>
                         <span>{issue.code ?? issue.severity}</span>
-                        <p>{issue.message}</p>
+                        <p>{displayMessage(issue.message)}</p>
                       </div>
                     ))}
                   </div>
@@ -1656,7 +1724,7 @@ export default function MeetingWorkspace() {
                       <div className="validation-row warning" key={`${issue.path}-${issue.code ?? issue.message}`}>
                         <strong>{issue.path}</strong>
                         <span>{issue.code ?? issue.severity}</span>
-                        <p>{issue.message}</p>
+                        <p>{displayMessage(issue.message)}</p>
                       </div>
                     ))}
                   </div>
@@ -1665,15 +1733,15 @@ export default function MeetingWorkspace() {
             ) : openApiDraft?.validation_errors && openApiDraft.validation_errors.length > 0 ? (
               <div className="validation-panel danger">
                 <div className="panel-header">
-                  <h3>Saved validation errors</h3>
-                  <span className="chip danger">{openApiDraft.validation_errors.length} errors</span>
+                  <h3>保存済み検証エラー</h3>
+                  <span className="chip danger">エラー{openApiDraft.validation_errors.length}件</span>
                 </div>
                 <div className="validation-list">
                   {openApiDraft.validation_errors.map((message) => (
                     <div className="validation-row" key={message}>
-                      <strong>saved</strong>
-                      <span>error</span>
-                      <p>{message}</p>
+                      <strong>保存済み</strong>
+                      <span>エラー</span>
+                      <p>{displayMessage(message)}</p>
                     </div>
                   ))}
                 </div>
