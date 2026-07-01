@@ -78,7 +78,4 @@
 - `npm run frontend:build`: success
 - `bundle exec rspec spec/requests/api/v1/issue_drafts_spec.rb`: 19 examples, 0 failures
 - `npm run frontend:e2e`: 11 passed
-- `bundle exec rspec`: 124 examples, 0 failures
 - `git diff --check`: success
-- `bundle exec ruby bin/rails zeitwerk:check`: All is good
-- `npm audit --omit=dev`: 0 vulnerabilities
