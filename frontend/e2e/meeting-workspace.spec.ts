@@ -517,6 +517,29 @@ test.describe("Meeting Workspace", () => {
     await expect(page.locator("#issue-draft").getByRole("button", { name: "既存Issueに紐付け" })).toHaveCount(0);
   });
 
+  test("shows validation errors before linking an existing GitHub Issue", async ({ page }) => {
+    await mockPendingGitHubReconciliationWorkflow(page, {
+      resolutionAction: "link_existing_issue",
+      resolutionNote: "Validate manual link input before submitting.",
+    });
+    await openPendingGitHubReconciliationDraft(page);
+
+    await page.locator("#issue-draft").getByLabel("解決メモ").fill("Validate manual link input before submitting.");
+    await page.locator("#issue-draft").getByLabel("GitHub Issue番号").fill("0");
+    await page.locator("#issue-draft").getByRole("button", { name: "既存Issueに紐付け" }).click();
+
+    await expect(page.locator("section[role='alert']")).toContainText("GitHub Issue番号は1以上の整数で入力してください。");
+    await expect(page.locator("header").getByText("GitHub Issueに紐付けました")).toHaveCount(0);
+
+    await page.locator("#issue-draft").getByLabel("GitHub Issue番号").fill("42");
+    await page.locator("#issue-draft").getByLabel("GitHub Issue URL").fill("");
+    await page.locator("#issue-draft").getByRole("button", { name: "既存Issueに紐付け" }).click();
+
+    await expect(page.locator("section[role='alert']")).toContainText("GitHub Issue URLを入力してください。");
+    await expect(page.locator("#issue-draft").getByText("公開ブロック")).toBeVisible();
+    await expect(page.locator("#issue-draft").getByRole("button", { name: "既存Issueに紐付け" })).toBeVisible();
+  });
+
   test("blocks secret-like content and surfaces the failed generation job", async ({ page, request }) => {
     await expectApiHealth(request);
     const stamp = Date.now();
