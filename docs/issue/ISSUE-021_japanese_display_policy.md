@@ -51,10 +51,11 @@ AI PM Platformは日本語で運用されるプロジェクト管理・議事録
 ## 関連レビュー
 
 - `docs/review/20260701_japanese_display_policy_review.md`
+- `docs/review/20260701_japanese_ui_glossary_review.md`
 
 ## レビュー結果
 
-2026-07-01にCodex一次レビューを実施。日本語表示ポリシーとして妥当だが、実UIの棚卸し、UI用語集、Playwright確認、API safe detailの日本語化範囲整理が未完了。
+2026-07-01にCodex一次レビューを実施。日本語表示ポリシーとして妥当。追加で日本語UI用語集を作成し、主要ステータス、ボタン、ラベル、エラー文言テンプレートを整理した。実UIの棚卸し、表示変換helper/map、Playwright確認、API safe detailの日本語化範囲整理は未完了。
 
 ## 優先度
 
@@ -69,7 +70,7 @@ P1
 ## 次アクション
 
 - 現在のFrontend表示文言を棚卸しする
-- ユーザー向け文言と内部識別子の境界をADRまたはproduct docへ記録する
+- UI表示変換helper/mapを設計する
 - 主要画面のボタン、ラベル、エラー、空状態を日本語化する
 - Playwrightで主要表示文言を確認する
 - 日本語表示レビューを `docs/review/` に保存する
@@ -77,3 +78,4 @@ P1
 ## 関連ドキュメント
 
 - `docs/product/20260701_japanese_display_policy.md`
+- `docs/product/20260701_japanese_ui_glossary.md`
