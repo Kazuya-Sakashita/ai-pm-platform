@@ -659,6 +659,20 @@ export interface components {
         };
         /** @enum {string} */
         IssueDraftStatus: "draft" | "in_review" | "needs_changes" | "approved" | "publishing" | "published" | "publish_failed";
+        GitHubReconciliationStatus: {
+            pending: boolean;
+            /** Format: uuid */
+            attempt_id?: string;
+            /** @enum {string} */
+            status?: "reconciliation_required";
+            safe_error_code?: string;
+            safe_error_detail?: string;
+            github_issue_number?: number;
+            /** Format: uri */
+            github_issue_url?: string;
+            /** Format: date-time */
+            completed_at?: string;
+        };
         IssueDraft: {
             /** Format: uuid */
             id: string;
@@ -672,6 +686,7 @@ export interface components {
             github_issue_number?: number;
             github_issue_url?: string;
             publish_error?: string;
+            github_reconciliation?: components["schemas"]["GitHubReconciliationStatus"];
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */

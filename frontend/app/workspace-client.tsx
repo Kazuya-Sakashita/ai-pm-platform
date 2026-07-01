@@ -1010,8 +1010,14 @@ export default function MeetingWorkspace() {
     setIssueBodyDraft(nextIssueDraft.body);
     setIssueAcceptanceDraft(linesToText(nextIssueDraft.acceptance_criteria));
     setIssueLabelsDraft(linesToText(nextIssueDraft.labels));
-    setReconciliationIssueNumber(nextIssueDraft.github_issue_number ? String(nextIssueDraft.github_issue_number) : "");
-    setReconciliationIssueUrl(nextIssueDraft.github_issue_url ?? "");
+    setReconciliationIssueNumber(
+      nextIssueDraft.github_reconciliation?.github_issue_number
+        ? String(nextIssueDraft.github_reconciliation.github_issue_number)
+        : nextIssueDraft.github_issue_number
+          ? String(nextIssueDraft.github_issue_number)
+          : "",
+    );
+    setReconciliationIssueUrl(nextIssueDraft.github_reconciliation?.github_issue_url ?? nextIssueDraft.github_issue_url ?? "");
   }
 
   function applyOpenApiDraft(nextOpenApiDraft: OpenApiDraft) {
@@ -1060,6 +1066,7 @@ export default function MeetingWorkspace() {
     issueDraft?.status === "approved" &&
     (openApiDraft?.status === "valid" || openApiDraft?.status === "approved") &&
     openApiReview?.status !== "action_required";
+  const hasPendingGitHubReconciliation = issueDraft?.github_reconciliation?.pending === true;
 
   return (
     <div className="app-shell">
@@ -1491,38 +1498,63 @@ export default function MeetingWorkspace() {
                   <span>integration</span>
                   <p>{issueDraft.publish_error}</p>
                 </div>
-                <div className="reconciliation-grid" aria-label="GitHub reconciliation controls">
-                  <label>
-                    GitHub issue number
-                    <input
-                      inputMode="numeric"
-                      value={reconciliationIssueNumber}
-                      onChange={(event) => setReconciliationIssueNumber(event.target.value)}
-                    />
-                  </label>
-                  <label>
-                    GitHub issue URL
-                    <input value={reconciliationIssueUrl} onChange={(event) => setReconciliationIssueUrl(event.target.value)} />
-                  </label>
-                  <label className="reconciliation-note">
-                    Resolution note
-                    <textarea value={reconciliationNote} onChange={(event) => setReconciliationNote(event.target.value)} />
-                  </label>
-                </div>
-                <div className="reconciliation-actions">
-                  <button className="button secondary" type="button" onClick={reconcileGitHubPublish} disabled={!issueDraft || loading}>
-                    <RefreshCw size={16} />
-                    Search Marker
-                  </button>
-                  <button className="button secondary" type="button" onClick={() => resolveGitHubReconciliation("link_existing_issue")} disabled={!issueDraft || loading}>
-                    <CheckCircle2 size={16} />
-                    Link Issue
-                  </button>
-                  <button className="button primary" type="button" onClick={() => resolveGitHubReconciliation("approve_retry")} disabled={!issueDraft || loading}>
-                    <Send size={16} />
-                    Approve Retry
-                  </button>
-                </div>
+                {hasPendingGitHubReconciliation ? (
+                  <>
+                    <div className="validation-row warning">
+                      <strong>Reconciliation</strong>
+                      <span>{issueDraft.github_reconciliation?.status}</span>
+                      <p>{issueDraft.github_reconciliation?.safe_error_detail}</p>
+                    </div>
+                    <div className="reconciliation-grid" aria-label="GitHub reconciliation controls">
+                      <label>
+                        GitHub issue number
+                        <input
+                          inputMode="numeric"
+                          value={reconciliationIssueNumber}
+                          onChange={(event) => setReconciliationIssueNumber(event.target.value)}
+                        />
+                      </label>
+                      <label>
+                        GitHub issue URL
+                        <input value={reconciliationIssueUrl} onChange={(event) => setReconciliationIssueUrl(event.target.value)} />
+                      </label>
+                      <label className="reconciliation-note">
+                        Resolution note
+                        <textarea value={reconciliationNote} onChange={(event) => setReconciliationNote(event.target.value)} />
+                      </label>
+                    </div>
+                    <div className="reconciliation-actions">
+                      <button className="button secondary" type="button" onClick={reconcileGitHubPublish} disabled={!hasPendingGitHubReconciliation || loading}>
+                        <RefreshCw size={16} />
+                        Search Marker
+                      </button>
+                      <button
+                        className="button secondary"
+                        type="button"
+                        onClick={() => resolveGitHubReconciliation("link_existing_issue")}
+                        disabled={!hasPendingGitHubReconciliation || loading}
+                      >
+                        <CheckCircle2 size={16} />
+                        Link Issue
+                      </button>
+                      <button
+                        className="button primary"
+                        type="button"
+                        onClick={() => resolveGitHubReconciliation("approve_retry")}
+                        disabled={!hasPendingGitHubReconciliation || loading}
+                      >
+                        <Send size={16} />
+                        Approve Retry
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="validation-row warning">
+                    <strong>Reconciliation</strong>
+                    <span>not pending</span>
+                    <p>No pending GitHub reconciliation attempt.</p>
+                  </div>
+                )}
               </div>
             ) : issueDraft?.github_issue_url ? (
               <div className="validation-panel success">

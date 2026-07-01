@@ -48,6 +48,46 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
 
       expect(response).to have_http_status(:ok)
       expect(JSON.parse(response.body).dig("data", "id")).to eq(issue_draft.id)
+      expect(JSON.parse(response.body).dig("data", "github_reconciliation", "pending")).to be(false)
+    end
+
+    it "returns the latest pending GitHub reconciliation attempt summary" do
+      issue_draft = create(:issue_draft, status: "publish_failed", publish_error: "Reconciliation required.")
+      project = issue_draft.requirement.minute.meeting.project
+      create(
+        :github_issue_publish_attempt,
+        issue_draft: issue_draft,
+        project: project,
+        status: "failed",
+        safe_error_code: "github_integration_not_connected",
+        safe_error_detail: "GitHub integration is not connected."
+      )
+      attempt = create(
+        :github_issue_publish_attempt,
+        issue_draft: issue_draft,
+        project: project,
+        status: "reconciliation_required",
+        safe_error_code: "github_publish_reconciliation_required",
+        safe_error_detail: "GitHub issue may have been created. Reconciliation is required.",
+        github_issue_number: 42,
+        github_issue_url: "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/42",
+        completed_at: Time.current
+      )
+
+      get "/api/v1/issue-drafts/#{issue_draft.id}"
+
+      expect(response).to have_http_status(:ok)
+      reconciliation = JSON.parse(response.body).dig("data", "github_reconciliation")
+      expect(reconciliation).to include(
+        "pending" => true,
+        "attempt_id" => attempt.id,
+        "status" => "reconciliation_required",
+        "safe_error_code" => "github_publish_reconciliation_required",
+        "safe_error_detail" => "GitHub issue may have been created. Reconciliation is required.",
+        "github_issue_number" => 42,
+        "github_issue_url" => "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/42"
+      )
+      expect(reconciliation).not_to have_key("idempotency_digest")
     end
   end
 

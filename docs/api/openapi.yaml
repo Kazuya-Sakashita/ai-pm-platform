@@ -1316,6 +1316,31 @@ components:
       type: string
       enum: [draft, in_review, needs_changes, approved, publishing, published, publish_failed]
 
+    GitHubReconciliationStatus:
+      type: object
+      required: [pending]
+      properties:
+        pending:
+          type: boolean
+        attempt_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [reconciliation_required]
+        safe_error_code:
+          type: string
+        safe_error_detail:
+          type: string
+        github_issue_number:
+          type: integer
+        github_issue_url:
+          type: string
+          format: uri
+        completed_at:
+          type: string
+          format: date-time
+
     IssueDraft:
       type: object
       required: [id, requirement_id, status, title, body, acceptance_criteria, labels, created_at, updated_at]
@@ -1346,6 +1371,8 @@ components:
           type: string
         publish_error:
           type: string
+        github_reconciliation:
+          $ref: "#/components/schemas/GitHubReconciliationStatus"
         created_at:
           type: string
           format: date-time

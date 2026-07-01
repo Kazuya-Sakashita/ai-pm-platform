@@ -224,12 +224,9 @@ test.describe("Meeting Workspace", () => {
     await expect(page.locator("section[role='alert']")).toContainText("GitHub integration is not connected.");
     await expect(page.locator("#issue-draft").getByText("Publish blocked")).toBeVisible();
     await expect(page.locator("#issue-draft .validation-panel", { hasText: "Publish blocked" }).locator(".chip")).toHaveText("publish_failed");
-    await expect(page.locator("#issue-draft").getByLabel("GitHub issue number")).toBeVisible();
-    await expect(page.locator("#issue-draft").getByLabel("GitHub issue URL")).toBeVisible();
-    await expect(page.locator("#issue-draft").getByLabel("Resolution note")).toBeVisible();
-    await expect(page.locator("#issue-draft").getByRole("button", { name: "Search Marker" })).toBeVisible();
-    await expect(page.locator("#issue-draft").getByRole("button", { name: "Link Issue" })).toBeVisible();
-    await expect(page.locator("#issue-draft").getByRole("button", { name: "Approve Retry" })).toBeVisible();
+    await expect(page.locator("#issue-draft").getByText("not pending")).toBeVisible();
+    await expect(page.locator("#issue-draft").getByLabel("GitHub issue number")).toHaveCount(0);
+    await expect(page.locator("#issue-draft").getByRole("button", { name: "Search Marker" })).toHaveCount(0);
   });
 
   test("shows validation errors when required meeting fields are missing", async ({ page, request }) => {
