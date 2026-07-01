@@ -1745,10 +1745,31 @@ components:
             review_id:
               type: string
               format: uuid
+            matches:
+              type: array
+              items:
+                $ref: "#/components/schemas/GitHubReconciliationMatch"
             github_issue_number:
               type: integer
             github_issue_url:
               type: string
+
+    GitHubReconciliationMatch:
+      type: object
+      required: [github_issue_number, github_issue_url, github_repository]
+      properties:
+        github_issue_number:
+          type: integer
+          minimum: 1
+        github_issue_url:
+          type: string
+          format: uri
+        github_repository:
+          type: string
+        github_issue_api_id:
+          type: integer
+        github_issue_node_id:
+          type: string
 
     ResolveGitHubReconciliationRequest:
       type: object

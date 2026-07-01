@@ -239,9 +239,22 @@ module Api
           attempt_id: attempt.id,
           match_count: result.matches.count,
           review_id: result.review&.id,
+          matches: reconciliation_matches(result.matches, attempt),
           github_issue_number: issue_draft.github_issue_number,
           github_issue_url: issue_draft.github_issue_url
         }.compact
+      end
+
+      def reconciliation_matches(matches, attempt)
+        matches.map do |match|
+          {
+            github_issue_number: match.fetch(:github_issue_number),
+            github_issue_url: match.fetch(:github_issue_url),
+            github_repository: match.fetch(:github_repository, attempt.github_repository),
+            github_issue_api_id: match[:github_issue_api_id],
+            github_issue_node_id: match[:github_issue_node_id]
+          }.compact
+        end
       end
 
       def manual_reconciliation_response(result, attempt, job)

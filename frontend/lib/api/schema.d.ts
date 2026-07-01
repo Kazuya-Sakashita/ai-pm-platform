@@ -855,9 +855,18 @@ export interface components {
                 match_count: number;
                 /** Format: uuid */
                 review_id?: string;
+                matches?: components["schemas"]["GitHubReconciliationMatch"][];
                 github_issue_number?: number;
                 github_issue_url?: string;
             };
+        };
+        GitHubReconciliationMatch: {
+            github_issue_number: number;
+            /** Format: uri */
+            github_issue_url: string;
+            github_repository: string;
+            github_issue_api_id?: number;
+            github_issue_node_id?: string;
         };
         ResolveGitHubReconciliationRequest: {
             /** Format: uuid */

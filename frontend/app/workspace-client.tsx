@@ -32,6 +32,7 @@ type Job = components["schemas"]["Job"];
 type Review = components["schemas"]["Review"];
 type MeetingSourceType = components["schemas"]["MeetingSourceType"];
 type GitHubReconciliationAction = components["schemas"]["ResolveGitHubReconciliationRequest"]["resolution_action"];
+type GitHubReconciliationMatch = components["schemas"]["GitHubReconciliationMatch"];
 
 type ApiErrorPayload = {
   error?: {
@@ -133,6 +134,7 @@ export default function MeetingWorkspace() {
   const [reconciliationIssueNumber, setReconciliationIssueNumber] = useState("");
   const [reconciliationIssueUrl, setReconciliationIssueUrl] = useState("");
   const [reconciliationNote, setReconciliationNote] = useState("");
+  const [reconciliationMatches, setReconciliationMatches] = useState<GitHubReconciliationMatch[]>([]);
   const [openApiTitleDraft, setOpenApiTitleDraft] = useState("");
   const [openApiContentDraft, setOpenApiContentDraft] = useState("");
 
@@ -662,6 +664,7 @@ export default function MeetingWorkspace() {
 
     setLoading(true);
     setError("");
+    setReconciliationMatches([]);
     setStatusMessage("GitHub公開を照合中");
     const idempotencyKey = `github-reconcile-${issueDraft.id}-${Date.now()}`;
     const { data, error: apiError } = await apiClient.POST("/issue-drafts/{issue_draft_id}/reconcile-github-publish", {
@@ -681,6 +684,7 @@ export default function MeetingWorkspace() {
 
     await loadJob(data.data.job_id);
     await refreshIssueDraft(issueDraft.id);
+    setReconciliationMatches(data.data.status === "review_required" ? (data.data.matches ?? []) : []);
     setLoading(false);
     setStatusMessage(data.data.status === "reconciled" ? "GitHub公開の照合が完了しました" : "GitHub公開の照合に確認が必要です");
   }
@@ -743,6 +747,7 @@ export default function MeetingWorkspace() {
     await refreshIssueDraft(issueDraft.id);
     setLoading(false);
     setReconciliationNote("");
+    setReconciliationMatches([]);
     setStatusMessage(data.data.status === "manually_reconciled" ? "GitHub Issueに紐付けました" : "GitHub公開の再試行を承認しました");
   }
 
@@ -1019,6 +1024,14 @@ export default function MeetingWorkspace() {
           : "",
     );
     setReconciliationIssueUrl(nextIssueDraft.github_reconciliation?.github_issue_url ?? nextIssueDraft.github_issue_url ?? "");
+    setReconciliationMatches([]);
+  }
+
+  function selectReconciliationMatch(match: GitHubReconciliationMatch) {
+    setReconciliationIssueNumber(String(match.github_issue_number));
+    setReconciliationIssueUrl(match.github_issue_url);
+    setReconciliationNote((current) => current || `マーカー検索候補 #${match.github_issue_number} を選択しました。`);
+    setStatusMessage(`GitHub Issue #${match.github_issue_number} を候補として選択しました`);
   }
 
   function applyOpenApiDraft(nextOpenApiDraft: OpenApiDraft) {
@@ -1054,6 +1067,7 @@ export default function MeetingWorkspace() {
     setReconciliationIssueNumber("");
     setReconciliationIssueUrl("");
     setReconciliationNote("");
+    setReconciliationMatches([]);
   }
 
   function clearOpenApiDrafts() {
@@ -1524,6 +1538,31 @@ export default function MeetingWorkspace() {
                         <textarea value={reconciliationNote} onChange={(event) => setReconciliationNote(event.target.value)} />
                       </label>
                     </div>
+                    {reconciliationMatches.length > 0 ? (
+                      <div className="reconciliation-candidates" aria-label="GitHub Issue候補">
+                        <div className="panel-header">
+                          <h3>候補Issue</h3>
+                          <span className="chip warning">{reconciliationMatches.length}件</span>
+                        </div>
+                        <div className="candidate-list">
+                          {reconciliationMatches.map((match) => (
+                            <div className="candidate-row" key={`${match.github_repository}-${match.github_issue_number}`}>
+                              <div>
+                                <strong>#{match.github_issue_number}</strong>
+                                <span>{match.github_repository}</span>
+                                <a className="github-link" href={match.github_issue_url} target="_blank" rel="noreferrer">
+                                  {match.github_issue_url}
+                                </a>
+                              </div>
+                              <button className="button secondary" type="button" onClick={() => selectReconciliationMatch(match)} disabled={loading}>
+                                <CheckCircle2 size={16} />
+                                候補を選択
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                     <div className="reconciliation-actions">
                       <button className="button secondary" type="button" onClick={reconcileGitHubPublish} disabled={!hasPendingGitHubReconciliation || loading}>
                         <RefreshCw size={16} />

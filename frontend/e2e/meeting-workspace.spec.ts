@@ -13,10 +13,19 @@ test.describe("Meeting Workspace", () => {
     requestId?: string;
   };
   type ReconciliationResolutionAction = "approve_retry" | "link_existing_issue";
+  type ReconciliationMatch = {
+    github_issue_number: number;
+    github_issue_url: string;
+    github_repository: string;
+    github_issue_api_id?: number;
+    github_issue_node_id?: string;
+  };
   type ReconciliationScenario = {
     resolutionAction: ReconciliationResolutionAction;
     resolutionNote: string;
+    expectedGithubIssueNumber?: number;
     expectedGithubIssueUrl?: string;
+    markerSearchMatches?: ReconciliationMatch[];
     apiError?: {
       code: string;
       message: string;
@@ -130,6 +139,7 @@ test.describe("Meeting Workspace", () => {
     const now = new Date().toISOString();
     const githubIssueNumber = 42;
     const githubIssueUrl = "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/42";
+    const expectedGithubIssueNumber = scenario.expectedGithubIssueNumber ?? githubIssueNumber;
     const expectedGithubIssueUrl = scenario.expectedGithubIssueUrl ?? githubIssueUrl;
     let reconciliationResolved = false;
 
@@ -214,8 +224,8 @@ test.describe("Meeting Workspace", () => {
       ...pendingIssueDraft,
       status: "published",
       publish_error: undefined,
-      github_issue_number: githubIssueNumber,
-      github_issue_url: githubIssueUrl,
+      github_issue_number: expectedGithubIssueNumber,
+      github_issue_url: expectedGithubIssueUrl,
       github_reconciliation: { pending: false },
     };
 
@@ -275,7 +285,7 @@ test.describe("Meeting Workspace", () => {
           ? {
               resolution_action: "link_existing_issue",
               resolution_note: scenario.resolutionNote,
-              github_issue_number: githubIssueNumber,
+              github_issue_number: expectedGithubIssueNumber,
               github_issue_url: expectedGithubIssueUrl,
             }
           : {
@@ -312,8 +322,28 @@ test.describe("Meeting Workspace", () => {
             job_id: "job-retry-github-reconciliation",
             status: scenario.resolutionAction === "link_existing_issue" ? "manually_reconciled" : "retry_approved",
             attempt_id: "attempt-github-reconciliation",
-            github_issue_number: scenario.resolutionAction === "link_existing_issue" ? githubIssueNumber : undefined,
-            github_issue_url: scenario.resolutionAction === "link_existing_issue" ? githubIssueUrl : undefined,
+            github_issue_number: scenario.resolutionAction === "link_existing_issue" ? expectedGithubIssueNumber : undefined,
+            github_issue_url: scenario.resolutionAction === "link_existing_issue" ? expectedGithubIssueUrl : undefined,
+          },
+        }),
+      });
+    });
+
+    await page.route(`**/api/v1/issue-drafts/${pendingIssueDraft.id}/reconcile-github-publish`, async (route) => {
+      const matches = scenario.markerSearchMatches ?? [];
+      await route.fulfill({
+        status: 202,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: {
+            job_id: "job-marker-github-reconciliation",
+            status: matches.length === 1 ? "reconciled" : "review_required",
+            attempt_id: "attempt-github-reconciliation",
+            match_count: matches.length,
+            review_id: "review-github-reconciliation",
+            matches,
+            github_issue_number: matches.length === 1 ? matches[0].github_issue_number : undefined,
+            github_issue_url: matches.length === 1 ? matches[0].github_issue_url : undefined,
           },
         }),
       });
@@ -325,6 +355,7 @@ test.describe("Meeting Workspace", () => {
         "job-minutes-github-reconciliation": { targetType: "minutes", targetId: minutes.id, jobType: "ai_generation" },
         "job-requirement-github-reconciliation": { targetType: "requirement", targetId: requirement.id, jobType: "ai_generation" },
         "job-issue-github-reconciliation": { targetType: "issue_draft", targetId: pendingIssueDraft.id, jobType: "ai_generation" },
+        "job-marker-github-reconciliation": { targetType: "issue_draft", targetId: pendingIssueDraft.id, jobType: "github_reconciliation" },
         "job-retry-github-reconciliation": { targetType: "issue_draft", targetId: pendingIssueDraft.id, jobType: "github_reconciliation" },
         "job-link-github-reconciliation-failed": { targetType: "issue_draft", targetId: pendingIssueDraft.id, jobType: "github_reconciliation" },
       };
@@ -547,6 +578,55 @@ test.describe("Meeting Workspace", () => {
     await expect(page.locator("#issue-draft").getByText("https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/42")).toBeVisible();
     await expect(page.locator("#issue-draft").getByText("公開ブロック")).toHaveCount(0);
     await expect(page.locator("#issue-draft").getByRole("button", { name: "既存Issueに紐付け" })).toHaveCount(0);
+  });
+
+  test("selects a GitHub Issue candidate from marker search results", async ({ page }) => {
+    await mockPendingGitHubReconciliationWorkflow(page, {
+      resolutionAction: "link_existing_issue",
+      resolutionNote: "マーカー検索候補 #43 を選択しました。",
+      expectedGithubIssueNumber: 43,
+      expectedGithubIssueUrl: "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/43",
+      markerSearchMatches: [
+        {
+          github_issue_number: 42,
+          github_issue_url: "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/42",
+          github_repository: "Kazuya-Sakashita/ai-pm-platform",
+          github_issue_api_id: 420,
+          github_issue_node_id: "I_kwCANDIDATE_42",
+        },
+        {
+          github_issue_number: 43,
+          github_issue_url: "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/43",
+          github_repository: "Kazuya-Sakashita/ai-pm-platform",
+          github_issue_api_id: 430,
+          github_issue_node_id: "I_kwCANDIDATE_43",
+        },
+      ],
+    });
+    await openPendingGitHubReconciliationDraft(page);
+
+    await page.locator("#issue-draft").getByRole("button", { name: "マーカー検索" }).click();
+
+    await expect(page.locator("header").getByText("GitHub公開の照合に確認が必要です")).toBeVisible();
+    await expect(page.locator("#issue-draft").getByRole("heading", { name: "候補Issue" })).toBeVisible();
+    await expect(page.locator("#issue-draft").getByText("2件")).toBeVisible();
+    await expect(page.locator("#issue-draft").getByText("https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/43")).toBeVisible();
+
+    const candidate = page.locator("#issue-draft .candidate-row", { hasText: "#43" });
+    await candidate.getByRole("button", { name: "候補を選択" }).click();
+
+    await expect(page.locator("header").getByText("GitHub Issue #43 を候補として選択しました")).toBeVisible();
+    await expect(page.locator("#issue-draft").getByLabel("GitHub Issue番号")).toHaveValue("43");
+    await expect(page.locator("#issue-draft").getByRole("textbox", { name: "GitHub Issue URL", exact: true })).toHaveValue(
+      "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/43",
+    );
+    await expect(page.locator("#issue-draft").getByLabel("解決メモ")).toHaveValue("マーカー検索候補 #43 を選択しました。");
+
+    await page.locator("#issue-draft").getByRole("button", { name: "既存Issueに紐付け" }).click();
+
+    await expect(page.locator("header").getByText("GitHub Issueに紐付けました")).toBeVisible();
+    await expect(page.locator("#issue-draft").getByText("https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/43")).toBeVisible();
+    await expect(page.locator("#issue-draft").getByText("公開ブロック")).toHaveCount(0);
   });
 
   test("shows validation errors before linking an existing GitHub Issue", async ({ page }) => {

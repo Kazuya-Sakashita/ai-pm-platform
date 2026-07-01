@@ -275,6 +275,63 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
       expect(review.status).to eq("action_required")
     end
 
+    it "returns candidate matches when marker search finds multiple issues" do
+      issue_draft = create(:issue_draft, status: "publish_failed", publish_error: "Reconciliation required.")
+      project = issue_draft.requirement.minute.meeting.project
+      attempt = create(
+        :github_issue_publish_attempt,
+        issue_draft: issue_draft,
+        project: project,
+        status: "reconciliation_required",
+        idempotency_digest: Digest::SHA256.hexdigest("publish-key-candidates")
+      )
+      matches = [
+        {
+          github_issue_number: 42,
+          github_issue_url: "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/42",
+          github_repository: "Kazuya-Sakashita/ai-pm-platform",
+          github_issue_api_id: 420,
+          github_issue_node_id: "I_kwCANDIDATE_42"
+        },
+        {
+          github_issue_number: 43,
+          github_issue_url: "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/43",
+          github_repository: "Kazuya-Sakashita/ai-pm-platform",
+          github_issue_api_id: 430,
+          github_issue_node_id: "I_kwCANDIDATE_43"
+        }
+      ]
+      allow(GithubIssuePublish::MarkerSearchClient).to receive(:new).and_return(
+        instance_double(GithubIssuePublish::MarkerSearchClient, search: matches)
+      )
+
+      post "/api/v1/issue-drafts/#{issue_draft.id}/reconcile-github-publish"
+
+      expect(response).to have_http_status(:accepted)
+      body = JSON.parse(response.body)
+      expect(body.dig("data", "status")).to eq("review_required")
+      expect(body.dig("data", "attempt_id")).to eq(attempt.id)
+      expect(body.dig("data", "match_count")).to eq(2)
+      expect(body.dig("data", "matches")).to contain_exactly(
+        include(
+          "github_issue_number" => 42,
+          "github_issue_url" => "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/42",
+          "github_repository" => "Kazuya-Sakashita/ai-pm-platform",
+          "github_issue_api_id" => 420,
+          "github_issue_node_id" => "I_kwCANDIDATE_42"
+        ),
+        include(
+          "github_issue_number" => 43,
+          "github_issue_url" => "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/43",
+          "github_repository" => "Kazuya-Sakashita/ai-pm-platform",
+          "github_issue_api_id" => 430,
+          "github_issue_node_id" => "I_kwCANDIDATE_43"
+        )
+      )
+      expect(issue_draft.reload.status).to eq("publish_failed")
+      expect(attempt.reload.status).to eq("reconciliation_required")
+    end
+
     it "blocks when no reconciliation attempt is pending" do
       issue_draft = create(:issue_draft, status: "approved")
 

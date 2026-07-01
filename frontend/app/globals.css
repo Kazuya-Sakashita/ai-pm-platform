@@ -385,6 +385,48 @@ textarea {
   gap: 8px;
 }
 
+.reconciliation-candidates {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: white;
+}
+
+.candidate-list {
+  display: grid;
+  gap: 8px;
+}
+
+.candidate-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--amber);
+  border-radius: 6px;
+  background: var(--surface-alt);
+}
+
+.candidate-row div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.candidate-row strong {
+  color: var(--text);
+}
+
+.candidate-row span {
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
 .github-link {
   color: var(--blue);
   overflow-wrap: anywhere;
@@ -625,6 +667,10 @@ textarea {
   }
 
   .validation-row {
+    grid-template-columns: 1fr;
+  }
+
+  .candidate-row {
     grid-template-columns: 1fr;
   }
 }
