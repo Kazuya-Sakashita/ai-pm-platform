@@ -454,6 +454,28 @@ paths:
         "424":
           $ref: "#/components/responses/IntegrationNotConnected"
 
+  /issue-drafts/{issue_draft_id}/reconcile-github-publish:
+    post:
+      tags: [IssueDrafts]
+      summary: Reconcile a GitHub Issue publish attempt by marker search
+      operationId: reconcileGitHubIssuePublish
+      parameters:
+        - $ref: "#/components/parameters/IssueDraftId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "202":
+          description: Reconciliation completed or requires human review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReconcileGitHubIssueResponse"
+        "409":
+          $ref: "#/components/responses/ReviewRequired"
+        "424":
+          $ref: "#/components/responses/IntegrationNotConnected"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
   /openapi-drafts/{openapi_draft_id}:
     get:
       tags: [OpenApiDrafts]
@@ -1596,7 +1618,7 @@ components:
           format: uuid
         job_type:
           type: string
-          enum: [ai_generation, github_publish, github_connect, validation]
+          enum: [ai_generation, github_publish, github_reconciliation, github_connect, validation]
         status:
           type: string
           enum: [queued, running, succeeded, failed, cancelled]
@@ -1639,6 +1661,34 @@ components:
             status:
               type: string
               enum: [publishing, published]
+            github_issue_number:
+              type: integer
+            github_issue_url:
+              type: string
+
+    ReconcileGitHubIssueResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [job_id, status, attempt_id, match_count]
+          properties:
+            job_id:
+              type: string
+              format: uuid
+            status:
+              type: string
+              enum: [reconciled, review_required]
+            attempt_id:
+              type: string
+              format: uuid
+            match_count:
+              type: integer
+              minimum: 0
+            review_id:
+              type: string
+              format: uuid
             github_issue_number:
               type: integer
             github_issue_url:

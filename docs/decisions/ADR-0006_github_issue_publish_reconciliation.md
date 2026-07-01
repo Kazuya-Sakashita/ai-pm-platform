@@ -223,6 +223,6 @@ Permission, revoked installation, repository mismatch, and missing Issues write 
 - [Done 2026-07-01] exact matchなら自動reconcileするserviceを追加する。
 - [Done 2026-07-01] 0件/複数件はReview blockerを作成する。
 - [Done 2026-07-01] reconciliation結果をAuditLogへ保存する。
-- reconciler実行job/APIを追加する。
+- [Done 2026-07-01] reconciler実行job/APIを追加する。
 - Review blockerから手動紐付け/controlled retryを実装する。
 - Playwrightまたはrequest specで「同じdraftを二重publishしない」導線を追加する。

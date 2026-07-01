@@ -166,4 +166,117 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
       expect(job.safe_error_detail).to eq("GitHub integration is not connected.")
     end
   end
+
+  describe "POST /api/v1/issue-drafts/:id/reconcile-github-publish" do
+    it "reconciles the latest pending publish attempt" do
+      issue_draft = create(:issue_draft, status: "publish_failed", publish_error: "Reconciliation required.")
+      project = issue_draft.requirement.minute.meeting.project
+      attempt = create(
+        :github_issue_publish_attempt,
+        issue_draft: issue_draft,
+        project: project,
+        status: "reconciliation_required",
+        idempotency_digest: Digest::SHA256.hexdigest("publish-key-1")
+      )
+      search_client = instance_double(
+        GithubIssuePublish::MarkerSearchClient,
+        search: [
+          {
+            github_issue_number: 42,
+            github_issue_url: "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/42",
+            github_repository: "Kazuya-Sakashita/ai-pm-platform",
+            github_issue_api_id: 420,
+            github_issue_node_id: "I_kwRECONCILE"
+          }
+        ]
+      )
+      allow(GithubIssuePublish::MarkerSearchClient).to receive(:new).and_return(search_client)
+
+      post "/api/v1/issue-drafts/#{issue_draft.id}/reconcile-github-publish"
+
+      expect(response).to have_http_status(:accepted)
+      body = JSON.parse(response.body)
+      expect(body.dig("data", "status")).to eq("reconciled")
+      expect(body.dig("data", "attempt_id")).to eq(attempt.id)
+      expect(body.dig("data", "match_count")).to eq(1)
+      expect(body.dig("data", "github_issue_number")).to eq(42)
+      expect(issue_draft.reload.status).to eq("published")
+      expect(attempt.reload.status).to eq("reconciled")
+      job = Job.find(body.dig("data", "job_id"))
+      expect(job.job_type).to eq("github_reconciliation")
+      expect(job.status).to eq("succeeded")
+    end
+
+    it "returns a review blocker when reconciliation is ambiguous" do
+      issue_draft = create(:issue_draft, status: "publish_failed", publish_error: "Reconciliation required.")
+      project = issue_draft.requirement.minute.meeting.project
+      attempt = create(
+        :github_issue_publish_attempt,
+        issue_draft: issue_draft,
+        project: project,
+        status: "reconciliation_required",
+        idempotency_digest: Digest::SHA256.hexdigest("publish-key-2")
+      )
+      allow(GithubIssuePublish::MarkerSearchClient).to receive(:new).and_return(
+        instance_double(GithubIssuePublish::MarkerSearchClient, search: [])
+      )
+
+      post "/api/v1/issue-drafts/#{issue_draft.id}/reconcile-github-publish"
+
+      expect(response).to have_http_status(:accepted)
+      body = JSON.parse(response.body)
+      expect(body.dig("data", "status")).to eq("review_required")
+      expect(body.dig("data", "attempt_id")).to eq(attempt.id)
+      expect(body.dig("data", "match_count")).to eq(0)
+      expect(body.dig("data", "review_id")).to be_present
+      expect(attempt.reload.status).to eq("reconciliation_required")
+      review = Review.find(body.dig("data", "review_id"))
+      expect(review.status).to eq("action_required")
+    end
+
+    it "blocks when no reconciliation attempt is pending" do
+      issue_draft = create(:issue_draft, status: "approved")
+
+      post "/api/v1/issue-drafts/#{issue_draft.id}/reconcile-github-publish"
+
+      expect(response).to have_http_status(:conflict)
+      body = JSON.parse(response.body)
+      expect(body.dig("error", "code")).to eq("github_publish_reconciliation_not_required")
+      expect(Job.where(job_type: "github_reconciliation")).to be_empty
+    end
+
+    it "marks the job failed when GitHub marker search fails" do
+      issue_draft = create(:issue_draft, status: "publish_failed", publish_error: "Reconciliation required.")
+      project = issue_draft.requirement.minute.meeting.project
+      attempt = create(
+        :github_issue_publish_attempt,
+        issue_draft: issue_draft,
+        project: project,
+        status: "reconciliation_required",
+        idempotency_digest: Digest::SHA256.hexdigest("publish-key-3")
+      )
+      search_client = instance_double(GithubIssuePublish::MarkerSearchClient)
+      allow(search_client).to receive(:search).and_raise(
+        GithubIssuePublish::ProviderError.new(
+          code: "github_issue_marker_search_failed",
+          message: "GitHub search failed.",
+          safe_detail: "GitHub Issue marker search failed.",
+          http_status: :bad_gateway
+        )
+      )
+      allow(GithubIssuePublish::MarkerSearchClient).to receive(:new).and_return(search_client)
+
+      post "/api/v1/issue-drafts/#{issue_draft.id}/reconcile-github-publish"
+
+      expect(response).to have_http_status(:bad_gateway)
+      body = JSON.parse(response.body)
+      expect(body.dig("error", "code")).to eq("github_issue_marker_search_failed")
+      expect(body.dig("error", "details", "attempt_id")).to eq(attempt.id)
+      job = Job.where(job_type: "github_reconciliation", target_id: issue_draft.id).last
+      expect(job.status).to eq("failed")
+      expect(job.safe_error_detail).to eq("GitHub Issue marker search failed.")
+      audit_log = project.audit_logs.find_by!(action: "issue_draft.github_publish_reconciliation_failed")
+      expect(audit_log.metadata).to include("job_id" => job.id, "attempt_id" => attempt.id)
+    end
+  end
 end

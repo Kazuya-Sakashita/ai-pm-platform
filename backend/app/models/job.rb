@@ -1,5 +1,5 @@
 class Job < ApplicationRecord
-  JOB_TYPES = %w[ai_generation github_publish github_connect validation].freeze
+  JOB_TYPES = %w[ai_generation github_publish github_reconciliation github_connect validation].freeze
   STATUSES = %w[queued running succeeded failed cancelled].freeze
 
   belongs_to :project
