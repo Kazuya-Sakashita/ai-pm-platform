@@ -104,6 +104,194 @@ test.describe("Meeting Workspace", () => {
     });
   }
 
+  async function mockPendingGitHubReconciliationWorkflow(page: Page) {
+    const now = new Date().toISOString();
+    let retryApproved = false;
+
+    const project = {
+      id: "project-github-reconciliation",
+      name: "Mock GitHub Reconciliation Project",
+      github_repo: "Kazuya-Sakashita/ai-pm-platform",
+      description: "Mocked project for reconciliation UI.",
+      status: "active",
+      created_at: now,
+      updated_at: now,
+    };
+    const meeting = {
+      id: "meeting-github-reconciliation",
+      project_id: project.id,
+      title: "Mock GitHub Reconciliation Meeting",
+      source_type: "discord_log",
+      meeting_date: "2026-07-01",
+      participants: ["Kazuya", "Engineering"],
+      raw_text: "alice: Decision: reconcile a pending GitHub Issue publish.",
+      created_at: now,
+      updated_at: now,
+    };
+    const minutes = {
+      id: "minutes-github-reconciliation",
+      meeting_id: meeting.id,
+      status: "approved",
+      summary: "Reconcile a pending GitHub Issue publish.",
+      decisions: [{ text: "Use pending reconciliation attempt summary." }],
+      open_questions: [],
+      action_items: [{ text: "Approve one controlled retry.", status: "open" }],
+      generated_by_model: "mock-provider",
+      created_at: now,
+      updated_at: now,
+    };
+    const requirement = {
+      id: "requirement-github-reconciliation",
+      minutes_id: minutes.id,
+      status: "approved",
+      background: "A GitHub Issue may already exist after a publish timeout.",
+      goal: "Resolve pending GitHub reconciliation from the workspace.",
+      user_stories: ["As a reviewer, I can approve one controlled retry."],
+      functional_requirements: ["Show reconciliation controls only for pending attempts."],
+      non_functional_requirements: ["Keep reconciliation auditable."],
+      acceptance_criteria: ["Given a pending attempt, when the draft loads, then controls are visible."],
+      out_of_scope: [],
+      open_questions: [],
+      risks: ["Duplicate GitHub Issues."],
+      generated_by_model: "mock-provider",
+      created_at: now,
+      updated_at: now,
+    };
+    const pendingIssueDraft = {
+      id: "issue-draft-github-reconciliation",
+      requirement_id: requirement.id,
+      status: "publish_failed",
+      title: "Resolve pending GitHub reconciliation",
+      body: "## Background\nA GitHub Issue may already exist after a publish timeout.",
+      acceptance_criteria: ["Controlled retry is explicitly approved."],
+      labels: ["github", "reconciliation"],
+      publish_error: "GitHub issue may have been created. Reconciliation is required.",
+      github_reconciliation: {
+        pending: true,
+        attempt_id: "attempt-github-reconciliation",
+        status: "reconciliation_required",
+        safe_error_code: "github_publish_reconciliation_required",
+        safe_error_detail: "GitHub issue may have been created. Reconciliation is required.",
+        github_issue_number: 42,
+        github_issue_url: "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/42",
+        completed_at: now,
+      },
+      created_at: now,
+      updated_at: now,
+    };
+    const approvedIssueDraft = {
+      ...pendingIssueDraft,
+      status: "approved",
+      publish_error: undefined,
+      github_reconciliation: { pending: false },
+    };
+
+    await page.route("**/api/v1/projects", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [project] }),
+      });
+    });
+
+    await page.route(`**/api/v1/projects/${project.id}/meetings`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [meeting] }),
+      });
+    });
+
+    await page.route(`**/api/v1/meetings/${meeting.id}/generate-minutes`, async (route) => {
+      await route.fulfill({
+        status: 202,
+        contentType: "application/json",
+        body: JSON.stringify({ data: { job_id: "job-minutes-github-reconciliation", status: "succeeded" } }),
+      });
+    });
+
+    await page.route(`**/api/v1/minutes/${minutes.id}/generate-requirement`, async (route) => {
+      await route.fulfill({
+        status: 202,
+        contentType: "application/json",
+        body: JSON.stringify({ data: { job_id: "job-requirement-github-reconciliation", status: "succeeded" } }),
+      });
+    });
+
+    await page.route(`**/api/v1/requirements/${requirement.id}/generate-issue-draft`, async (route) => {
+      await route.fulfill({
+        status: 202,
+        contentType: "application/json",
+        body: JSON.stringify({ data: { job_id: "job-issue-github-reconciliation", status: "succeeded" } }),
+      });
+    });
+
+    await page.route(`**/api/v1/issue-drafts/${pendingIssueDraft.id}`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: retryApproved ? approvedIssueDraft : pendingIssueDraft }),
+      });
+    });
+
+    await page.route(`**/api/v1/issue-drafts/${pendingIssueDraft.id}/resolve-github-reconciliation`, async (route) => {
+      const requestBody = route.request().postDataJSON();
+      expect(requestBody).toMatchObject({
+        resolution_action: "approve_retry",
+        resolution_note: "Confirmed that no GitHub Issue exists.",
+      });
+      retryApproved = true;
+      await route.fulfill({
+        status: 202,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: {
+            job_id: "job-retry-github-reconciliation",
+            status: "retry_approved",
+            attempt_id: "attempt-github-reconciliation",
+          },
+        }),
+      });
+    });
+
+    await page.route("**/api/v1/jobs/*", async (route) => {
+      const jobId = route.request().url().split("/").at(-1);
+      const targets: Record<string, { targetType: string; targetId: string; jobType: string }> = {
+        "job-minutes-github-reconciliation": { targetType: "minutes", targetId: minutes.id, jobType: "ai_generation" },
+        "job-requirement-github-reconciliation": { targetType: "requirement", targetId: requirement.id, jobType: "ai_generation" },
+        "job-issue-github-reconciliation": { targetType: "issue_draft", targetId: pendingIssueDraft.id, jobType: "ai_generation" },
+        "job-retry-github-reconciliation": { targetType: "issue_draft", targetId: pendingIssueDraft.id, jobType: "github_reconciliation" },
+      };
+      const target = targets[jobId ?? ""];
+
+      await route.fulfill({
+        status: target ? 200 : 404,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: {
+            id: jobId,
+            project_id: project.id,
+            job_type: target?.jobType ?? "ai_generation",
+            status: target ? "succeeded" : "failed",
+            target_type: target?.targetType ?? "unknown",
+            target_id: target?.targetId,
+            progress: 100,
+            created_at: now,
+            updated_at: now,
+          },
+        }),
+      });
+    });
+
+    await page.route(`**/api/v1/minutes/${minutes.id}`, async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: minutes }) });
+    });
+
+    await page.route(`**/api/v1/requirements/${requirement.id}`, async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: requirement }) });
+    });
+  }
+
   test("creates a project, saves a Discord log, generates minutes, and requests review", async ({ page, request }) => {
     await expectApiHealth(request);
     const stamp = Date.now();
@@ -240,6 +428,35 @@ test.describe("Meeting Workspace", () => {
 
     await expect(page.locator("section[role='alert']")).toContainText("Validation failed");
     await expect(page.locator("header").getByText("API error")).toBeVisible();
+  });
+
+  test("shows pending GitHub reconciliation controls and approves a controlled retry", async ({ page }) => {
+    await mockPendingGitHubReconciliationWorkflow(page);
+    await page.goto("/");
+
+    await expect(page.getByRole("button", { name: "Mock GitHub Reconciliation Meeting" })).toBeVisible();
+    await page.getByRole("button", { name: "Generate", exact: true }).click();
+    await expect(page.locator("header").getByText("Minutes generated")).toBeVisible();
+
+    await page.getByRole("button", { name: "Generate Requirements" }).click();
+    await expect(page.locator("header").getByText("Requirements generated")).toBeVisible();
+
+    await page.getByRole("button", { name: "Generate Issue Draft" }).click();
+    await expect(page.locator("header").getByText("Issue draft generated")).toBeVisible();
+    await expect(page.locator("#issue-draft").getByText("Publish blocked")).toBeVisible();
+    await expect(page.locator("#issue-draft").getByText("reconciliation_required")).toBeVisible();
+    await expect(page.locator("#issue-draft").getByLabel("GitHub issue number")).toHaveValue("42");
+    await expect(page.locator("#issue-draft").getByLabel("GitHub issue URL")).toHaveValue("https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/42");
+    await expect(page.locator("#issue-draft").getByRole("button", { name: "Search Marker" })).toBeVisible();
+    await expect(page.locator("#issue-draft").getByRole("button", { name: "Link Issue" })).toBeVisible();
+    await expect(page.locator("#issue-draft").getByRole("button", { name: "Approve Retry" })).toBeVisible();
+
+    await page.locator("#issue-draft").getByLabel("Resolution note").fill("Confirmed that no GitHub Issue exists.");
+    await page.locator("#issue-draft").getByRole("button", { name: "Approve Retry" }).click();
+
+    await expect(page.locator("header").getByText("GitHub retry approved")).toBeVisible();
+    await expect(page.locator("#issue-draft .panel-header .chip")).toHaveText("approved");
+    await expect(page.locator("#issue-draft").getByRole("button", { name: "Approve Retry" })).toHaveCount(0);
   });
 
   test("blocks secret-like content and surfaces the failed generation job", async ({ page, request }) => {
