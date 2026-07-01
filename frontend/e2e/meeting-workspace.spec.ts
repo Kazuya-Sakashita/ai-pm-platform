@@ -629,7 +629,10 @@ test.describe("Meeting Workspace", () => {
     const candidate = page.locator("#issue-draft .candidate-row", { hasText: "#43" });
     await expect(candidate).not.toHaveAttribute("aria-current", "true");
     await expect(candidate.getByRole("button", { name: "候補を選択" })).toHaveAttribute("aria-pressed", "false");
-    await candidate.getByRole("button", { name: "候補を選択" }).click();
+    await page.locator("#issue-draft").getByRole("button", { name: "マーカー検索" }).focus();
+    await page.keyboard.press("Shift+Tab");
+    await expect(candidate.getByRole("button", { name: "候補を選択" })).toBeFocused();
+    await page.keyboard.press("Enter");
 
     await expect(page.locator("header").getByText("GitHub Issue #43 を候補として選択しました")).toBeVisible();
     await expect(candidate).toHaveAttribute("aria-current", "true");
