@@ -2,6 +2,7 @@ class IssueDraft < ApplicationRecord
   STATUSES = %w[draft in_review needs_changes approved publishing published publish_failed].freeze
 
   belongs_to :requirement
+  has_many :github_issue_publish_attempts, dependent: :destroy
 
   validates :status, inclusion: { in: STATUSES }
   validates :title, presence: true, length: { maximum: 160 }

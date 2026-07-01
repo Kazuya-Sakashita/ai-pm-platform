@@ -1,4 +1,5 @@
 require "rails_helper"
+require "digest"
 
 RSpec.describe "API V1 Issue Drafts", type: :request do
   describe "POST /api/v1/requirements/:id/generate-issue-draft" do
@@ -94,7 +95,10 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
       issue_draft.reload
       expect(issue_draft.status).to eq("published")
       expect(issue_draft.github_issue_url).to eq("https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/42")
-      expect(issue_draft.publish_idempotency_key).to eq("publish-key-1")
+      expect(issue_draft.publish_idempotency_key).to eq(Digest::SHA256.hexdigest("publish-key-1"))
+      attempt = issue_draft.github_issue_publish_attempts.last
+      expect(attempt.status).to eq("local_saved")
+      expect(attempt.github_issue_number).to eq(42)
       job = Job.where(job_type: "github_publish", target_type: "issue_draft", target_id: issue_draft.id).last
       expect(job.status).to eq("succeeded")
       audit_log = issue_draft.requirement.minute.meeting.project.audit_logs.find_by!(action: "issue_draft.github_published")
@@ -154,6 +158,9 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
       body = JSON.parse(response.body)
       expect(body.dig("error", "code")).to eq("github_integration_not_connected")
       expect(issue_draft.reload.status).to eq("publish_failed")
+      attempt = issue_draft.github_issue_publish_attempts.last
+      expect(attempt.status).to eq("failed")
+      expect(attempt.safe_error_code).to eq("github_integration_not_connected")
       job = Job.where(job_type: "github_publish", target_type: "issue_draft", target_id: issue_draft.id).last
       expect(job.status).to eq("failed")
       expect(job.safe_error_detail).to eq("GitHub integration is not connected.")

@@ -6,6 +6,7 @@ class Project < ApplicationRecord
   has_many :audit_logs, dependent: :destroy
   has_many :integration_accounts, dependent: :destroy
   has_many :github_connection_states, dependent: :destroy
+  has_many :github_issue_publish_attempts, dependent: :destroy
 
   validates :name, presence: true, length: { maximum: 120 }
   validates :status, inclusion: { in: STATUSES }

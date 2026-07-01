@@ -216,7 +216,8 @@ Permission, revoked installation, repository mismatch, and missing Issues write 
 
 ## Implementation Follow-up
 
-- `github_issue_publish_attempts` migrationを追加する。
+- [Done 2026-07-01] `github_issue_publish_attempts` migration/model/service接続を追加する。
+- [Done 2026-07-01] publish attemptは同じ `issue_draft_id` / `idempotency_digest` でも複数記録し、再試行履歴を監査できるようにする。
 - providerでambiguous failureを分類する。
 - marker検索用のGitHub API clientを追加する。
 - exact matchなら自動reconcileするserviceを追加する。

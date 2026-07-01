@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_07_01_073000) do
+ActiveRecord::Schema[7.1].define(version: 2026_07_01_114500) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pgcrypto"
   enable_extension "plpgsql"
@@ -46,6 +46,32 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_01_073000) do
     t.index ["project_id", "expires_at"], name: "index_github_connection_states_on_project_id_and_expires_at"
     t.index ["project_id"], name: "index_github_connection_states_on_project_id"
     t.index ["state_digest"], name: "index_github_connection_states_on_state_digest", unique: true
+  end
+
+  create_table "github_issue_publish_attempts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "issue_draft_id", null: false
+    t.uuid "project_id", null: false
+    t.string "github_repository", null: false
+    t.string "idempotency_digest", null: false
+    t.string "status", default: "started", null: false
+    t.integer "github_issue_number"
+    t.string "github_issue_url"
+    t.integer "github_issue_api_id"
+    t.string "github_issue_node_id"
+    t.string "safe_error_code"
+    t.text "safe_error_detail"
+    t.datetime "started_at", null: false
+    t.datetime "github_created_at"
+    t.datetime "completed_at"
+    t.datetime "reconciled_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["github_issue_node_id"], name: "index_github_issue_publish_attempts_on_github_issue_node_id"
+    t.index ["github_repository", "github_issue_number"], name: "idx_on_github_repository_github_issue_number_d3ec04d8f3"
+    t.index ["issue_draft_id", "idempotency_digest"], name: "index_github_publish_attempts_on_draft_and_digest"
+    t.index ["issue_draft_id"], name: "index_github_issue_publish_attempts_on_issue_draft_id"
+    t.index ["project_id", "status"], name: "index_github_issue_publish_attempts_on_project_id_and_status"
+    t.index ["project_id"], name: "index_github_issue_publish_attempts_on_project_id"
   end
 
   create_table "integration_accounts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -207,6 +233,8 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_01_073000) do
 
   add_foreign_key "audit_logs", "projects"
   add_foreign_key "github_connection_states", "projects"
+  add_foreign_key "github_issue_publish_attempts", "issue_drafts"
+  add_foreign_key "github_issue_publish_attempts", "projects"
   add_foreign_key "integration_accounts", "projects"
   add_foreign_key "issue_drafts", "requirements"
   add_foreign_key "jobs", "projects"
