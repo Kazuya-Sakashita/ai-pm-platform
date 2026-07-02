@@ -417,6 +417,27 @@ test.describe("Meeting Workspace", () => {
     await expect(page.locator("#issue-draft").getByRole("button", { name: "再試行を承認" })).toBeVisible();
   }
 
+  async function expectNoHorizontalLayoutOverflow(page: Page, selector: string) {
+    const metrics = await page.locator(selector).evaluate((target) => {
+      const element = target as HTMLElement;
+      const rect = element.getBoundingClientRect();
+      const root = document.documentElement;
+      return {
+        documentScrollWidth: root.scrollWidth,
+        targetClientWidth: element.clientWidth,
+        targetLeft: rect.left,
+        targetRight: rect.right,
+        targetScrollWidth: element.scrollWidth,
+        viewportWidth: root.clientWidth,
+      };
+    });
+
+    expect(metrics.documentScrollWidth).toBeLessThanOrEqual(metrics.viewportWidth + 1);
+    expect(metrics.targetLeft).toBeGreaterThanOrEqual(-1);
+    expect(metrics.targetRight).toBeLessThanOrEqual(metrics.viewportWidth + 1);
+    expect(metrics.targetScrollWidth).toBeLessThanOrEqual(metrics.targetClientWidth + 1);
+  }
+
   test("creates a project, saves a Discord log, generates minutes, and requests review", async ({ page, request }) => {
     await expectApiHealth(request);
     const stamp = Date.now();
@@ -649,6 +670,56 @@ test.describe("Meeting Workspace", () => {
     await expect(page.locator("header").getByText("GitHub Issueに紐付けました")).toBeVisible();
     await expect(page.locator("#issue-draft").getByText("https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/43")).toBeVisible();
     await expect(page.locator("#issue-draft").getByText("公開ブロック")).toHaveCount(0);
+  });
+
+  test("keeps long GitHub Issue candidate title and URL inside the narrow layout", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 900 });
+    const longTitle =
+      "Candidate Issue with a very long title " +
+      "AIProjectManagerReconciliationCandidateWithoutNaturalBreaks".repeat(4);
+    const longUrl = `https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/444#${"ai-pm-platform-reconciliation-marker".repeat(6)}`;
+
+    await mockPendingGitHubReconciliationWorkflow(page, {
+      resolutionAction: "link_existing_issue",
+      resolutionNote: "Long candidate layout review.",
+      markerSearchMatches: [
+        {
+          github_issue_number: 444,
+          github_issue_url: longUrl,
+          github_repository: "Kazuya-Sakashita/ai-pm-platform",
+          github_issue_title: longTitle,
+          github_issue_state: "open",
+          github_issue_updated_at: "2026-07-02T03:45:00Z",
+          github_issue_score: 24.4,
+          github_issue_api_id: 4440,
+          github_issue_node_id: "I_kwLONG_444",
+        },
+        {
+          github_issue_number: 445,
+          github_issue_url: "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/445",
+          github_repository: "Kazuya-Sakashita/ai-pm-platform",
+          github_issue_title: "Secondary candidate",
+          github_issue_state: "closed",
+          github_issue_updated_at: "2026-07-02T04:45:00Z",
+          github_issue_score: 13.2,
+          github_issue_api_id: 4450,
+          github_issue_node_id: "I_kwLONG_445",
+        },
+      ],
+    });
+    await openPendingGitHubReconciliationDraft(page);
+
+    await page.locator("#issue-draft").getByRole("button", { name: "マーカー検索" }).click();
+
+    const candidate = page.locator("#issue-draft .candidate-row", { hasText: "#444" });
+    await expect(candidate).toBeVisible();
+    await expect(candidate.getByText(longTitle)).toBeVisible();
+    await expect(candidate.getByText(longUrl)).toBeVisible();
+    await expect(candidate.getByRole("button", { name: "候補を選択" })).toBeVisible();
+
+    await expectNoHorizontalLayoutOverflow(page, "#issue-draft");
+    await expectNoHorizontalLayoutOverflow(page, "#issue-draft .reconciliation-candidates");
+    await expectNoHorizontalLayoutOverflow(page, "#issue-draft .candidate-list .candidate-row:first-child");
   });
 
   test("shows validation errors before linking an existing GitHub Issue", async ({ page }) => {
