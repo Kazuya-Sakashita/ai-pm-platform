@@ -503,6 +503,11 @@ textarea {
   color: var(--blue);
 }
 
+.chip.warning {
+  border-color: #f0c38a;
+  color: var(--amber);
+}
+
 .chip.danger {
   border-color: #f0a5b6;
   color: var(--red);

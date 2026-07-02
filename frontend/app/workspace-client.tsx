@@ -33,6 +33,12 @@ type Review = components["schemas"]["Review"];
 type MeetingSourceType = components["schemas"]["MeetingSourceType"];
 type GitHubReconciliationAction = components["schemas"]["ResolveGitHubReconciliationRequest"]["resolution_action"];
 type GitHubReconciliationMatch = components["schemas"]["GitHubReconciliationMatch"];
+type GitHubReconciliationSearchSummary = {
+  search_total_count?: number;
+  search_incomplete_results?: boolean;
+  search_result_limit?: number;
+  search_has_more_results?: boolean;
+};
 
 type ApiErrorPayload = {
   error?: {
@@ -141,6 +147,7 @@ export default function MeetingWorkspace() {
   const [reconciliationIssueUrl, setReconciliationIssueUrl] = useState("");
   const [reconciliationNote, setReconciliationNote] = useState("");
   const [reconciliationMatches, setReconciliationMatches] = useState<GitHubReconciliationMatch[]>([]);
+  const [reconciliationSearchSummary, setReconciliationSearchSummary] = useState<GitHubReconciliationSearchSummary | null>(null);
   const [openApiTitleDraft, setOpenApiTitleDraft] = useState("");
   const [openApiContentDraft, setOpenApiContentDraft] = useState("");
 
@@ -690,7 +697,18 @@ export default function MeetingWorkspace() {
 
     await loadJob(data.data.job_id);
     await refreshIssueDraft(issueDraft.id);
-    setReconciliationMatches(data.data.status === "review_required" ? (data.data.matches ?? []) : []);
+    const matches = data.data.status === "review_required" ? (data.data.matches ?? []) : [];
+    setReconciliationMatches(matches);
+    setReconciliationSearchSummary(
+      data.data.status === "review_required"
+        ? {
+            search_total_count: data.data.search_total_count,
+            search_incomplete_results: data.data.search_incomplete_results,
+            search_result_limit: data.data.search_result_limit,
+            search_has_more_results: data.data.search_has_more_results,
+          }
+        : null,
+    );
     setLoading(false);
     setStatusMessage(data.data.status === "reconciled" ? "GitHub公開の照合が完了しました" : "GitHub公開の照合に確認が必要です");
   }
@@ -1031,6 +1049,7 @@ export default function MeetingWorkspace() {
     );
     setReconciliationIssueUrl(nextIssueDraft.github_reconciliation?.github_issue_url ?? nextIssueDraft.github_issue_url ?? "");
     setReconciliationMatches([]);
+    setReconciliationSearchSummary(null);
   }
 
   function selectReconciliationMatch(match: GitHubReconciliationMatch) {
@@ -1549,6 +1568,13 @@ export default function MeetingWorkspace() {
                         <div className="panel-header">
                           <h3>候補Issue</h3>
                           <span className="chip warning">{reconciliationMatches.length}件</span>
+                          {typeof reconciliationSearchSummary?.search_total_count === "number" ? (
+                            <span className="chip neutral">検索総数 {reconciliationSearchSummary.search_total_count}件</span>
+                          ) : null}
+                          {reconciliationSearchSummary?.search_has_more_results ? (
+                            <span className="chip warning">上位{reconciliationSearchSummary.search_result_limit ?? reconciliationMatches.length}件のみ表示</span>
+                          ) : null}
+                          {reconciliationSearchSummary?.search_incomplete_results ? <span className="chip danger">検索未完了</span> : null}
                         </div>
                         <div className="candidate-list">
                           {reconciliationMatches.map((match) => {

@@ -46,7 +46,8 @@ RSpec.describe GithubIssuePublish::MarkerSearchClient do
         github_response(
           status: 200,
           body: {
-            total_count: 1,
+            total_count: 12,
+            incomplete_results: true,
             items: [
               {
                 number: 42,
@@ -67,7 +68,11 @@ RSpec.describe GithubIssuePublish::MarkerSearchClient do
     matches = described_class.new(app_id: "999", private_key_pem: private_key_pem, http_client: http_client)
                              .search(issue_draft: issue_draft, project: project, idempotency_digest: digest)
 
-    expect(matches).to contain_exactly(
+    expect(matches.total_count).to eq(12)
+    expect(matches.incomplete_results).to eq(true)
+    expect(matches.result_limit).to eq(10)
+    expect(matches.search_has_more_results).to eq(true)
+    expect(matches.matches).to contain_exactly(
       include(
         github_issue_number: 42,
         github_issue_url: "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/42",

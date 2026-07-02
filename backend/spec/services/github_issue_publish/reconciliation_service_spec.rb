@@ -34,7 +34,15 @@ RSpec.describe GithubIssuePublish::ReconciliationService do
       reviewer_role: described_class::REVIEWER_ROLE,
       status: "action_required"
     )
-    search_client = instance_double(GithubIssuePublish::MarkerSearchClient, search: [match])
+    search_client = instance_double(
+      GithubIssuePublish::MarkerSearchClient,
+      search: GithubIssuePublish::MarkerSearchClient::SearchResult.new(
+        matches: [match],
+        total_count: 1,
+        incomplete_results: false,
+        result_limit: 10
+      )
+    )
 
     result = described_class.new(attempt, search_client: search_client).call
 
@@ -47,12 +55,32 @@ RSpec.describe GithubIssuePublish::ReconciliationService do
     expect(attempt.github_issue_node_id).to eq("I_kwMATCH")
     expect(attempt.reconciled_at).to be_present
     expect(review.reload.status).to eq("resolved")
+    expect(result.search_total_count).to eq(1)
+    expect(result.search_incomplete_results).to eq(false)
+    expect(result.search_result_limit).to eq(10)
+    expect(result.search_has_more_results).to eq(false)
     audit_log = project.audit_logs.find_by!(action: "issue_draft.github_publish_reconciled")
-    expect(audit_log.metadata).to include("attempt_id" => attempt.id, "github_issue_number" => 42, "match_count" => 1)
+    expect(audit_log.metadata).to include(
+      "attempt_id" => attempt.id,
+      "github_issue_number" => 42,
+      "match_count" => 1,
+      "search_total_count" => 1,
+      "search_incomplete_results" => false,
+      "search_result_limit" => 10,
+      "search_has_more_results" => false
+    )
   end
 
   it "creates a review blocker when no marker match exists" do
-    search_client = instance_double(GithubIssuePublish::MarkerSearchClient, search: [])
+    search_client = instance_double(
+      GithubIssuePublish::MarkerSearchClient,
+      search: GithubIssuePublish::MarkerSearchClient::SearchResult.new(
+        matches: [],
+        total_count: 0,
+        incomplete_results: false,
+        result_limit: 10
+      )
+    )
 
     result = described_class.new(attempt, search_client: search_client).call
 
@@ -68,12 +96,20 @@ RSpec.describe GithubIssuePublish::ReconciliationService do
     expect(review.status).to eq("action_required")
     expect(review.improvements.join(" ")).to include("No GitHub Issue marker match")
     audit_log = project.audit_logs.find_by!(action: "issue_draft.github_publish_reconciliation_blocked")
-    expect(audit_log.metadata).to include("attempt_id" => attempt.id, "match_count" => 0, "review_id" => review.id)
+    expect(audit_log.metadata).to include("attempt_id" => attempt.id, "match_count" => 0, "review_id" => review.id, "search_total_count" => 0)
   end
 
   it "creates a review blocker when multiple marker matches exist" do
     other_match = match.merge(github_issue_number: 43, github_issue_url: "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/43")
-    search_client = instance_double(GithubIssuePublish::MarkerSearchClient, search: [match, other_match])
+    search_client = instance_double(
+      GithubIssuePublish::MarkerSearchClient,
+      search: GithubIssuePublish::MarkerSearchClient::SearchResult.new(
+        matches: [match, other_match],
+        total_count: 24,
+        incomplete_results: true,
+        result_limit: 10
+      )
+    )
 
     result = described_class.new(attempt, search_client: search_client).call
 
@@ -87,6 +123,9 @@ RSpec.describe GithubIssuePublish::ReconciliationService do
     expect(review.next_actions.join(" ")).to include("#42")
     expect(review.next_actions.join(" ")).to include("#43")
     expect(issue_draft.reload.github_issue_url).to be_nil
+    expect(result.search_total_count).to eq(24)
+    expect(result.search_incomplete_results).to eq(true)
+    expect(result.search_has_more_results).to eq(true)
   end
 
   it "stores safe provider errors on the attempt" do

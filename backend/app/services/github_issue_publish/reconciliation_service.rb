@@ -2,7 +2,11 @@ module GithubIssuePublish
   class ReconciliationService
     REVIEWER_ROLE = "GitHub Publish Reconciler"
     FRAMEWORK = ["G-STACK", "STRIDE", "ISO25010"].freeze
-    Result = Struct.new(:status, :matches, :review, keyword_init: true)
+    Result = Struct.new(:status, :matches, :review, :search_total_count, :search_incomplete_results, :search_result_limit, keyword_init: true) do
+      def search_has_more_results
+        search_total_count.to_i > matches.count
+      end
+    end
 
     def initialize(attempt, search_client: MarkerSearchClient.new)
       @attempt = attempt
@@ -10,15 +14,18 @@ module GithubIssuePublish
     end
 
     def call
-      matches = search_client.search(
-        issue_draft: issue_draft,
-        project: project,
-        idempotency_digest: attempt.idempotency_digest
+      search_result = normalize_search_result(
+        search_client.search(
+          issue_draft: issue_draft,
+          project: project,
+          idempotency_digest: attempt.idempotency_digest
+        )
       )
+      matches = search_result.matches
 
-      return reconcile!(matches.first) if matches.one?
+      return reconcile!(matches.first, search_result) if matches.one?
 
-      block_for_human_review!(matches)
+      block_for_human_review!(matches, search_result)
     rescue ProviderError => e
       attempt.update!(
         safe_error_code: e.code,
@@ -32,6 +39,31 @@ module GithubIssuePublish
 
     attr_reader :attempt, :search_client
 
+    def normalize_search_result(raw_result)
+      return raw_result if raw_result.respond_to?(:matches)
+
+      MarkerSearchClient::SearchResult.new(
+        matches: raw_result,
+        total_count: raw_result.count,
+        incomplete_results: false,
+        result_limit: MarkerSearchClient::SEARCH_RESULT_LIMIT
+      )
+    end
+
+    def result_attributes(search_result)
+      {
+        search_total_count: search_result.total_count,
+        search_incomplete_results: search_result.incomplete_results,
+        search_result_limit: search_result.result_limit
+      }
+    end
+
+    def search_audit_metadata(search_result)
+      result_attributes(search_result).merge(
+        search_has_more_results: search_result.search_has_more_results
+      )
+    end
+
     def issue_draft
       @issue_draft ||= attempt.issue_draft
     end
@@ -40,7 +72,7 @@ module GithubIssuePublish
       @project ||= attempt.project
     end
 
-    def reconcile!(match)
+    def reconcile!(match, search_result)
       issue_draft.update!(
         status: "published",
         github_issue_number: match.fetch(:github_issue_number),
@@ -57,13 +89,13 @@ module GithubIssuePublish
         action: "issue_draft.github_publish_reconciled",
         target: issue_draft,
         summary: "GitHub Issue publish was reconciled from marker search.",
-        metadata: audit_metadata(match).merge(attempt_id: attempt.id, match_count: 1)
+        metadata: audit_metadata(match).merge(attempt_id: attempt.id, match_count: 1).merge(search_audit_metadata(search_result))
       )
 
-      Result.new(status: "reconciled", matches: [match])
+      Result.new(status: "reconciled", matches: [match], **result_attributes(search_result))
     end
 
-    def block_for_human_review!(matches)
+    def block_for_human_review!(matches, search_result)
       code = matches.empty? ? "github_publish_reconciliation_no_match" : "github_publish_reconciliation_multiple_matches"
       detail = matches.empty? ? "No GitHub Issue marker match was found." : "Multiple GitHub Issue marker matches were found."
       attempt.update!(
@@ -83,10 +115,10 @@ module GithubIssuePublish
           match_count: matches.count,
           safe_error_code: code,
           review_id: review.id
-        }
+        }.merge(search_audit_metadata(search_result))
       )
 
-      Result.new(status: "review_required", matches: matches, review: review)
+      Result.new(status: "review_required", matches: matches, review: review, **result_attributes(search_result))
     end
 
     def upsert_review_blocker!(code, detail, matches)

@@ -30,6 +30,9 @@ test.describe("Meeting Workspace", () => {
     expectedGithubIssueNumber?: number;
     expectedGithubIssueUrl?: string;
     markerSearchMatches?: ReconciliationMatch[];
+    markerSearchTotalCount?: number;
+    markerSearchIncompleteResults?: boolean;
+    markerSearchResultLimit?: number;
     apiError?: {
       code: string;
       message: string;
@@ -335,6 +338,8 @@ test.describe("Meeting Workspace", () => {
 
     await page.route(`**/api/v1/issue-drafts/${pendingIssueDraft.id}/reconcile-github-publish`, async (route) => {
       const matches = scenario.markerSearchMatches ?? [];
+      const searchTotalCount = scenario.markerSearchTotalCount ?? matches.length;
+      const searchResultLimit = scenario.markerSearchResultLimit ?? 10;
       await route.fulfill({
         status: 202,
         contentType: "application/json",
@@ -344,6 +349,10 @@ test.describe("Meeting Workspace", () => {
             status: matches.length === 1 ? "reconciled" : "review_required",
             attempt_id: "attempt-github-reconciliation",
             match_count: matches.length,
+            search_total_count: searchTotalCount,
+            search_incomplete_results: scenario.markerSearchIncompleteResults ?? false,
+            search_result_limit: searchResultLimit,
+            search_has_more_results: searchTotalCount > matches.length,
             review_id: "review-github-reconciliation",
             matches,
             github_issue_number: matches.length === 1 ? matches[0].github_issue_number : undefined,
@@ -611,6 +620,8 @@ test.describe("Meeting Workspace", () => {
       resolutionNote: "マーカー検索候補 #43 を選択しました。",
       expectedGithubIssueNumber: 43,
       expectedGithubIssueUrl: "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/43",
+      markerSearchTotalCount: 24,
+      markerSearchIncompleteResults: true,
       markerSearchMatches: [
         {
           github_issue_number: 42,
@@ -643,6 +654,9 @@ test.describe("Meeting Workspace", () => {
     await expect(page.locator("header").getByText("GitHub公開の照合に確認が必要です")).toBeVisible();
     await expect(page.locator("#issue-draft").getByRole("heading", { name: "候補Issue" })).toBeVisible();
     await expect(page.locator("#issue-draft").getByText("2件")).toBeVisible();
+    await expect(page.locator("#issue-draft").getByText("検索総数 24件")).toBeVisible();
+    await expect(page.locator("#issue-draft").getByText("上位10件のみ表示")).toBeVisible();
+    await expect(page.locator("#issue-draft").getByText("検索未完了")).toBeVisible();
     await expect(page.locator("#issue-draft").getByText("#43 Candidate Issue B")).toBeVisible();
     await expect(page.locator("#issue-draft").getByText(/状態 クローズ .* スコア 18.8/)).toBeVisible();
     await expect(page.locator("#issue-draft").getByText("https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/43")).toBeVisible();

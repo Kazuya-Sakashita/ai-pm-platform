@@ -6,7 +6,13 @@ require "uri"
 module GithubIssuePublish
   class MarkerSearchClient
     API_VERSION = GithubAppProvider::API_VERSION
+    SEARCH_RESULT_LIMIT = 10
     TOKEN_PERMISSION_REQUEST = GithubAppProvider::TOKEN_PERMISSION_REQUEST
+    SearchResult = Struct.new(:matches, :total_count, :incomplete_results, :result_limit, keyword_init: true) do
+      def search_has_more_results
+        total_count.to_i > matches.count
+      end
+    end
 
     def initialize(
       app_id: ENV["GITHUB_APP_ID"],
@@ -40,7 +46,8 @@ module GithubIssuePublish
         )
       end
 
-      parse_response_json(response).fetch("items", []).map do |item|
+      payload = parse_response_json(response)
+      matches = payload.fetch("items", []).map do |item|
         {
           github_issue_number: item.fetch("number"),
           github_issue_url: item.fetch("html_url"),
@@ -53,6 +60,12 @@ module GithubIssuePublish
           github_issue_node_id: item["node_id"]
         }.compact
       end
+      SearchResult.new(
+        matches: matches,
+        total_count: payload["total_count"].to_i,
+        incomplete_results: payload["incomplete_results"] == true,
+        result_limit: SEARCH_RESULT_LIMIT
+      )
     end
 
     private
@@ -140,7 +153,7 @@ module GithubIssuePublish
     def search_path(repository, issue_draft, idempotency_digest)
       marker = "ai_pm_platform:issue_draft_id=#{issue_draft.id};idempotency_digest=#{idempotency_digest.to_s[0, 16]}"
       query = %(repo:#{repository.fetch(:owner)}/#{repository.fetch(:name)} is:issue "#{marker}")
-      "/search/issues?#{URI.encode_www_form(q: query, per_page: 10)}"
+      "/search/issues?#{URI.encode_www_form(q: query, per_page: SEARCH_RESULT_LIMIT)}"
     end
 
     def app_jwt

@@ -1742,6 +1742,16 @@ components:
             match_count:
               type: integer
               minimum: 0
+            search_total_count:
+              type: integer
+              minimum: 0
+            search_incomplete_results:
+              type: boolean
+            search_result_limit:
+              type: integer
+              minimum: 1
+            search_has_more_results:
+              type: boolean
             review_id:
               type: string
               format: uuid

@@ -310,7 +310,15 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
         }
       ]
       allow(GithubIssuePublish::MarkerSearchClient).to receive(:new).and_return(
-        instance_double(GithubIssuePublish::MarkerSearchClient, search: matches)
+        instance_double(
+          GithubIssuePublish::MarkerSearchClient,
+          search: GithubIssuePublish::MarkerSearchClient::SearchResult.new(
+            matches: matches,
+            total_count: 24,
+            incomplete_results: true,
+            result_limit: 10
+          )
+        )
       )
 
       post "/api/v1/issue-drafts/#{issue_draft.id}/reconcile-github-publish"
@@ -320,6 +328,10 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
       expect(body.dig("data", "status")).to eq("review_required")
       expect(body.dig("data", "attempt_id")).to eq(attempt.id)
       expect(body.dig("data", "match_count")).to eq(2)
+      expect(body.dig("data", "search_total_count")).to eq(24)
+      expect(body.dig("data", "search_incomplete_results")).to eq(true)
+      expect(body.dig("data", "search_result_limit")).to eq(10)
+      expect(body.dig("data", "search_has_more_results")).to eq(true)
       expect(body.dig("data", "matches")).to contain_exactly(
         include(
           "github_issue_number" => 42,

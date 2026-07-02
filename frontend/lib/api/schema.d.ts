@@ -853,6 +853,10 @@ export interface components {
                 /** Format: uuid */
                 attempt_id: string;
                 match_count: number;
+                search_total_count?: number;
+                search_incomplete_results?: boolean;
+                search_result_limit?: number;
+                search_has_more_results?: boolean;
                 /** Format: uuid */
                 review_id?: string;
                 matches?: components["schemas"]["GitHubReconciliationMatch"][];
