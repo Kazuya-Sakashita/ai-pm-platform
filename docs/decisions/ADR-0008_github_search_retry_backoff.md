@@ -177,7 +177,7 @@ Frontendは以下を満たす。
 ## Implementation Follow-up
 
 - [Done 2026-07-02] `incomplete_results=true` では候補1件でも自動reconcileしない。
-- [Todo] GitHub response headersから `retry-after`、`x-ratelimit-remaining`、`x-ratelimit-reset` をsafe metadataへ反映する。
+- [Done 2026-07-02] GitHub response headersから `retry-after`、`x-ratelimit-remaining`、`x-ratelimit-reset` をsafe metadataへ反映する。
 - [Todo] 非同期reconciler jobでretry count、next retry at、cooldownを管理する。
 - [Todo] Frontendに再検索可能時刻、rate limit理由、controlled retry危険操作の補助表示を追加する。
 - [Todo] live GitHub App credentialでrate limitではない通常search smokeを行う。

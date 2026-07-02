@@ -38,12 +38,7 @@ module GithubIssuePublish
         headers: github_headers(token)
       )
       unless response.success?
-        raise provider_error(
-          code: "github_issue_marker_search_failed",
-          message: "GitHub Issue marker search failed with status #{response.status}.",
-          safe_detail: safe_github_error(response, "GitHub Issue marker search failed."),
-          http_status: :bad_gateway
-        )
+        raise search_provider_error(response)
       end
 
       payload = parse_response_json(response)
@@ -211,8 +206,66 @@ module GithubIssuePublish
       Base64.urlsafe_encode64(value, padding: false)
     end
 
-    def provider_error(code:, message:, safe_detail:, http_status:)
-      ProviderError.new(code: code, message: message, safe_detail: safe_detail, http_status: http_status)
+    def search_provider_error(response)
+      metadata = github_response_metadata(response)
+      return rate_limit_provider_error(response, metadata) if rate_limited_response?(response, metadata)
+
+      provider_error(
+        code: "github_issue_marker_search_failed",
+        message: "GitHub Issue marker search failed with status #{response.status}.",
+        safe_detail: safe_github_error(response, "GitHub Issue marker search failed."),
+        http_status: :bad_gateway,
+        safe_metadata: metadata
+      )
+    end
+
+    def rate_limit_provider_error(response, metadata)
+      provider_error(
+        code: "github_issue_marker_search_rate_limited",
+        message: "GitHub Issue marker search was rate limited with status #{response.status}.",
+        safe_detail: "GitHub rate limit is active. Retry after the provider limit resets.",
+        http_status: :too_many_requests,
+        safe_metadata: metadata.merge(github_rate_limited: true)
+      )
+    end
+
+    def github_response_metadata(response)
+      reset_epoch = integer_header(response, "x-ratelimit-reset")
+      {
+        github_response_status: response.status,
+        github_retry_after_seconds: integer_header(response, "retry-after"),
+        github_rate_limit_remaining: integer_header(response, "x-ratelimit-remaining"),
+        github_rate_limit_reset_at: reset_epoch ? Time.at(reset_epoch).utc.iso8601 : nil,
+        github_rate_limit_resource: header_value(response, "x-ratelimit-resource")
+      }.compact
+    end
+
+    def rate_limited_response?(response, metadata)
+      return true if response.status == 429
+      return false unless response.status == 403
+      remaining = metadata[:github_rate_limit_remaining]
+      return true if !remaining.nil? && remaining.zero?
+
+      safe_github_error(response, "").downcase.include?("rate limit")
+    end
+
+    def integer_header(response, name)
+      value = header_value(response, name)
+      return nil if value.blank?
+
+      Integer(value, exception: false)
+    end
+
+    def header_value(response, name)
+      headers = response.headers || {}
+      value = headers[name] || headers[name.downcase] || headers[name.upcase]
+      value ||= headers.find { |key, _| key.to_s.casecmp(name).zero? }&.last
+      value = value.first if value.is_a?(Array)
+      value.to_s.presence
+    end
+
+    def provider_error(code:, message:, safe_detail:, http_status:, safe_metadata: {})
+      ProviderError.new(code: code, message: message, safe_detail: safe_detail, http_status: http_status, safe_metadata: safe_metadata)
     end
   end
 end

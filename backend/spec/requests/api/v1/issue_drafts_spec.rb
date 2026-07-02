@@ -404,6 +404,63 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
       audit_log = project.audit_logs.find_by!(action: "issue_draft.github_publish_reconciliation_failed")
       expect(audit_log.metadata).to include("job_id" => job.id, "attempt_id" => attempt.id)
     end
+
+    it "returns safe GitHub rate limit metadata when marker search is rate limited" do
+      issue_draft = create(:issue_draft, status: "publish_failed", publish_error: "Reconciliation required.")
+      project = issue_draft.requirement.minute.meeting.project
+      attempt = create(
+        :github_issue_publish_attempt,
+        issue_draft: issue_draft,
+        project: project,
+        status: "reconciliation_required",
+        idempotency_digest: Digest::SHA256.hexdigest("publish-key-rate-limit")
+      )
+      search_client = instance_double(GithubIssuePublish::MarkerSearchClient)
+      allow(search_client).to receive(:search).and_raise(
+        GithubIssuePublish::ProviderError.new(
+          code: "github_issue_marker_search_rate_limited",
+          message: "GitHub search was rate limited.",
+          safe_detail: "GitHub rate limit is active. Retry after the provider limit resets.",
+          http_status: :too_many_requests,
+          safe_metadata: {
+            github_response_status: 429,
+            github_retry_after_seconds: 60,
+            github_rate_limit_remaining: 0,
+            github_rate_limit_reset_at: "2026-07-02T12:30:00Z",
+            github_rate_limit_resource: "search",
+            github_rate_limited: true
+          }
+        )
+      )
+      allow(GithubIssuePublish::MarkerSearchClient).to receive(:new).and_return(search_client)
+
+      post "/api/v1/issue-drafts/#{issue_draft.id}/reconcile-github-publish"
+
+      expect(response).to have_http_status(:too_many_requests)
+      body = JSON.parse(response.body)
+      expect(body.dig("error", "code")).to eq("github_issue_marker_search_rate_limited")
+      expect(body.dig("error", "message")).to eq("GitHub rate limit is active. Retry after the provider limit resets.")
+      expect(body.dig("error", "details")).to include(
+        "attempt_id" => attempt.id,
+        "github_response_status" => 429,
+        "github_retry_after_seconds" => 60,
+        "github_rate_limit_remaining" => 0,
+        "github_rate_limit_reset_at" => "2026-07-02T12:30:00Z",
+        "github_rate_limit_resource" => "search",
+        "github_rate_limited" => true
+      )
+      job = Job.where(job_type: "github_reconciliation", target_id: issue_draft.id).last
+      expect(job.status).to eq("failed")
+      expect(job.safe_error_detail).to eq("GitHub rate limit is active. Retry after the provider limit resets.")
+      audit_log = project.audit_logs.find_by!(action: "issue_draft.github_publish_reconciliation_failed")
+      expect(audit_log.metadata).to include(
+        "job_id" => job.id,
+        "attempt_id" => attempt.id,
+        "github_retry_after_seconds" => 60,
+        "github_rate_limit_resource" => "search",
+        "github_rate_limited" => true
+      )
+    end
   end
 
   describe "POST /api/v1/issue-drafts/:id/resolve-github-reconciliation" do

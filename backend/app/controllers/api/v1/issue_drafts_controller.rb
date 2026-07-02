@@ -103,10 +103,10 @@ module Api
           project: project_for(issue_draft.requirement),
           action: "issue_draft.github_publish_failed",
           target: issue_draft,
-          metadata: { job_id: job&.id, provider_error_code: e.code }.compact
+          metadata: github_provider_error_metadata(e, job_id: job&.id)
         )
 
-        render_error(e.code, e.safe_detail, e.http_status, { job_id: job&.id }.compact)
+        render_error(e.code, e.safe_detail, e.http_status, github_provider_error_metadata(e, job_id: job&.id))
       end
 
       def reconcile_github_publish
@@ -137,10 +137,10 @@ module Api
           project: project_for(issue_draft.requirement),
           action: "issue_draft.github_publish_reconciliation_failed",
           target: issue_draft,
-          metadata: { job_id: job&.id, provider_error_code: e.code, attempt_id: attempt&.id }.compact
+          metadata: github_provider_error_metadata(e, job_id: job&.id, attempt_id: attempt&.id)
         )
 
-        render_error(e.code, e.safe_detail, e.http_status, { job_id: job&.id, attempt_id: attempt&.id }.compact)
+        render_error(e.code, e.safe_detail, e.http_status, github_provider_error_metadata(e, job_id: job&.id, attempt_id: attempt&.id))
       end
 
       def resolve_github_reconciliation
@@ -175,10 +175,10 @@ module Api
           project: project_for(issue_draft.requirement),
           action: "issue_draft.github_publish_manual_reconciliation_failed",
           target: issue_draft,
-          metadata: { job_id: job&.id, provider_error_code: e.code, attempt_id: attempt&.id }.compact
+          metadata: github_provider_error_metadata(e, job_id: job&.id, attempt_id: attempt&.id)
         )
 
-        render_error(e.code, e.safe_detail, e.http_status, { job_id: job&.id, attempt_id: attempt&.id }.compact)
+        render_error(e.code, e.safe_detail, e.http_status, github_provider_error_metadata(e, job_id: job&.id, attempt_id: attempt&.id))
       end
 
       private
@@ -230,6 +230,12 @@ module Api
 
       def project_for(requirement)
         requirement.minute.meeting.project
+      end
+
+      def github_provider_error_metadata(error, extra = {})
+        {
+          provider_error_code: error.code
+        }.merge(error.safe_metadata).merge(extra).compact
       end
 
       def reconciliation_response(result, attempt, job)

@@ -473,6 +473,8 @@ paths:
           $ref: "#/components/responses/ReviewRequired"
         "424":
           $ref: "#/components/responses/IntegrationNotConnected"
+        "429":
+          $ref: "#/components/responses/RateLimited"
         "502":
           $ref: "#/components/responses/UpstreamError"
 

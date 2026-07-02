@@ -4,6 +4,7 @@ const messageLabels: Record<string, string> = {
   "GitHub Issue marker search failed.": "GitHub Issueマーカー検索に失敗しました。",
   "GitHub issue URL must match the project repository and issue number.": "GitHub Issue URLはプロジェクトのリポジトリとIssue番号に一致している必要があります。",
   "GitHub issue may have been created. Reconciliation is required.": "GitHub Issueが作成済みの可能性があります。照合が必要です。",
+  "GitHub rate limit is active. Retry after the provider limit resets.": "GitHubのレート制限中です。制限解除後に再試行してください。",
   "Meeting text includes sensitive content that must be reviewed before AI generation.": "会議ログに機密性の高い内容が含まれています。AI生成前にレビューしてください。",
   "Multiple GitHub Issue marker matches were found.": "GitHub Issueマーカー候補が複数見つかりました。",
   "OpenAI API key is not configured.": "OpenAI APIキーが未設定です。",

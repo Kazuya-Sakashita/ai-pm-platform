@@ -1662,6 +1662,7 @@ export interface operations {
             };
             409: components["responses"]["ReviewRequired"];
             424: components["responses"]["IntegrationNotConnected"];
+            429: components["responses"]["RateLimited"];
             502: components["responses"]["UpstreamError"];
         };
     };

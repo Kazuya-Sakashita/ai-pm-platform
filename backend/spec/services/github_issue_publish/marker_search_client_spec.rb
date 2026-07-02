@@ -25,11 +25,11 @@ RSpec.describe GithubIssuePublish::MarkerSearchClient do
     attr_reader :responses
   end
 
-  def github_response(status:, body:)
+  def github_response(status:, body:, headers: {})
     GithubIssuePublish::HttpClient::Response.new(
       status: status,
       body: JSON.generate(body),
-      headers: {}
+      headers: headers
     )
   end
 
@@ -109,5 +109,44 @@ RSpec.describe GithubIssuePublish::MarkerSearchClient do
       expect(error.safe_detail).to eq("GitHub integration is not connected.")
     }
     expect(http_client.requests).to be_empty
+  end
+
+  it "maps GitHub rate limit headers to safe provider metadata" do
+    issue_draft = create(:issue_draft, status: "publish_failed")
+    project = issue_draft.requirement.minute.meeting.project
+    create(:integration_account, project: project)
+    reset_epoch = Time.utc(2026, 7, 2, 12, 30, 0).to_i
+    http_client = FakeMarkerSearchHttpClient.new(
+      [
+        github_response(status: 201, body: { token: "github-installation-token" }),
+        github_response(
+          status: 429,
+          body: { message: "API rate limit exceeded" },
+          headers: {
+            "retry-after" => ["60"],
+            "x-ratelimit-remaining" => ["0"],
+            "x-ratelimit-reset" => [reset_epoch.to_s],
+            "x-ratelimit-resource" => ["search"]
+          }
+        )
+      ]
+    )
+
+    expect {
+      described_class.new(app_id: "999", private_key_pem: private_key_pem, http_client: http_client)
+                     .search(issue_draft: issue_draft, project: project, idempotency_digest: "digest")
+    }.to raise_error(GithubIssuePublish::ProviderError) { |error|
+      expect(error.code).to eq("github_issue_marker_search_rate_limited")
+      expect(error.safe_detail).to eq("GitHub rate limit is active. Retry after the provider limit resets.")
+      expect(error.http_status).to eq(:too_many_requests)
+      expect(error.safe_metadata).to include(
+        github_response_status: 429,
+        github_retry_after_seconds: 60,
+        github_rate_limit_remaining: 0,
+        github_rate_limit_reset_at: "2026-07-02T12:30:00Z",
+        github_rate_limit_resource: "search",
+        github_rate_limited: true
+      )
+    }
   end
 end
