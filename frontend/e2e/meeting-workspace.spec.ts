@@ -736,6 +736,58 @@ test.describe("Meeting Workspace", () => {
     await expectNoHorizontalLayoutOverflow(page, "#issue-draft .candidate-list .candidate-row:first-child");
   });
 
+  test("keeps ten GitHub Issue candidates scannable and selectable", async ({ page }) => {
+    const matches = Array.from({ length: 10 }, (_, index) => {
+      const issueNumber = 500 + index;
+      return {
+        github_issue_number: issueNumber,
+        github_issue_url: `https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/${issueNumber}`,
+        github_repository: "Kazuya-Sakashita/ai-pm-platform",
+        github_issue_title: `Ranked candidate ${index + 1}`,
+        github_issue_state: index % 2 === 0 ? "open" : "closed",
+        github_issue_updated_at: `2026-07-02T${String(index).padStart(2, "0")}:00:00Z`,
+        github_issue_score: 30 - index,
+        github_issue_api_id: 5000 + index,
+        github_issue_node_id: `I_kwTEN_${issueNumber}`,
+      } satisfies ReconciliationMatch;
+    });
+
+    await mockPendingGitHubReconciliationWorkflow(page, {
+      resolutionAction: "link_existing_issue",
+      resolutionNote: "マーカー検索候補 #509 を選択しました。",
+      expectedGithubIssueNumber: 509,
+      expectedGithubIssueUrl: "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/509",
+      markerSearchMatches: matches,
+      markerSearchTotalCount: 24,
+      markerSearchResultLimit: 10,
+    });
+    await openPendingGitHubReconciliationDraft(page);
+
+    await page.locator("#issue-draft").getByRole("button", { name: "マーカー検索" }).click();
+
+    await expect(page.locator("#issue-draft").getByText("10件", { exact: true })).toBeVisible();
+    await expect(page.locator("#issue-draft").getByText("検索総数 24件")).toBeVisible();
+    await expect(page.locator("#issue-draft").getByText("上位10件のみ表示")).toBeVisible();
+    await expect(page.locator("#issue-draft .candidate-row")).toHaveCount(10);
+
+    const finalCandidate = page.locator("#issue-draft .candidate-row", { hasText: "#509" });
+    await finalCandidate.scrollIntoViewIfNeeded();
+    await expect(finalCandidate.getByText("Ranked candidate 10")).toBeVisible();
+    await expect(finalCandidate.getByText(/状態 クローズ .* スコア 21/)).toBeVisible();
+    await expect(finalCandidate.getByRole("button", { name: "候補を選択" })).toBeVisible();
+    await expectNoHorizontalLayoutOverflow(page, "#issue-draft .reconciliation-candidates");
+    await expectNoHorizontalLayoutOverflow(page, "#issue-draft .candidate-list .candidate-row:last-child");
+
+    await finalCandidate.getByRole("button", { name: "候補を選択" }).click();
+
+    await expect(finalCandidate).toHaveAttribute("aria-current", "true");
+    await expect(finalCandidate.getByRole("button", { name: "選択中" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator("#issue-draft").getByLabel("GitHub Issue番号")).toHaveValue("509");
+    await expect(page.locator("#issue-draft").getByRole("textbox", { name: "GitHub Issue URL", exact: true })).toHaveValue(
+      "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/509",
+    );
+  });
+
   test("shows validation errors before linking an existing GitHub Issue", async ({ page }) => {
     await mockPendingGitHubReconciliationWorkflow(page, {
       resolutionAction: "link_existing_issue",
