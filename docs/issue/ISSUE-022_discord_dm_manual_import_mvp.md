@@ -1,0 +1,109 @@
+# ISSUE-022: Discord DM手動インポートとAI整理MVPを作る
+
+## Issue番号
+
+ISSUE-022
+
+## GitHub Issue
+
+https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/22
+
+登録理由: ユーザーから「DiscordのDMのやり取りを整理してまとめる機能も欲しい」と要望があったため。
+
+登録日: 2026-07-02
+
+## 背景
+
+AI PM Platformは、会議だけでなく、日常的な意思決定や仕様相談が発生するチャットからも、議事録、要件、Issue、API設計へ変換できる必要がある。Discord DMには、少人数の意思決定、仕様確認、契約前相談、個別依頼、障害対応の初動など、プロジェクト化すべき情報が多く含まれる。
+
+一方で、DMは会議ログよりもセンシティブであり、相手方の同意、個人情報、秘密情報、利用規約、Discord API制約を強く考慮する必要がある。初期実装でDiscord DMの自動取得を狙うと、プライバシー・審査・運用リスクが高い。
+
+## 目的
+
+ユーザーが明示的に貼り付けたDiscord DMテキストを、AIが安全に整理し、要約、決定事項、未決事項、TODO、Issue候補、要件候補へ変換できるMVPを作る。
+
+## 完了条件
+
+- Discord DM由来テキストの手動インポート要件が定義されている
+- Discord DM自動取得をMVP非スコープとするADRが保存されている
+- API設計でインポート、整理生成、レビュー、承認の境界が定義されている
+- DM由来データの同意、秘匿、保持、監査、AI送信前チェックが定義されている
+- STRIDE/OWASP観点のセキュリティレビューが保存されている
+- Issue/要件/API設計レビューが `docs/review/` に保存されている
+- 実装前にOpenAPIレビューを通す次アクションが明確である
+
+## スコープ
+
+- Discord DMテキストの手動貼り付けインポート
+- インポート前の同意確認、編集、redaction
+- AIによる会話整理ドラフト生成
+- 要約、決定事項、未決事項、TODO、Issue候補、要件候補、リスク抽出
+- レビューゲート
+- AuditLog
+- API設計
+- セキュリティ設計
+
+## 非スコープ
+
+- Discord DMの自動取得
+- self-bot、ユーザーアカウント自動操作
+- 未承認の `dm_channels.read` 前提の実装
+- Group DMへのBot参加
+- 相手方同意のないDM取り込み
+- Slack DM対応
+- 音声通話/画面共有の自動記録
+
+## 関連レビュー
+
+- `docs/review/20260702_discord_dm_manual_import_requirements_review.md`
+
+## レビュー結果
+
+2026-07-02にCodex一次レビューを実施。Discord DM整理はAI PM Platformの価値を広げる有望機能だが、DM自動取得は初期MVPとしてリスクが高い。世界レベルのSaaS基準では、ユーザーが明示的に貼り付けた会話だけを対象にし、同意確認、redaction、secret scan、レビューゲート、監査ログを必須にする方針が妥当。実装へ進む前にOpenAPI、DB設計、UI設計レビューが必要。
+
+良かった点:
+
+- DM整理をIssue #2の会議ログ取り込みから分離し、プライバシー境界を明確化した。
+- 手動貼り付けMVPに絞ることでDiscord API審査・規約・権限リスクを下げた。
+- AI整理結果をそのままIssue化せず、レビューゲートを維持する方針にした。
+- 同意確認、redaction、秘密情報検出、AuditLogをP0要件に含めた。
+- ADR、要件、API設計、セキュリティ設計を実装前に作成した。
+
+改善点:
+
+- OpenAPI本体への反映は未実施。
+- DB設計、画面設計、具体的なAI prompt/schemaは未作成。
+- Discord公式審査やDeveloper Policyに対する詳細リーガルレビューは未実施。
+- 参加者同意のUI文言、証跡保存粒度、削除/保持期間の仕様が未確定。
+- AI出力の引用根拠、confidence、誤要約訂正フローは未実装。
+
+検証結果:
+
+- ドキュメント追加のみ
+- `git diff --check`: success
+
+## 優先度
+
+P1
+
+理由:
+
+- Discord中心の開発チームでは、DMに仕様・依頼・意思決定が埋もれやすく、AI PMの差別化につながる
+- ただし、既存P0のGitHub Issue/OpenAPI publish pipeline完了後に実装するのが安全
+- DMは高センシティブ領域のため、実装速度より統制設計を優先する
+
+## 次アクション
+
+- OpenAPI draftへConversation Import APIを追加する
+- DB設計を作成する
+- DMインポートUIの画面設計を作成する
+- AI整理prompt/schemaを `docs/ai/` に追加する
+- STRIDEレビューを実装前に再実施する
+- GitHub Issueへ登録する
+
+## 関連ドキュメント
+
+- `docs/product/20260702_discord_dm_manual_import_requirements.md`
+- `docs/api/20260702_discord_dm_manual_import_api_design.md`
+- `docs/security/20260702_discord_dm_manual_import_security.md`
+- `docs/decisions/ADR-0009_discord_dm_manual_import_first.md`
