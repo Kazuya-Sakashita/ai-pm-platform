@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_07_01_114500) do
+ActiveRecord::Schema[7.1].define(version: 2026_07_02_120500) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pgcrypto"
   enable_extension "plpgsql"
@@ -66,6 +66,8 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_01_114500) do
     t.datetime "reconciled_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "reconciliation_retry_count", default: 0, null: false
+    t.datetime "next_reconciliation_retry_at"
     t.index ["github_issue_node_id"], name: "index_github_issue_publish_attempts_on_github_issue_node_id"
     t.index ["github_repository", "github_issue_number"], name: "idx_on_github_repository_github_issue_number_d3ec04d8f3"
     t.index ["issue_draft_id", "idempotency_digest"], name: "index_github_publish_attempts_on_draft_and_digest"

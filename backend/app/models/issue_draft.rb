@@ -46,6 +46,9 @@ class IssueDraft < ApplicationRecord
       safe_error_detail: attempt.safe_error_detail,
       github_issue_number: attempt.github_issue_number,
       github_issue_url: attempt.github_issue_url,
+      reconciliation_retry_count: attempt.reconciliation_retry_count,
+      next_reconciliation_retry_at: iso_time(attempt.next_reconciliation_retry_at),
+      reconciliation_cooldown_active: attempt.reconciliation_cooldown_active?,
       completed_at: iso_time(attempt.completed_at)
     }.compact
   end

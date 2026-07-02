@@ -33,6 +33,8 @@ test.describe("Meeting Workspace", () => {
     markerSearchTotalCount?: number;
     markerSearchIncompleteResults?: boolean;
     markerSearchResultLimit?: number;
+    reconciliationRetryCount?: number;
+    nextReconciliationRetryAt?: string;
     apiError?: {
       code: string;
       message: string;
@@ -216,6 +218,9 @@ test.describe("Meeting Workspace", () => {
         safe_error_detail: "GitHub issue may have been created. Reconciliation is required.",
         github_issue_number: githubIssueNumber,
         github_issue_url: githubIssueUrl,
+        reconciliation_retry_count: scenario.reconciliationRetryCount,
+        next_reconciliation_retry_at: scenario.nextReconciliationRetryAt,
+        reconciliation_cooldown_active: Boolean(scenario.nextReconciliationRetryAt && Date.parse(scenario.nextReconciliationRetryAt) > Date.now()),
         completed_at: now,
       },
       created_at: now,
@@ -595,6 +600,23 @@ test.describe("Meeting Workspace", () => {
     await expect(page.locator("header").getByText("GitHub公開の再試行を承認しました")).toBeVisible();
     await expect(page.locator("#issue-draft .panel-header .chip")).toHaveText("承認済み");
     await expect(page.locator("#issue-draft").getByRole("button", { name: "再試行を承認" })).toHaveCount(0);
+  });
+
+  test("shows GitHub reconciliation cooldown and disables risky retry actions", async ({ page }) => {
+    const nextRetryAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+    await mockPendingGitHubReconciliationWorkflow(page, {
+      resolutionAction: "approve_retry",
+      resolutionNote: "Confirmed that no GitHub Issue exists.",
+      reconciliationRetryCount: 1,
+      nextReconciliationRetryAt: nextRetryAt,
+    });
+    await openPendingGitHubReconciliationDraft(page);
+
+    await expect(page.locator("#issue-draft").getByText("再検索回数 1回")).toBeVisible();
+    await expect(page.locator("#issue-draft").getByText("次の再検索")).toBeVisible();
+    await expect(page.locator("#issue-draft").getByRole("button", { name: "マーカー検索" })).toBeDisabled();
+    await expect(page.locator("#issue-draft").getByRole("button", { name: "再試行を承認" })).toBeDisabled();
+    await expect(page.locator("#issue-draft").getByRole("button", { name: "既存Issueに紐付け" })).toBeEnabled();
   });
 
   test("links an existing GitHub Issue from pending reconciliation", async ({ page }) => {

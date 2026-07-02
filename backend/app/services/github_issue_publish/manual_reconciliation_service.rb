@@ -17,6 +17,7 @@ module GithubIssuePublish
       ensure_pending_attempt!
       ensure_action!
       ensure_resolution_note!
+      ensure_retry_cooldown_elapsed! if action == "approve_retry"
 
       return link_existing_issue! if action == "link_existing_issue"
       return approve_retry! if action == "approve_retry"
@@ -75,6 +76,22 @@ module GithubIssuePublish
         "github_reconciliation_resolution_note_required",
         "A resolution note is required for manual GitHub reconciliation.",
         :unprocessable_entity
+      )
+    end
+
+    def ensure_retry_cooldown_elapsed!
+      return unless attempt.reconciliation_cooldown_active?
+
+      raise ProviderError.new(
+        code: "github_reconciliation_cooldown_active",
+        message: "GitHub reconciliation retry is cooling down.",
+        safe_detail: "GitHub reconciliation retry is cooling down.",
+        http_status: :conflict,
+        safe_metadata: {
+          reconciliation_retry_count: attempt.reconciliation_retry_count,
+          next_reconciliation_retry_at: attempt.next_reconciliation_retry_at&.iso8601,
+          reconciliation_cooldown_active: true
+        }.compact
       )
     end
 

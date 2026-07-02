@@ -1,10 +1,25 @@
 module GithubIssuePublish
   class ReconciliationService
+    DEFAULT_RETRY_COOLDOWN = 60.seconds
     REVIEWER_ROLE = "GitHub Publish Reconciler"
     FRAMEWORK = ["G-STACK", "STRIDE", "ISO25010"].freeze
-    Result = Struct.new(:status, :matches, :review, :search_total_count, :search_incomplete_results, :search_result_limit, keyword_init: true) do
+    Result = Struct.new(
+      :status,
+      :matches,
+      :review,
+      :search_total_count,
+      :search_incomplete_results,
+      :search_result_limit,
+      :reconciliation_retry_count,
+      :next_reconciliation_retry_at,
+      keyword_init: true
+    ) do
       def search_has_more_results
         search_total_count.to_i > matches.count
+      end
+
+      def reconciliation_cooldown_active
+        next_reconciliation_retry_at.present? && next_reconciliation_retry_at > Time.current
       end
     end
 
@@ -28,11 +43,14 @@ module GithubIssuePublish
 
       block_for_human_review!(matches, search_result)
     rescue ProviderError => e
-      attempt.update!(
+      available_at = retry_available_at(e) if retryable_provider_error?(e) && attempt.reconciliation_retry_count < GithubIssuePublishAttempt::MAX_RECONCILIATION_RETRY_COUNT
+      attributes = {
         safe_error_code: e.code,
         safe_error_detail: e.safe_detail,
         completed_at: Time.current
-      )
+      }
+      attempt.update!(attributes)
+      attempt.schedule_reconciliation_retry!(available_at: available_at) if available_at
       raise
     end
 
@@ -55,7 +73,9 @@ module GithubIssuePublish
       {
         search_total_count: search_result.total_count,
         search_incomplete_results: search_result.incomplete_results,
-        search_result_limit: search_result.result_limit
+        search_result_limit: search_result.result_limit,
+        reconciliation_retry_count: attempt.reconciliation_retry_count,
+        next_reconciliation_retry_at: attempt.next_reconciliation_retry_at
       }
     end
 
@@ -104,6 +124,7 @@ module GithubIssuePublish
         safe_error_detail: detail,
         completed_at: Time.current
       )
+      schedule_review_retry!(code)
       review = upsert_review_blocker!(code, detail, matches)
       AuditLog.record!(
         project: project,
@@ -210,6 +231,29 @@ module GithubIssuePublish
       else
         ["github_publish_reconciliation_multiple_matches", "Multiple GitHub Issue marker matches were found."]
       end
+    end
+
+    def schedule_review_retry!(code)
+      return unless retryable_review_code?(code)
+
+      attempt.schedule_reconciliation_retry!(available_at: Time.current + DEFAULT_RETRY_COOLDOWN)
+    end
+
+    def retryable_review_code?(code)
+      %w[
+        github_publish_reconciliation_incomplete_results
+        github_publish_reconciliation_no_match
+      ].include?(code)
+    end
+
+    def retryable_provider_error?(error)
+      error.code == "github_issue_marker_search_rate_limited"
+    end
+
+    def retry_available_at(error)
+      retry_after = error.safe_metadata[:github_retry_after_seconds].to_i
+      retry_after = DEFAULT_RETRY_COOLDOWN.to_i if retry_after <= 0
+      Time.current + retry_after.seconds
     end
   end
 end

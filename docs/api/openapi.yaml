@@ -1339,6 +1339,14 @@ components:
         github_issue_url:
           type: string
           format: uri
+        reconciliation_retry_count:
+          type: integer
+          minimum: 0
+        next_reconciliation_retry_at:
+          type: string
+          format: date-time
+        reconciliation_cooldown_active:
+          type: boolean
         completed_at:
           type: string
           format: date-time
@@ -1753,6 +1761,14 @@ components:
               type: integer
               minimum: 1
             search_has_more_results:
+              type: boolean
+            reconciliation_retry_count:
+              type: integer
+              minimum: 0
+            next_reconciliation_retry_at:
+              type: string
+              format: date-time
+            reconciliation_cooldown_active:
               type: boolean
             review_id:
               type: string

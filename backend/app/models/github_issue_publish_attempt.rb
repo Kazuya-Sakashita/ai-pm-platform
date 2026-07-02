@@ -1,5 +1,6 @@
 class GithubIssuePublishAttempt < ApplicationRecord
   STATUSES = %w[started github_created local_saved failed reconciliation_required reconciled retry_approved].freeze
+  MAX_RECONCILIATION_RETRY_COUNT = 2
 
   belongs_to :issue_draft
   belongs_to :project
@@ -22,7 +23,8 @@ class GithubIssuePublishAttempt < ApplicationRecord
       github_issue_node_id: result[:github_issue_node_id],
       github_created_at: Time.current,
       safe_error_code: nil,
-      safe_error_detail: nil
+      safe_error_detail: nil,
+      next_reconciliation_retry_at: nil
     )
   end
 
@@ -31,7 +33,8 @@ class GithubIssuePublishAttempt < ApplicationRecord
       status: "local_saved",
       completed_at: Time.current,
       safe_error_code: nil,
-      safe_error_detail: nil
+      safe_error_detail: nil,
+      next_reconciliation_retry_at: nil
     )
   end
 
@@ -65,6 +68,7 @@ class GithubIssuePublishAttempt < ApplicationRecord
       github_issue_node_id: result[:github_issue_node_id],
       safe_error_code: nil,
       safe_error_detail: nil,
+      next_reconciliation_retry_at: nil,
       completed_at: Time.current,
       reconciled_at: Time.current
     )
@@ -75,8 +79,22 @@ class GithubIssuePublishAttempt < ApplicationRecord
       status: "retry_approved",
       safe_error_code: nil,
       safe_error_detail: detail,
+      next_reconciliation_retry_at: nil,
       completed_at: Time.current
     )
+  end
+
+  def schedule_reconciliation_retry!(available_at:)
+    return if reconciliation_retry_count >= MAX_RECONCILIATION_RETRY_COUNT
+
+    update!(
+      reconciliation_retry_count: reconciliation_retry_count + 1,
+      next_reconciliation_retry_at: available_at
+    )
+  end
+
+  def reconciliation_cooldown_active?(now: Time.current)
+    next_reconciliation_retry_at.present? && next_reconciliation_retry_at > now
   end
 
   private

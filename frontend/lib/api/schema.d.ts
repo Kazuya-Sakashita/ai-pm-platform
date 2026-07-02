@@ -670,6 +670,10 @@ export interface components {
             github_issue_number?: number;
             /** Format: uri */
             github_issue_url?: string;
+            reconciliation_retry_count?: number;
+            /** Format: date-time */
+            next_reconciliation_retry_at?: string;
+            reconciliation_cooldown_active?: boolean;
             /** Format: date-time */
             completed_at?: string;
         };
@@ -857,6 +861,10 @@ export interface components {
                 search_incomplete_results?: boolean;
                 search_result_limit?: number;
                 search_has_more_results?: boolean;
+                reconciliation_retry_count?: number;
+                /** Format: date-time */
+                next_reconciliation_retry_at?: string;
+                reconciliation_cooldown_active?: boolean;
                 /** Format: uuid */
                 review_id?: string;
                 matches?: components["schemas"]["GitHubReconciliationMatch"][];

@@ -269,6 +269,9 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
       expect(body.dig("data", "status")).to eq("review_required")
       expect(body.dig("data", "attempt_id")).to eq(attempt.id)
       expect(body.dig("data", "match_count")).to eq(0)
+      expect(body.dig("data", "reconciliation_retry_count")).to eq(1)
+      expect(Time.iso8601(body.dig("data", "next_reconciliation_retry_at"))).to be_within(5.seconds).of(1.minute.from_now)
+      expect(body.dig("data", "reconciliation_cooldown_active")).to be(true)
       expect(body.dig("data", "review_id")).to be_present
       expect(attempt.reload.status).to eq("reconciliation_required")
       review = Review.find(body.dig("data", "review_id"))
@@ -371,6 +374,33 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
       expect(Job.where(job_type: "github_reconciliation")).to be_empty
     end
 
+    it "blocks marker search while reconciliation retry is cooling down" do
+      issue_draft = create(:issue_draft, status: "publish_failed", publish_error: "Reconciliation required.")
+      project = issue_draft.requirement.minute.meeting.project
+      attempt = create(
+        :github_issue_publish_attempt,
+        issue_draft: issue_draft,
+        project: project,
+        status: "reconciliation_required",
+        next_reconciliation_retry_at: 1.minute.from_now,
+        reconciliation_retry_count: 1,
+        idempotency_digest: Digest::SHA256.hexdigest("publish-key-cooldown")
+      )
+
+      post "/api/v1/issue-drafts/#{issue_draft.id}/reconcile-github-publish"
+
+      expect(response).to have_http_status(:conflict)
+      body = JSON.parse(response.body)
+      expect(body.dig("error", "code")).to eq("github_reconciliation_cooldown_active")
+      expect(body.dig("error", "details")).to include(
+        "attempt_id" => attempt.id,
+        "reconciliation_retry_count" => 1,
+        "reconciliation_cooldown_active" => true
+      )
+      expect(body.dig("error", "details", "next_reconciliation_retry_at")).to be_present
+      expect(Job.where(job_type: "github_reconciliation", target_id: issue_draft.id)).to be_empty
+    end
+
     it "marks the job failed when GitHub marker search fails" do
       issue_draft = create(:issue_draft, status: "publish_failed", publish_error: "Reconciliation required.")
       project = issue_draft.requirement.minute.meeting.project
@@ -447,11 +477,16 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
         "github_rate_limit_remaining" => 0,
         "github_rate_limit_reset_at" => "2026-07-02T12:30:00Z",
         "github_rate_limit_resource" => "search",
-        "github_rate_limited" => true
+        "github_rate_limited" => true,
+        "reconciliation_retry_count" => 1,
+        "reconciliation_cooldown_active" => true
       )
+      expect(body.dig("error", "details", "next_reconciliation_retry_at")).to be_present
       job = Job.where(job_type: "github_reconciliation", target_id: issue_draft.id).last
       expect(job.status).to eq("failed")
       expect(job.safe_error_detail).to eq("GitHub rate limit is active. Retry after the provider limit resets.")
+      expect(attempt.reload.reconciliation_retry_count).to eq(1)
+      expect(attempt.next_reconciliation_retry_at).to be_within(5.seconds).of(1.minute.from_now)
       audit_log = project.audit_logs.find_by!(action: "issue_draft.github_publish_reconciliation_failed")
       expect(audit_log.metadata).to include(
         "job_id" => job.id,
@@ -540,6 +575,38 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
       expect(issue_draft.publish_error).to be_nil
       expect(attempt.reload.status).to eq("retry_approved")
       expect(review.reload.status).to eq("resolved")
+    end
+
+    it "blocks controlled retry while reconciliation cooldown is active" do
+      issue_draft = create(:issue_draft, status: "publish_failed", publish_error: "Reconciliation required.")
+      project = issue_draft.requirement.minute.meeting.project
+      attempt = create(
+        :github_issue_publish_attempt,
+        issue_draft: issue_draft,
+        project: project,
+        status: "reconciliation_required",
+        next_reconciliation_retry_at: 1.minute.from_now,
+        reconciliation_retry_count: 1,
+        idempotency_digest: Digest::SHA256.hexdigest("publish-key-retry-cooldown")
+      )
+
+      post "/api/v1/issue-drafts/#{issue_draft.id}/resolve-github-reconciliation", params: {
+        attempt_id: attempt.id,
+        resolution_action: "approve_retry",
+        resolution_note: "Confirmed no GitHub Issue exists and approved one controlled retry."
+      }
+
+      expect(response).to have_http_status(:conflict)
+      body = JSON.parse(response.body)
+      expect(body.dig("error", "code")).to eq("github_reconciliation_cooldown_active")
+      expect(body.dig("error", "details")).to include(
+        "attempt_id" => attempt.id,
+        "reconciliation_retry_count" => 1,
+        "reconciliation_cooldown_active" => true
+      )
+      expect(attempt.reload.status).to eq("reconciliation_required")
+      job = Job.where(job_type: "github_reconciliation", target_id: issue_draft.id).last
+      expect(job.status).to eq("failed")
     end
 
     it "rejects manual links outside the project repository" do

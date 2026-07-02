@@ -88,6 +88,10 @@ function formatDateTime(value?: string) {
   }).format(new Date(value));
 }
 
+function isFutureDateTime(value?: string) {
+  return Boolean(value && Date.parse(value) > Date.now());
+}
+
 function statusTone(status?: string) {
   if (status === "approved" || status === "succeeded" || status === "valid" || status === "published") return "success";
   if (status === "failed" || status === "needs_changes" || status === "invalid" || status === "publish_failed") return "danger";
@@ -1107,6 +1111,10 @@ export default function MeetingWorkspace() {
     (openApiDraft?.status === "valid" || openApiDraft?.status === "approved") &&
     openApiReview?.status !== "action_required";
   const hasPendingGitHubReconciliation = issueDraft?.github_reconciliation?.pending === true;
+  const isGitHubReconciliationCooldownActive =
+    hasPendingGitHubReconciliation &&
+    (issueDraft?.github_reconciliation?.reconciliation_cooldown_active === true ||
+      isFutureDateTime(issueDraft?.github_reconciliation?.next_reconciliation_retry_at));
 
   return (
     <div className="app-shell">
@@ -1544,6 +1552,12 @@ export default function MeetingWorkspace() {
                       <strong>照合</strong>
                       <span>{statusLabel(issueDraft.github_reconciliation?.status)}</span>
                       <p>{displayMessage(issueDraft.github_reconciliation?.safe_error_detail)}</p>
+                      {typeof issueDraft.github_reconciliation?.reconciliation_retry_count === "number" ? (
+                        <p>再検索回数 {issueDraft.github_reconciliation.reconciliation_retry_count}回</p>
+                      ) : null}
+                      {issueDraft.github_reconciliation?.next_reconciliation_retry_at ? (
+                        <p>次の再検索 {formatDateTime(issueDraft.github_reconciliation.next_reconciliation_retry_at)}</p>
+                      ) : null}
                     </div>
                     <div className="reconciliation-grid" aria-label="GitHub公開照合コントロール">
                       <label>
@@ -1619,7 +1633,12 @@ export default function MeetingWorkspace() {
                       </div>
                     ) : null}
                     <div className="reconciliation-actions">
-                      <button className="button secondary" type="button" onClick={reconcileGitHubPublish} disabled={!hasPendingGitHubReconciliation || loading}>
+                      <button
+                        className="button secondary"
+                        type="button"
+                        onClick={reconcileGitHubPublish}
+                        disabled={!hasPendingGitHubReconciliation || isGitHubReconciliationCooldownActive || loading}
+                      >
                         <RefreshCw size={16} />
                         マーカー検索
                       </button>
@@ -1636,7 +1655,7 @@ export default function MeetingWorkspace() {
                         className="button primary"
                         type="button"
                         onClick={() => resolveGitHubReconciliation("approve_retry")}
-                        disabled={!hasPendingGitHubReconciliation || loading}
+                        disabled={!hasPendingGitHubReconciliation || isGitHubReconciliationCooldownActive || loading}
                       >
                         <Send size={16} />
                         再試行を承認

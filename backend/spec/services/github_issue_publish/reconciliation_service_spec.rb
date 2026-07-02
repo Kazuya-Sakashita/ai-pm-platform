@@ -87,6 +87,11 @@ RSpec.describe GithubIssuePublish::ReconciliationService do
     expect(result.status).to eq("review_required")
     expect(attempt.reload.status).to eq("reconciliation_required")
     expect(attempt.safe_error_code).to eq("github_publish_reconciliation_no_match")
+    expect(attempt.reconciliation_retry_count).to eq(1)
+    expect(attempt.next_reconciliation_retry_at).to be_within(5.seconds).of(1.minute.from_now)
+    expect(result.reconciliation_retry_count).to eq(1)
+    expect(result.next_reconciliation_retry_at).to be_within(5.seconds).of(1.minute.from_now)
+    expect(result.reconciliation_cooldown_active).to be(true)
     expect(issue_draft.reload.github_issue_url).to be_nil
     review = Review.find_by!(
       target_type: "issue_draft",
@@ -146,6 +151,9 @@ RSpec.describe GithubIssuePublish::ReconciliationService do
     expect(issue_draft.reload.github_issue_url).to be_nil
     expect(attempt.reload.status).to eq("reconciliation_required")
     expect(attempt.safe_error_code).to eq("github_publish_reconciliation_incomplete_results")
+    expect(attempt.reconciliation_retry_count).to eq(1)
+    expect(attempt.next_reconciliation_retry_at).to be_within(5.seconds).of(1.minute.from_now)
+    expect(result.reconciliation_cooldown_active).to be(true)
     review = Review.find_by!(
       target_type: "issue_draft",
       target_id: issue_draft.id,
@@ -182,5 +190,29 @@ RSpec.describe GithubIssuePublish::ReconciliationService do
 
     expect(attempt.reload.safe_error_code).to eq("github_issue_marker_search_failed")
     expect(attempt.safe_error_detail).to eq("GitHub Issue marker search failed.")
+  end
+
+  it "schedules a cooldown when marker search is rate limited" do
+    search_client = instance_double(GithubIssuePublish::MarkerSearchClient)
+    allow(search_client).to receive(:search).and_raise(
+      GithubIssuePublish::ProviderError.new(
+        code: "github_issue_marker_search_rate_limited",
+        message: "GitHub search was rate limited.",
+        safe_detail: "GitHub rate limit is active. Retry after the provider limit resets.",
+        http_status: :too_many_requests,
+        safe_metadata: {
+          github_retry_after_seconds: 120,
+          github_rate_limited: true
+        }
+      )
+    )
+
+    expect {
+      described_class.new(attempt, search_client: search_client).call
+    }.to raise_error(GithubIssuePublish::ProviderError)
+
+    expect(attempt.reload.safe_error_code).to eq("github_issue_marker_search_rate_limited")
+    expect(attempt.reconciliation_retry_count).to eq(1)
+    expect(attempt.next_reconciliation_retry_at).to be_within(5.seconds).of(2.minutes.from_now)
   end
 end

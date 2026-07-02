@@ -112,6 +112,7 @@ module Api
       def reconcile_github_publish
         attempt = latest_reconciliation_attempt
         return render_reconciliation_not_required unless attempt
+        return render_reconciliation_cooldown(attempt) if attempt.reconciliation_cooldown_active?
 
         job = project_for(issue_draft.requirement).jobs.create!(
           job_type: "github_reconciliation",
@@ -137,10 +138,10 @@ module Api
           project: project_for(issue_draft.requirement),
           action: "issue_draft.github_publish_reconciliation_failed",
           target: issue_draft,
-          metadata: github_provider_error_metadata(e, job_id: job&.id, attempt_id: attempt&.id)
+          metadata: github_provider_error_metadata(e, reconciliation_cooldown_metadata(attempt).merge(job_id: job&.id, attempt_id: attempt&.id))
         )
 
-        render_error(e.code, e.safe_detail, e.http_status, github_provider_error_metadata(e, job_id: job&.id, attempt_id: attempt&.id))
+        render_error(e.code, e.safe_detail, e.http_status, github_provider_error_metadata(e, reconciliation_cooldown_metadata(attempt).merge(job_id: job&.id, attempt_id: attempt&.id)))
       end
 
       def resolve_github_reconciliation
@@ -175,10 +176,10 @@ module Api
           project: project_for(issue_draft.requirement),
           action: "issue_draft.github_publish_manual_reconciliation_failed",
           target: issue_draft,
-          metadata: github_provider_error_metadata(e, job_id: job&.id, attempt_id: attempt&.id)
+          metadata: github_provider_error_metadata(e, reconciliation_cooldown_metadata(attempt).merge(job_id: job&.id, attempt_id: attempt&.id))
         )
 
-        render_error(e.code, e.safe_detail, e.http_status, github_provider_error_metadata(e, job_id: job&.id, attempt_id: attempt&.id))
+        render_error(e.code, e.safe_detail, e.http_status, github_provider_error_metadata(e, reconciliation_cooldown_metadata(attempt).merge(job_id: job&.id, attempt_id: attempt&.id)))
       end
 
       private
@@ -210,6 +211,15 @@ module Api
         )
       end
 
+      def render_reconciliation_cooldown(attempt)
+        render_error(
+          "github_reconciliation_cooldown_active",
+          "GitHub reconciliation retry is cooling down.",
+          :conflict,
+          reconciliation_cooldown_metadata(attempt)
+        )
+      end
+
       def render_review_required(requirement)
         render_error(
           "review_required",
@@ -238,6 +248,17 @@ module Api
         }.merge(error.safe_metadata).merge(extra).compact
       end
 
+      def reconciliation_cooldown_metadata(attempt)
+        return {} unless attempt
+
+        {
+          attempt_id: attempt.id,
+          reconciliation_retry_count: attempt.reconciliation_retry_count,
+          next_reconciliation_retry_at: attempt.next_reconciliation_retry_at&.iso8601,
+          reconciliation_cooldown_active: attempt.reconciliation_cooldown_active?
+        }.compact
+      end
+
       def reconciliation_response(result, attempt, job)
         {
           job_id: job.id,
@@ -248,6 +269,9 @@ module Api
           search_incomplete_results: result.search_incomplete_results,
           search_result_limit: result.search_result_limit,
           search_has_more_results: result.search_has_more_results,
+          reconciliation_retry_count: result.reconciliation_retry_count,
+          next_reconciliation_retry_at: result.next_reconciliation_retry_at&.iso8601,
+          reconciliation_cooldown_active: result.reconciliation_cooldown_active,
           review_id: result.review&.id,
           matches: reconciliation_matches(result.matches, attempt),
           github_issue_number: issue_draft.github_issue_number,

@@ -2,6 +2,7 @@ const messageLabels: Record<string, string> = {
   "AI response did not match the expected minutes schema.": "AI応答が想定された議事録形式に一致しませんでした。",
   "GitHub integration is not connected.": "GitHub連携が未接続です。",
   "GitHub Issue marker search failed.": "GitHub Issueマーカー検索に失敗しました。",
+  "GitHub reconciliation retry is cooling down.": "GitHub照合の再試行待機中です。",
   "GitHub issue URL must match the project repository and issue number.": "GitHub Issue URLはプロジェクトのリポジトリとIssue番号に一致している必要があります。",
   "GitHub issue may have been created. Reconciliation is required.": "GitHub Issueが作成済みの可能性があります。照合が必要です。",
   "GitHub rate limit is active. Retry after the provider limit resets.": "GitHubのレート制限中です。制限解除後に再試行してください。",
