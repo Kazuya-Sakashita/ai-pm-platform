@@ -76,6 +76,111 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/conversation-imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List conversation imports in project */
+        get: operations["listProjectConversationImports"];
+        put?: never;
+        /** Create a manual conversation import */
+        post: operations["createConversationImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/conversation-imports/{conversation_import_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get conversation import */
+        get: operations["getConversationImport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update conversation import text, redaction, or consent metadata */
+        patch: operations["updateConversationImport"];
+        trace?: never;
+    };
+    "/conversation-imports/{conversation_import_id}/scan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Scan a conversation import before AI processing */
+        post: operations["scanConversationImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/conversation-imports/{conversation_import_id}/generate-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate an AI summary draft from a scanned conversation import */
+        post: operations["generateConversationSummary"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/conversation-summary-drafts/{conversation_summary_draft_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get conversation summary draft */
+        get: operations["getConversationSummaryDraft"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update conversation summary draft after human review */
+        patch: operations["updateConversationSummaryDraft"];
+        trace?: never;
+    };
+    "/conversation-summary-drafts/{conversation_summary_draft_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve a conversation summary draft for downstream requirements and issue drafting */
+        post: operations["approveConversationSummaryDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/meetings/{meeting_id}": {
         parameters: {
             query?: never;
@@ -583,6 +688,200 @@ export interface components {
             raw_text: string;
             tags?: string[];
         };
+        /** @enum {string} */
+        ConversationImportSourceType: "discord_dm_paste";
+        /** @enum {string} */
+        ConversationImportStatus: "draft" | "blocked" | "ready_for_ai" | "summarizing" | "summary_draft" | "approved" | "rejected" | "archived";
+        /** @enum {string} */
+        ConversationSummaryDraftStatus: "draft" | "needs_revision" | "approved" | "rejected" | "stale";
+        ConversationParticipant: {
+            display_name: string;
+            handle?: string;
+            /** @enum {string} */
+            role?: "requester" | "responder" | "reviewer" | "unknown";
+            notes?: string;
+        };
+        ConversationSafetyFlag: {
+            /** @enum {string} */
+            type: "personal_data" | "secret" | "credential" | "financial" | "legal" | "consent_missing" | "unknown";
+            /** @enum {string} */
+            severity: "low" | "medium" | "high";
+            /** @enum {string} */
+            action: "review_required" | "redaction_required" | "blocked";
+            location_hint?: string;
+            message?: string;
+        };
+        ConversationRedactionSuggestion: {
+            location_hint: string;
+            reason: string;
+            suggested_replacement: string;
+        };
+        ConversationImport: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            project_id: string;
+            source_type: components["schemas"]["ConversationImportSourceType"];
+            title: string;
+            raw_text: string;
+            redacted_text?: string;
+            participants: components["schemas"]["ConversationParticipant"][];
+            /** Format: date-time */
+            conversation_started_at?: string;
+            /** Format: date-time */
+            conversation_ended_at?: string;
+            consent_confirmed: boolean;
+            /** Format: uuid */
+            consent_confirmed_by?: string;
+            /** Format: date-time */
+            consent_confirmed_at?: string;
+            consent_statement_version: string;
+            status: components["schemas"]["ConversationImportStatus"];
+            safety_flags: components["schemas"]["ConversationSafetyFlag"][];
+            blocked_reasons: string[];
+            latest_summary_draft?: components["schemas"]["ConversationSummaryDraft"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ConversationImportResponse: {
+            data: components["schemas"]["ConversationImport"];
+        };
+        ConversationImportListResponse: {
+            data: components["schemas"]["ConversationImport"][];
+            meta: components["schemas"]["PaginationMeta"];
+        };
+        CreateConversationImportRequest: {
+            source_type: components["schemas"]["ConversationImportSourceType"];
+            title: string;
+            raw_text: string;
+            redacted_text?: string;
+            participants?: components["schemas"]["ConversationParticipant"][];
+            /** Format: date-time */
+            conversation_started_at?: string;
+            /** Format: date-time */
+            conversation_ended_at?: string;
+            consent_confirmed: boolean;
+            consent_statement_version: string;
+        };
+        UpdateConversationImportRequest: {
+            title?: string;
+            raw_text?: string;
+            redacted_text?: string;
+            participants?: components["schemas"]["ConversationParticipant"][];
+            /** Format: date-time */
+            conversation_started_at?: string;
+            /** Format: date-time */
+            conversation_ended_at?: string;
+            consent_confirmed?: boolean;
+            consent_statement_version?: string;
+        };
+        ConversationImportScanResponse: {
+            data: {
+                valid: boolean;
+                conversation_import: components["schemas"]["ConversationImport"];
+                safety_flags: components["schemas"]["ConversationSafetyFlag"][];
+                blocked_reasons: string[];
+                redaction_suggestions: components["schemas"]["ConversationRedactionSuggestion"][];
+                /** @enum {string} */
+                next_action: "edit_and_rescan" | "generate_summary" | "archive";
+            };
+        };
+        ConversationSourceQuote: {
+            id: string;
+            quote: string;
+            speaker?: string;
+            /** Format: date-time */
+            message_at?: string;
+        };
+        ConversationDecision: {
+            text: string;
+            owner?: string;
+            source_quote_ids?: string[];
+            confidence: number;
+        };
+        ConversationActionItem: {
+            text: string;
+            owner?: string;
+            /** Format: date */
+            due_date?: string;
+            /** @enum {string} */
+            status: "open" | "in_progress" | "done";
+            source_quote_ids?: string[];
+            confidence: number;
+        };
+        ConversationIssueCandidate: {
+            title: string;
+            body: string;
+            labels?: string[];
+            /** @enum {string} */
+            priority: "P0" | "P1" | "P2" | "P3";
+            source_quote_ids?: string[];
+            confidence: number;
+        };
+        ConversationRequirementCandidate: {
+            title: string;
+            requirement: string;
+            acceptance_criteria: string[];
+            source_quote_ids?: string[];
+            confidence: number;
+        };
+        ConversationRisk: {
+            text: string;
+            /** @enum {string} */
+            severity: "low" | "medium" | "high";
+            mitigation?: string;
+            source_quote_ids?: string[];
+            confidence: number;
+        };
+        ConversationSummaryDraft: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            conversation_import_id: string;
+            status: components["schemas"]["ConversationSummaryDraftStatus"];
+            summary: string;
+            decisions: components["schemas"]["ConversationDecision"][];
+            open_questions: string[];
+            action_items: components["schemas"]["ConversationActionItem"][];
+            issue_candidates: components["schemas"]["ConversationIssueCandidate"][];
+            requirement_candidates: components["schemas"]["ConversationRequirementCandidate"][];
+            risks: components["schemas"]["ConversationRisk"][];
+            participants: components["schemas"]["ConversationParticipant"][];
+            source_quotes: components["schemas"]["ConversationSourceQuote"][];
+            confidence: number;
+            generated_by_model?: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ConversationSummaryDraftResponse: {
+            data: components["schemas"]["ConversationSummaryDraft"];
+        };
+        ConversationSummaryGenerationResponse: {
+            data: {
+                job: components["schemas"]["Job"];
+                conversation_summary_draft?: components["schemas"]["ConversationSummaryDraft"];
+            };
+        };
+        UpdateConversationSummaryDraftRequest: {
+            summary?: string;
+            decisions?: components["schemas"]["ConversationDecision"][];
+            open_questions?: string[];
+            action_items?: components["schemas"]["ConversationActionItem"][];
+            issue_candidates?: components["schemas"]["ConversationIssueCandidate"][];
+            requirement_candidates?: components["schemas"]["ConversationRequirementCandidate"][];
+            risks?: components["schemas"]["ConversationRisk"][];
+            participants?: components["schemas"]["ConversationParticipant"][];
+            status?: components["schemas"]["ConversationSummaryDraftStatus"];
+        };
+        ApproveConversationSummaryDraftRequest: {
+            approval_note: string;
+            /** @default true */
+            generate_downstream_candidates: boolean;
+        };
         Minutes: {
             /** Format: uuid */
             id: string;
@@ -746,7 +1045,7 @@ export interface components {
             status?: components["schemas"]["OpenApiDraftStatus"];
         };
         /** @enum {string} */
-        ReviewTargetType: "meeting" | "minutes" | "requirement" | "issue_draft" | "openapi_draft" | "architecture" | "security" | "release";
+        ReviewTargetType: "meeting" | "conversation_import" | "conversation_summary_draft" | "minutes" | "requirement" | "issue_draft" | "openapi_draft" | "architecture" | "security" | "release";
         /** @enum {string} */
         ReviewStatus: "open" | "action_required" | "resolved" | "accepted_risk";
         Review: {
@@ -1080,6 +1379,8 @@ export interface components {
     parameters: {
         ProjectId: string;
         MeetingId: string;
+        ConversationImportId: string;
+        ConversationSummaryDraftId: string;
         MinutesId: string;
         RequirementId: string;
         IssueDraftId: string;
@@ -1291,6 +1592,248 @@ export interface operations {
                     "application/json": components["schemas"]["MeetingResponse"];
                 };
             };
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    listProjectConversationImports: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                per_page?: components["parameters"]["PerPage"];
+            };
+            header?: never;
+            path: {
+                project_id: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Conversation imports */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationImportListResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createConversationImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateConversationImportRequest"];
+            };
+        };
+        responses: {
+            /** @description Conversation import created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationImportResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    getConversationImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_import_id: components["parameters"]["ConversationImportId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Conversation import */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationImportResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateConversationImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_import_id: components["parameters"]["ConversationImportId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateConversationImportRequest"];
+            };
+        };
+        responses: {
+            /** @description Conversation import updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationImportResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    scanConversationImport: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                conversation_import_id: components["parameters"]["ConversationImportId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Scan result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationImportScanResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    generateConversationSummary: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                conversation_import_id: components["parameters"]["ConversationImportId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Conversation summary generation accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationSummaryGenerationResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationError"];
+            424: components["responses"]["IntegrationNotConnected"];
+            429: components["responses"]["RateLimited"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    getConversationSummaryDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_summary_draft_id: components["parameters"]["ConversationSummaryDraftId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Conversation summary draft */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationSummaryDraftResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateConversationSummaryDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_summary_draft_id: components["parameters"]["ConversationSummaryDraftId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateConversationSummaryDraftRequest"];
+            };
+        };
+        responses: {
+            /** @description Conversation summary draft updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationSummaryDraftResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    approveConversationSummaryDraft: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                conversation_summary_draft_id: components["parameters"]["ConversationSummaryDraftId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApproveConversationSummaryDraftRequest"];
+            };
+        };
+        responses: {
+            /** @description Conversation summary draft approved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationSummaryDraftResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
             422: components["responses"]["ValidationError"];
         };
     };

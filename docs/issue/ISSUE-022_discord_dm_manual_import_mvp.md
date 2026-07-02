@@ -57,6 +57,7 @@ AI PM Platformは、会議だけでなく、日常的な意思決定や仕様相
 
 - `docs/review/20260702_discord_dm_manual_import_requirements_review.md`
 - `docs/review/20260702_discord_dm_parallel_design_review.md`
+- `docs/review/20260702_discord_dm_openapi_design_review.md`
 
 ## レビュー結果
 
@@ -70,10 +71,11 @@ AI PM Platformは、会議だけでなく、日常的な意思決定や仕様相
 - 同意確認、redaction、秘密情報検出、AuditLogをP0要件に含めた。
 - ADR、要件、API設計、セキュリティ設計を実装前に作成した。
 - DB設計、画面設計、AI prompt/schemaを並行して追加し、実装前の責任境界を整理した。
+- OpenAPI本体へConversation Import / Summary Draft endpointとschemaを追加し、TypeScript API型を生成した。
 
 改善点:
 
-- OpenAPI本体への反映は未実施。
+- OpenAPI本体への反映は完了したが、Backend route、controller、model、migration、serviceは未実施。
 - DB設計、画面設計、AI prompt/schemaは設計文書として追加済みだが、DB migration、UI実装、Structured Outputs接続は未実施。
 - Discord公式審査やDeveloper Policyに対する詳細リーガルレビューは未実施。
 - 参加者同意のUI文言、証跡保存粒度、削除/保持期間の仕様が未確定。
@@ -83,6 +85,9 @@ AI PM Platformは、会議だけでなく、日常的な意思決定や仕様相
 
 - ドキュメント追加のみ
 - `git diff --check`: success
+- `npm run api:verify`: success
+- `docs/api/openapi.yaml`: Conversation Import / Summary Draft API追加
+- `frontend/lib/api/schema.d.ts`: OpenAPI型再生成
 - `docs/architecture/20260702_discord_dm_manual_import_db_design.md`: 追加
 - `docs/product/20260702_discord_dm_manual_import_screen_design.md`: 追加
 - `docs/ai/20260702_discord_dm_summary_prompt_schema.md`: 追加
@@ -99,8 +104,8 @@ P1
 
 ## 次アクション
 
-- OpenAPI draftへConversation Import APIを追加する
 - DB設計をmigration可能な形へ落とし込む
+- OpenAPI契約に合わせてConversation Import APIのBackend実装を開始する
 - DMインポートUIのワイヤーフレームまたは静的画面を作成する
 - AI整理prompt/schemaをStructured Outputs前提で実装可能なschemaへ変換する
 - STRIDEレビューを実装前に再実施する
