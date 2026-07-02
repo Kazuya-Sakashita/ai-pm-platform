@@ -165,7 +165,8 @@ closed Issueは候補から除外しない。
 
 - [Done 2026-07-02] 候補APIに `title`、`state`、`updated_at`、`score` を追加する。
 - [Done 2026-07-02] Frontendで候補メタデータを表示する。
-- [Todo] 候補選択済み状態とアクセシビリティ属性を追加する。
-- [Todo] 長いtitle/URLの視覚回帰E2Eを追加する。
-- [Todo] `total_count`、`incomplete_results`、10件超過表示のAPI拡張要否を検討する。
+- [Done 2026-07-02] 候補選択済み状態とアクセシビリティ属性を追加する。
+- [Done 2026-07-02] 長いtitle/URLの視覚回帰E2Eを追加する。
+- [Done 2026-07-02] `total_count`、`incomplete_results`、10件超過表示をAPI/UIへ追加する。
+- [Done 2026-07-02] GitHub Search retry/backoff方針をADR-0008で定義する。
 - [Todo] live GitHub App credentialでcandidate metadata smokeを実施する。

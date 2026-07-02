@@ -106,7 +106,7 @@ RSpec.describe GithubIssuePublish::ReconciliationService do
       search: GithubIssuePublish::MarkerSearchClient::SearchResult.new(
         matches: [match, other_match],
         total_count: 24,
-        incomplete_results: true,
+        incomplete_results: false,
         result_limit: 10
       )
     )
@@ -124,8 +124,45 @@ RSpec.describe GithubIssuePublish::ReconciliationService do
     expect(review.next_actions.join(" ")).to include("#43")
     expect(issue_draft.reload.github_issue_url).to be_nil
     expect(result.search_total_count).to eq(24)
-    expect(result.search_incomplete_results).to eq(true)
+    expect(result.search_incomplete_results).to eq(false)
     expect(result.search_has_more_results).to eq(true)
+  end
+
+  it "blocks automatic reconciliation when GitHub returns incomplete search results" do
+    search_client = instance_double(
+      GithubIssuePublish::MarkerSearchClient,
+      search: GithubIssuePublish::MarkerSearchClient::SearchResult.new(
+        matches: [match],
+        total_count: 1,
+        incomplete_results: true,
+        result_limit: 10
+      )
+    )
+
+    result = described_class.new(attempt, search_client: search_client).call
+
+    expect(result.status).to eq("review_required")
+    expect(result.matches).to contain_exactly(include(github_issue_number: 42))
+    expect(issue_draft.reload.github_issue_url).to be_nil
+    expect(attempt.reload.status).to eq("reconciliation_required")
+    expect(attempt.safe_error_code).to eq("github_publish_reconciliation_incomplete_results")
+    review = Review.find_by!(
+      target_type: "issue_draft",
+      target_id: issue_draft.id,
+      reviewer_role: described_class::REVIEWER_ROLE
+    )
+    expect(review.improvements.join(" ")).to include("incomplete results")
+    expect(review.next_actions.join(" ")).to include("rerun marker search")
+    expect(review.next_actions.join(" ")).to include("#42")
+    audit_log = project.audit_logs.find_by!(action: "issue_draft.github_publish_reconciliation_blocked")
+    expect(audit_log.metadata).to include(
+      "attempt_id" => attempt.id,
+      "match_count" => 1,
+      "search_total_count" => 1,
+      "search_incomplete_results" => true,
+      "search_result_limit" => 10,
+      "search_has_more_results" => false
+    )
   end
 
   it "stores safe provider errors on the attempt" do

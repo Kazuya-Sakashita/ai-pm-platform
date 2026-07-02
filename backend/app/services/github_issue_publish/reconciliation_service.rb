@@ -23,6 +23,7 @@ module GithubIssuePublish
       )
       matches = search_result.matches
 
+      return block_for_human_review!(matches, search_result) if search_result.incomplete_results
       return reconcile!(matches.first, search_result) if matches.one?
 
       block_for_human_review!(matches, search_result)
@@ -96,8 +97,7 @@ module GithubIssuePublish
     end
 
     def block_for_human_review!(matches, search_result)
-      code = matches.empty? ? "github_publish_reconciliation_no_match" : "github_publish_reconciliation_multiple_matches"
-      detail = matches.empty? ? "No GitHub Issue marker match was found." : "Multiple GitHub Issue marker matches were found."
+      code, detail = review_blocker_reason(matches, search_result)
       attempt.update!(
         status: "reconciliation_required",
         safe_error_code: code,
@@ -168,6 +168,16 @@ module GithubIssuePublish
     end
 
     def next_actions(code, matches)
+      if code == "github_publish_reconciliation_incomplete_results"
+        actions = ["Wait for GitHub Search to settle, then rerun marker search once after the configured cooldown."]
+        if matches.any?
+          issue_numbers = matches.map { |match| "##{match.fetch(:github_issue_number)}" }.join(", ")
+          actions << "Review visible candidate GitHub Issues before any manual link: #{issue_numbers}."
+        end
+        actions << "Do not approve controlled retry until GitHub Search is complete or a reviewer has manually confirmed no Issue exists."
+        return actions
+      end
+
       return ["Confirm whether the GitHub Issue was never created, then approve a controlled retry."] if matches.empty?
 
       issue_numbers = matches.map { |match| "##{match.fetch(:github_issue_number)}" }.join(", ")
@@ -185,6 +195,21 @@ module GithubIssuePublish
         github_issue_api_id: match[:github_issue_api_id],
         github_issue_node_id: match[:github_issue_node_id]
       }
+    end
+
+    def review_blocker_reason(matches, search_result)
+      if search_result.incomplete_results
+        return [
+          "github_publish_reconciliation_incomplete_results",
+          "GitHub marker search returned incomplete results."
+        ]
+      end
+
+      if matches.empty?
+        ["github_publish_reconciliation_no_match", "No GitHub Issue marker match was found."]
+      else
+        ["github_publish_reconciliation_multiple_matches", "Multiple GitHub Issue marker matches were found."]
+      end
     end
   end
 end
