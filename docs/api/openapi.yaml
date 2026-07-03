@@ -2045,6 +2045,58 @@ components:
           type: string
           format: date-time
 
+    GitHubReconciliationHistoryItem:
+      type: object
+      required: [attempt_id, status, started_at]
+      properties:
+        attempt_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [started, github_created, local_saved, failed, reconciliation_required, reconciled, retry_approved]
+        safe_error_code:
+          type: string
+        safe_error_detail:
+          type: string
+        github_repository:
+          type: string
+        github_issue_number:
+          type: integer
+        github_issue_url:
+          type: string
+          format: uri
+        reconciliation_retry_count:
+          type: integer
+          minimum: 0
+        next_reconciliation_retry_at:
+          type: string
+          format: date-time
+        reconciliation_cooldown_active:
+          type: boolean
+        retry_approver:
+          type: string
+        retry_reason_template:
+          type: string
+          enum:
+            - github_issue_absence_confirmed
+            - github_search_complete_no_match
+            - provider_transient_failure_confirmed
+        retry_reason_template_label:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+        github_created_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        reconciled_at:
+          type: string
+          format: date-time
+
     IssueDraft:
       type: object
       required: [id, requirement_id, status, title, body, acceptance_criteria, labels, created_at, updated_at]
@@ -2077,6 +2129,10 @@ components:
           type: string
         github_reconciliation:
           $ref: "#/components/schemas/GitHubReconciliationStatus"
+        github_reconciliation_history:
+          type: array
+          items:
+            $ref: "#/components/schemas/GitHubReconciliationHistoryItem"
         created_at:
           type: string
           format: date-time

@@ -33,6 +33,7 @@ type Review = components["schemas"]["Review"];
 type MeetingSourceType = components["schemas"]["MeetingSourceType"];
 type GitHubReconciliationAction = components["schemas"]["ResolveGitHubReconciliationRequest"]["resolution_action"];
 type GitHubReconciliationMatch = components["schemas"]["GitHubReconciliationMatch"];
+type GitHubReconciliationHistoryItem = NonNullable<components["schemas"]["IssueDraft"]["github_reconciliation_history"]>[number];
 type RetryReasonTemplate = NonNullable<components["schemas"]["ResolveGitHubReconciliationRequest"]["retry_reason_template"]>;
 type GitHubReconciliationSearchSummary = {
   search_total_count?: number;
@@ -109,6 +110,16 @@ function githubIssueUrlValidationError(value: string, issueNumber: number, githu
   }
 }
 
+function reconciliationHistorySummary(entry: GitHubReconciliationHistoryItem) {
+  if (entry.retry_approver || entry.retry_reason_template_label || entry.retry_reason_template) {
+    return `承認者 ${entry.retry_approver ?? "-"} / 理由 ${entry.retry_reason_template_label ?? entry.retry_reason_template ?? "-"}`;
+  }
+
+  if (entry.safe_error_detail) return displayMessage(entry.safe_error_detail);
+  if (entry.github_issue_number) return `GitHub Issue #${entry.github_issue_number} を記録`;
+  return "照合履歴を記録済み";
+}
+
 function formatDateTime(value?: string) {
   if (!value) return "-";
   return new Intl.DateTimeFormat("ja-JP", {
@@ -124,9 +135,29 @@ function isFutureDateTime(value?: string) {
 }
 
 function statusTone(status?: string) {
-  if (status === "approved" || status === "succeeded" || status === "valid" || status === "published") return "success";
+  if (
+    status === "approved" ||
+    status === "succeeded" ||
+    status === "valid" ||
+    status === "published" ||
+    status === "reconciled" ||
+    status === "retry_approved" ||
+    status === "local_saved"
+  ) {
+    return "success";
+  }
   if (status === "failed" || status === "needs_changes" || status === "invalid" || status === "publish_failed") return "danger";
-  if (status === "in_review" || status === "running" || status === "generating" || status === "publishing") return "review";
+  if (
+    status === "in_review" ||
+    status === "running" ||
+    status === "generating" ||
+    status === "publishing" ||
+    status === "started" ||
+    status === "github_created" ||
+    status === "reconciliation_required"
+  ) {
+    return "review";
+  }
   return "neutral";
 }
 
@@ -1756,6 +1787,33 @@ export default function MeetingWorkspace() {
                       {issueDraft.github_issue_url}
                     </a>
                   </p>
+                </div>
+              </div>
+            ) : null}
+            {issueDraft?.github_reconciliation_history?.length ? (
+              <div className="validation-panel" aria-label="GitHub公開照合履歴">
+                <div className="panel-header">
+                  <h3>照合履歴</h3>
+                  <span className="chip neutral">{issueDraft.github_reconciliation_history.length}件</span>
+                </div>
+                <div className="validation-list">
+                  {issueDraft.github_reconciliation_history.map((entry) => (
+                    <div className="validation-row warning" key={entry.attempt_id}>
+                      <strong>{statusLabel(entry.status)}</strong>
+                      <span>開始 {formatDateTime(entry.started_at)}</span>
+                      <p>
+                        {reconciliationHistorySummary(entry)}
+                        {entry.github_issue_url ? (
+                          <>
+                            <br />
+                            <a className="github-link" href={entry.github_issue_url} target="_blank" rel="noreferrer">
+                              {entry.github_issue_url}
+                            </a>
+                          </>
+                        ) : null}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               </div>
             ) : null}

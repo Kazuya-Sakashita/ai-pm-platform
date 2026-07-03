@@ -976,6 +976,34 @@ export interface components {
             /** Format: date-time */
             completed_at?: string;
         };
+        GitHubReconciliationHistoryItem: {
+            /** Format: uuid */
+            attempt_id: string;
+            /** @enum {string} */
+            status: "started" | "github_created" | "local_saved" | "failed" | "reconciliation_required" | "reconciled" | "retry_approved";
+            safe_error_code?: string;
+            safe_error_detail?: string;
+            github_repository?: string;
+            github_issue_number?: number;
+            /** Format: uri */
+            github_issue_url?: string;
+            reconciliation_retry_count?: number;
+            /** Format: date-time */
+            next_reconciliation_retry_at?: string;
+            reconciliation_cooldown_active?: boolean;
+            retry_approver?: string;
+            /** @enum {string} */
+            retry_reason_template?: "github_issue_absence_confirmed" | "github_search_complete_no_match" | "provider_transient_failure_confirmed";
+            retry_reason_template_label?: string;
+            /** Format: date-time */
+            started_at: string;
+            /** Format: date-time */
+            github_created_at?: string;
+            /** Format: date-time */
+            completed_at?: string;
+            /** Format: date-time */
+            reconciled_at?: string;
+        };
         IssueDraft: {
             /** Format: uuid */
             id: string;
@@ -990,6 +1018,7 @@ export interface components {
             github_issue_url?: string;
             publish_error?: string;
             github_reconciliation?: components["schemas"]["GitHubReconciliationStatus"];
+            github_reconciliation_history?: components["schemas"]["GitHubReconciliationHistoryItem"][];
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */

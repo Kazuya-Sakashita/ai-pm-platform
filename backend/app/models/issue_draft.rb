@@ -24,6 +24,7 @@ class IssueDraft < ApplicationRecord
       github_issue_url: github_issue_url,
       publish_error: publish_error,
       github_reconciliation: github_reconciliation_api_json,
+      github_reconciliation_history: ::IssueDraftReconciliationHistorySerializer.new(self).as_json,
       created_at: iso_time(created_at),
       updated_at: iso_time(updated_at)
     }.compact

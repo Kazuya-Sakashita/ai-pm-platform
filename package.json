@@ -14,6 +14,7 @@
     "api:check": "ruby scripts/check-openapi.rb && redocly lint docs/api/openapi.yaml",
     "api:types": "openapi-typescript",
     "api:verify": "npm run api:check && npm run api:types",
+    "display:check": "ruby scripts/check-display-labels.rb",
     "frontend:build": "next build frontend",
     "frontend:dev": "next dev frontend -p 3000",
     "frontend:e2e": "playwright test -c frontend/playwright.config.ts",

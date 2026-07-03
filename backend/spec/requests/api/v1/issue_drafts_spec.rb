@@ -88,6 +88,55 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
         "github_issue_url" => "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/42"
       )
       expect(reconciliation).not_to have_key("idempotency_digest")
+      history = JSON.parse(response.body).dig("data", "github_reconciliation_history")
+      expect(history.first).to include(
+        "attempt_id" => attempt.id,
+        "status" => "reconciliation_required",
+        "github_repository" => "Kazuya-Sakashita/ai-pm-platform",
+        "github_issue_number" => 42,
+        "github_issue_url" => "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/42"
+      )
+      expect(history.first).not_to have_key("idempotency_digest")
+    end
+
+    it "returns safe reconciliation history with retry approval metadata" do
+      issue_draft = create(:issue_draft, status: "approved")
+      project = issue_draft.requirement.minute.meeting.project
+      attempt = create(
+        :github_issue_publish_attempt,
+        issue_draft: issue_draft,
+        project: project,
+        status: "retry_approved",
+        safe_error_detail: "Controlled retry approved by Kazuya Reviewer. Do not expose this free-form note.",
+        completed_at: Time.current
+      )
+      AuditLog.record!(
+        project: project,
+        action: "issue_draft.github_publish_retry_approved",
+        target: issue_draft,
+        metadata: {
+          attempt_id: attempt.id,
+          resolution_note: "Free-form resolution note should stay out of the history response.",
+          resolution_approver: "Kazuya Reviewer",
+          retry_reason_template: "github_issue_absence_confirmed",
+          retry_reason_template_label: "GitHub上でIssue未作成を確認したため1回だけ再試行を承認します。"
+        }
+      )
+
+      get "/api/v1/issue-drafts/#{issue_draft.id}"
+
+      expect(response).to have_http_status(:ok)
+      history = JSON.parse(response.body).dig("data", "github_reconciliation_history")
+      expect(history.first).to include(
+        "attempt_id" => attempt.id,
+        "status" => "retry_approved",
+        "retry_approver" => "Kazuya Reviewer",
+        "retry_reason_template" => "github_issue_absence_confirmed",
+        "retry_reason_template_label" => "GitHub上でIssue未作成を確認したため1回だけ再試行を承認します。"
+      )
+      expect(history.first).not_to have_key("safe_error_detail")
+      expect(history.first).not_to have_key("resolution_note")
+      expect(history.first).not_to have_key("idempotency_digest")
     end
   end
 
