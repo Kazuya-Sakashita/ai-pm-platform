@@ -181,5 +181,6 @@ Frontendは以下を満たす。
 - [Done 2026-07-02] Reconciliation attemptにretry count、next retry at、cooldown状態を保存する。
 - [Done 2026-07-02] Frontendに再検索可能時刻を表示し、cooldown中のmarker searchとcontrolled retryを停止する。
 - [Done 2026-07-03] ActiveJobの `GithubIssuePublish::ReconciliationRetryJob` でcooldown後のmarker searchを自動実行する。
+- [Done 2026-07-03] production向け永続Job基盤をADR-0010でSolid Queue採用方針として決定する。
 - [Todo] live GitHub App credentialでrate limitではない通常search smokeを行う。
 - [Todo] sandbox/stagingでrate limit headerのsafe handlingをモックまたはrecordingで検証する。

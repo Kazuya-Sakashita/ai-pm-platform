@@ -38,6 +38,7 @@ RSpec.describe GithubIssuePublish::ReconciliationRetryScheduler do
       target_id: attempt.id,
       progress: 0
     )
+    expect(enqueued_jobs.last[:queue]).to eq("github_reconciliation")
     expect(enqueued_jobs.last[:args]).to eq([attempt.id, job.id])
     expect(enqueued_jobs.last[:at]).to be_within(1.second).of(available_at.to_f)
     audit_log = attempt.project.audit_logs.find_by!(

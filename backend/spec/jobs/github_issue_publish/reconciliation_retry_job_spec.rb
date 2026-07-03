@@ -4,6 +4,10 @@ require "active_job/test_helper"
 RSpec.describe GithubIssuePublish::ReconciliationRetryJob, type: :job do
   include ActiveJob::TestHelper
 
+  it "uses the dedicated GitHub reconciliation queue" do
+    expect(described_class.queue_name).to eq("github_reconciliation")
+  end
+
   before do
     clear_enqueued_jobs
     clear_performed_jobs

@@ -1,6 +1,6 @@
 module GithubIssuePublish
   class ReconciliationRetryJob < ApplicationJob
-    queue_as :default
+    queue_as :github_reconciliation
 
     def perform(attempt_id, job_id = nil)
       attempt = GithubIssuePublishAttempt.find(attempt_id)

@@ -30,6 +30,17 @@ The API is mounted under `/api/v1`.
 
 `ai_pm_password` is a local Docker development password only. Production must use `DATABASE_URL`.
 
+## Background jobs
+
+Production uses Solid Queue as the ActiveJob backend.
+
+```bash
+bundle exec rails db:prepare
+bundle exec bin/jobs
+```
+
+Set `QUEUE_DATABASE_URL` when the queue database should be separated from the primary application database. See `docs/release/20260703_solid_queue_operations_runbook.md` for the operations checklist.
+
 ## GitHub App issue publishing
 
 Default behavior is safe-disabled. Set the following variables only after a GitHub App is installed for the target repository and an `integration_accounts` row exists for that project.
