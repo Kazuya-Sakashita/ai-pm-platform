@@ -164,4 +164,5 @@ The async adapter is acceptable for local experimentation only. It does not prov
 - [Done 2026-07-03] Add worker process command and release runbook.
 - [Done 2026-07-03] Move GitHub reconciliation retry job to `github_reconciliation` queue.
 - [Done 2026-07-03] Add queue health and failed job runbook under `docs/release/`.
-- [Todo] Add CI or smoke verification for production-adapter scheduled job execution.
+- [Done 2026-07-03] Verify `bin/jobs` starts in production mode with a separated local queue database.
+- [Todo] Add staging smoke verification for scheduled job execution and queue monitoring.

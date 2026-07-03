@@ -85,7 +85,7 @@ Solid Queueをproduction job queue backendとして導入し、GitHub reconcilia
 
 改善点:
 
-- production相当のSolid Queue worker smokeは、別queue DBを使う形で確認が必要。
+- production相当のSolid Queue worker smokeは別queue DBで確認済み。staging/deploy環境での確認は未実施。
 - worker processのdeploy組み込みはrunbookまでで、実際のホスティング設定は未作成。
 - failed job再実行の権限、承認ログ、UIは未整備。
 - DB負荷とconnection poolのcapacity仮説が未作成。
@@ -100,6 +100,8 @@ Solid Queueをproduction job queue backendとして導入し、GitHub reconcilia
 - `npm run frontend:build`: success
 - `FRONTEND_URL=http://localhost:3002 NEXT_PUBLIC_API_BASE_URL=http://localhost:3003/api/v1 npm run frontend:e2e`: 14 passed
 - production config runner: `active_job.queue_adapter=solid_queue`、DB configs=`primary,queue`
+- production mode local worker smoke: `RAILS_ENV=production ... QUEUE_DATABASE_URL=postgres://.../ai_pm_queue_test bundle exec bin/jobs` がSupervisor、Dispatcher、Worker、Schedulerを起動
+- production mode heartbeat check: `SolidQueue::Process` に Dispatcher、Scheduler、Supervisor(async)、Worker を確認
 
 ## 優先度
 
@@ -114,6 +116,7 @@ P0
 ## 次アクション
 
 - GitHub Actions CIを確認する
-- 別queue DBを使ってproduction modeまたはstagingで `bin/jobs` worker smokeを実施する
+- GitHub Actions CIを確認し、成功後にIssue #23のクローズ可否を判断する
+- staging/deploy環境で `bin/jobs` worker smokeを再確認する
 - queue latency、failed job、worker heartbeatの監視実装を検討する
 - failed job再実行/破棄の権限と監査UIを設計する

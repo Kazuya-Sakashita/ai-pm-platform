@@ -35,7 +35,7 @@ Codex as CTO, DevOps, Backend Architect, Security Engineer, QA, Tech Lead
 
 ## 改善点
 
-- production相当のSolid Queue worker実行 smoke は、同一DB fallbackの危険を検出した段階で止め、別queue DBでの確認が残っている。CIはtest adapter中心であり、本番workerのheartbeatやscheduled executionまでは確認していない。
+- production相当のSolid Queue worker実行 smoke は、別queue DBでSupervisor、Dispatcher、Worker、Scheduler起動とheartbeatを確認済み。ただしstaging/deploy環境でのscheduled executionまでは確認していない。
 - `QUEUE_DATABASE_URL` 必須化により安全性は上がったが、deploy設定漏れではproduction bootが失敗するためrelease checklistが重要になる。
 - queue latencyやfailed executionのメトリクス収集先はrunbookに留まり、アプリ内ダッシュボードや外部監視には未接続。
 - failed jobのoperator retry/discard権限、承認者、監査UIは未実装。
@@ -45,14 +45,15 @@ Codex as CTO, DevOps, Backend Architect, Security Engineer, QA, Tech Lead
 
 - P0: GitHub Actions CIでSolid Queue導入後の全検証を通す。
 - P0: stagingまたはlocal production modeで `bin/jobs` が起動し、scheduled jobを処理できることをsmokeする。
-- P0: 別queue DBで `bin/jobs` worker smokeを完了する。
+- P0: GitHub Actions CIで `QUEUE_DATABASE_URL` 必須化後の全検証を通す。
+- P1: staging/deploy環境で `bin/jobs` worker smokeを再確認する。
 - P1: failed job再実行/破棄の権限設計と監査文言を追加する。
 - P1: queue latency、failed count、worker heartbeatの監視実装を追加する。
 
 ## 次アクション
 
-- GitHub Issue #23へ実装結果と検証結果を同期する。
-- GitHub Actions CI成功後、Issue #23は完了候補にする。
+- GitHub Issue #23へ実装結果、同一DB fallback検出、別queue DB smoke成功、検証結果を同期する。
+- GitHub Actions CI成功後、Issue #23はクローズ候補にする。
 - ISSUE-004はlive GitHub App smoke、screen reader確認、controlled retry承認者/理由テンプレートが残るためopen維持する。
 - 次のP0候補としてlive GitHub App smokeまたはcontrolled retry承認体験の補強へ進む。
 
@@ -80,7 +81,7 @@ MVP-to-betaのproduction queue backendとしては前進。ただし、worker実
 
 ### Conclusion
 
-ISSUE-023の実装条件は概ね満たしたが、worker smokeで同一DB fallbackの危険を検出した。`QUEUE_DATABASE_URL` 必須化後、別queue DBでのworker smokeを確認してからクローズ候補とする。ただしISSUE-004は残タスクがあるためクローズ不可。
+ISSUE-023の実装条件は概ね満たした。worker smokeで同一DB fallbackの危険を検出し、`QUEUE_DATABASE_URL` 必須化後、別queue DBでのworker smokeも確認した。GitHub Actions CI成功後にクローズ候補。ただしISSUE-004は残タスクがあるためクローズ不可。
 
 ### Knowledge
 
