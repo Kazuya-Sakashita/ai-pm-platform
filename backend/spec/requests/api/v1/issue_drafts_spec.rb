@@ -562,7 +562,9 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
       post "/api/v1/issue-drafts/#{issue_draft.id}/resolve-github-reconciliation", params: {
         attempt_id: attempt.id,
         resolution_action: "approve_retry",
-        resolution_note: "Confirmed no GitHub Issue exists and approved one controlled retry."
+        resolution_note: "Confirmed no GitHub Issue exists and approved one controlled retry.",
+        resolution_approver: "Kazuya Reviewer",
+        retry_reason_template: "github_issue_absence_confirmed"
       }
 
       expect(response).to have_http_status(:accepted)
@@ -570,6 +572,8 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
       expect(body.dig("data", "status")).to eq("retry_approved")
       expect(body.dig("data", "attempt_id")).to eq(attempt.id)
       expect(body.dig("data", "review_id")).to eq(review.id)
+      expect(body.dig("data", "resolution_approver")).to eq("Kazuya Reviewer")
+      expect(body.dig("data", "retry_reason_template")).to eq("github_issue_absence_confirmed")
       expect(body.dig("data", "github_issue_number")).to be_nil
       expect(issue_draft.reload.status).to eq("approved")
       expect(issue_draft.publish_error).to be_nil
@@ -593,7 +597,9 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
       post "/api/v1/issue-drafts/#{issue_draft.id}/resolve-github-reconciliation", params: {
         attempt_id: attempt.id,
         resolution_action: "approve_retry",
-        resolution_note: "Confirmed no GitHub Issue exists and approved one controlled retry."
+        resolution_note: "Confirmed no GitHub Issue exists and approved one controlled retry.",
+        resolution_approver: "Kazuya Reviewer",
+        retry_reason_template: "github_issue_absence_confirmed"
       }
 
       expect(response).to have_http_status(:conflict)
@@ -607,6 +613,43 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
       expect(attempt.reload.status).to eq("reconciliation_required")
       job = Job.where(job_type: "github_reconciliation", target_id: issue_draft.id).last
       expect(job.status).to eq("failed")
+    end
+
+    it "rejects controlled retry without approver and reason template" do
+      issue_draft = create(:issue_draft, status: "publish_failed", publish_error: "Reconciliation required.")
+      project = issue_draft.requirement.minute.meeting.project
+      attempt = create(
+        :github_issue_publish_attempt,
+        issue_draft: issue_draft,
+        project: project,
+        status: "reconciliation_required",
+        idempotency_digest: Digest::SHA256.hexdigest("publish-key-retry-metadata")
+      )
+
+      post "/api/v1/issue-drafts/#{issue_draft.id}/resolve-github-reconciliation", params: {
+        attempt_id: attempt.id,
+        resolution_action: "approve_retry",
+        resolution_note: "Confirmed no GitHub Issue exists and approved one controlled retry."
+      }
+
+      expect(response).to have_http_status(422)
+      body = JSON.parse(response.body)
+      expect(body.dig("error", "code")).to eq("github_reconciliation_retry_approver_required")
+      expect(attempt.reload.status).to eq("reconciliation_required")
+      job = Job.where(job_type: "github_reconciliation", target_id: issue_draft.id).last
+      expect(job.status).to eq("failed")
+
+      post "/api/v1/issue-drafts/#{issue_draft.id}/resolve-github-reconciliation", params: {
+        attempt_id: attempt.id,
+        resolution_action: "approve_retry",
+        resolution_note: "Confirmed no GitHub Issue exists and approved one controlled retry.",
+        resolution_approver: "Kazuya Reviewer"
+      }
+
+      expect(response).to have_http_status(422)
+      body = JSON.parse(response.body)
+      expect(body.dig("error", "code")).to eq("github_reconciliation_retry_reason_template_required")
+      expect(attempt.reload.status).to eq("reconciliation_required")
     end
 
     it "rejects manual links outside the project repository" do
@@ -641,7 +684,9 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
 
       post "/api/v1/issue-drafts/#{issue_draft.id}/resolve-github-reconciliation", params: {
         resolution_action: "approve_retry",
-        resolution_note: "No pending attempt."
+        resolution_note: "No pending attempt.",
+        resolution_approver: "Kazuya Reviewer",
+        retry_reason_template: "github_issue_absence_confirmed"
       }
 
       expect(response).to have_http_status(:conflict)

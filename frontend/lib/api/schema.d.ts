@@ -1191,6 +1191,13 @@ export interface components {
             /** @enum {string} */
             resolution_action: "link_existing_issue" | "approve_retry";
             resolution_note: string;
+            /** @description Required when resolution_action is approve_retry. */
+            resolution_approver?: string;
+            /**
+             * @description Required when resolution_action is approve_retry.
+             * @enum {string}
+             */
+            retry_reason_template?: "github_issue_absence_confirmed" | "github_search_complete_no_match" | "provider_transient_failure_confirmed";
             github_issue_number?: number;
             /** Format: uri */
             github_issue_url?: string;
@@ -1207,6 +1214,9 @@ export interface components {
                 attempt_id: string;
                 /** Format: uuid */
                 review_id?: string;
+                resolution_approver?: string;
+                /** @enum {string} */
+                retry_reason_template?: "github_issue_absence_confirmed" | "github_search_complete_no_match" | "provider_transient_failure_confirmed";
                 github_issue_number?: number;
                 github_issue_url?: string;
             };

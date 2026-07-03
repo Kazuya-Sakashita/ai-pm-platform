@@ -301,6 +301,8 @@ module Api
           status: result.status,
           attempt_id: attempt.id,
           review_id: result.review&.id,
+          resolution_approver: result.resolution_approver,
+          retry_reason_template: result.retry_reason_template,
           github_issue_number: issue_draft.github_issue_number,
           github_issue_url: issue_draft.github_issue_url
         }.compact
@@ -310,6 +312,8 @@ module Api
         params.permit(
           :resolution_action,
           :resolution_note,
+          :resolution_approver,
+          :retry_reason_template,
           :github_issue_number,
           :github_issue_url,
           :github_issue_api_id,

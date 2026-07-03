@@ -6,6 +6,8 @@ const messageLabels: Record<string, string> = {
   "GitHub issue URL must match the project repository and issue number.": "GitHub Issue URLはプロジェクトのリポジトリとIssue番号に一致している必要があります。",
   "GitHub issue may have been created. Reconciliation is required.": "GitHub Issueが作成済みの可能性があります。照合が必要です。",
   "GitHub rate limit is active. Retry after the provider limit resets.": "GitHubのレート制限中です。制限解除後に再試行してください。",
+  "A retry approver is required for controlled GitHub publish retry.": "GitHub再試行の承認者を入力してください。",
+  "A retry reason template is required for controlled GitHub publish retry.": "GitHub再試行の理由テンプレートを選択してください。",
   "Meeting text includes sensitive content that must be reviewed before AI generation.": "会議ログに機密性の高い内容が含まれています。AI生成前にレビューしてください。",
   "Multiple GitHub Issue marker matches were found.": "GitHub Issueマーカー候補が複数見つかりました。",
   "OpenAI API key is not configured.": "OpenAI APIキーが未設定です。",
@@ -14,6 +16,9 @@ const messageLabels: Record<string, string> = {
   "OpenAI request was rate limited. Retry after the provider limit resets.": "OpenAIのレート制限に達しました。制限解除後に再試行してください。",
   "OpenAPI validation could not be completed.": "OpenAPI検証を完了できませんでした。",
   "Reconciliation required.": "照合が必要です。",
+  "Resolution note is too long for manual GitHub reconciliation.": "GitHub照合の解決メモが長すぎます。",
+  "Retry approver is too long for controlled GitHub publish retry.": "GitHub再試行の承認者名が長すぎます。",
+  "Retry reason template is invalid for controlled GitHub publish retry.": "GitHub再試行の理由テンプレートが不正です。",
   "Validation failed": "入力内容の検証に失敗しました。",
 };
 

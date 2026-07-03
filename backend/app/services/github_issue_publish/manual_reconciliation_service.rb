@@ -3,9 +3,16 @@ require "uri"
 module GithubIssuePublish
   class ManualReconciliationService
     ACTIONS = %w[link_existing_issue approve_retry].freeze
+    RESOLUTION_NOTE_MAX_LENGTH = 2000
+    RETRY_APPROVER_MAX_LENGTH = 120
+    RETRY_REASON_TEMPLATES = {
+      "github_issue_absence_confirmed" => "GitHub上でIssue未作成を確認したため1回だけ再試行を承認します。",
+      "github_search_complete_no_match" => "GitHub Search完了後も該当Issueがないため再試行を承認します。",
+      "provider_transient_failure_confirmed" => "外部APIの一時的な失敗であり二重作成リスクが低いことを確認しました。"
+    }.freeze
     REVIEWER_ROLE = ReconciliationService::REVIEWER_ROLE
     FRAMEWORK = ReconciliationService::FRAMEWORK
-    Result = Struct.new(:status, :review, keyword_init: true)
+    Result = Struct.new(:status, :review, :resolution_approver, :retry_reason_template, keyword_init: true)
 
     def initialize(attempt, params, job: nil)
       @attempt = attempt
@@ -17,6 +24,7 @@ module GithubIssuePublish
       ensure_pending_attempt!
       ensure_action!
       ensure_resolution_note!
+      ensure_retry_approval_metadata! if action == "approve_retry"
       ensure_retry_cooldown_elapsed! if action == "approve_retry"
 
       return link_existing_issue! if action == "link_existing_issue"
@@ -49,6 +57,14 @@ module GithubIssuePublish
       params[:resolution_note].to_s.strip
     end
 
+    def resolution_approver
+      params[:resolution_approver].to_s.strip
+    end
+
+    def retry_reason_template
+      params[:retry_reason_template].to_s.strip
+    end
+
     def ensure_pending_attempt!
       return if attempt.status == "reconciliation_required"
 
@@ -70,11 +86,53 @@ module GithubIssuePublish
     end
 
     def ensure_resolution_note!
-      return if resolution_note.present?
+      if resolution_note.blank?
+        raise_manual_error(
+          "github_reconciliation_resolution_note_required",
+          "A resolution note is required for manual GitHub reconciliation.",
+          :unprocessable_entity
+        )
+      end
+
+      return unless resolution_note.length > RESOLUTION_NOTE_MAX_LENGTH
 
       raise_manual_error(
-        "github_reconciliation_resolution_note_required",
-        "A resolution note is required for manual GitHub reconciliation.",
+        "github_reconciliation_resolution_note_too_long",
+        "Resolution note is too long for manual GitHub reconciliation.",
+        :unprocessable_entity
+      )
+    end
+
+    def ensure_retry_approval_metadata!
+      if resolution_approver.blank?
+        raise_manual_error(
+          "github_reconciliation_retry_approver_required",
+          "A retry approver is required for controlled GitHub publish retry.",
+          :unprocessable_entity
+        )
+      end
+
+      if resolution_approver.length > RETRY_APPROVER_MAX_LENGTH
+        raise_manual_error(
+          "github_reconciliation_retry_approver_too_long",
+          "Retry approver is too long for controlled GitHub publish retry.",
+          :unprocessable_entity
+        )
+      end
+
+      if retry_reason_template.blank?
+        raise_manual_error(
+          "github_reconciliation_retry_reason_template_required",
+          "A retry reason template is required for controlled GitHub publish retry.",
+          :unprocessable_entity
+        )
+      end
+
+      return if RETRY_REASON_TEMPLATES.key?(retry_reason_template)
+
+      raise_manual_error(
+        "github_reconciliation_retry_reason_template_invalid",
+        "Retry reason template is invalid for controlled GitHub publish retry.",
         :unprocessable_entity
       )
     end
@@ -124,12 +182,16 @@ module GithubIssuePublish
     end
 
     def approve_retry!
-      attempt.mark_retry_approved!(detail: "Controlled retry approved. #{resolution_note}")
+      attempt.mark_retry_approved!(
+        detail: "Controlled retry approved by #{resolution_approver}. #{retry_reason_label} #{resolution_note}"
+      )
       issue_draft.update!(
         status: "approved",
         publish_error: nil
       )
-      review = resolve_review_blocker!("Controlled retry approved at #{Time.current.iso8601}. #{resolution_note}")
+      review = resolve_review_blocker!(
+        "Controlled retry approved at #{Time.current.iso8601} by #{resolution_approver}. #{retry_reason_label} #{resolution_note}"
+      )
       AuditLog.record!(
         project: project,
         action: "issue_draft.github_publish_retry_approved",
@@ -138,11 +200,23 @@ module GithubIssuePublish
         metadata: {
           attempt_id: attempt.id,
           job_id: job&.id,
-          resolution_note: resolution_note
+          resolution_note: resolution_note,
+          resolution_approver: resolution_approver,
+          retry_reason_template: retry_reason_template,
+          retry_reason_template_label: retry_reason_label
         }.compact
       )
 
-      Result.new(status: "retry_approved", review: review)
+      Result.new(
+        status: "retry_approved",
+        review: review,
+        resolution_approver: resolution_approver,
+        retry_reason_template: retry_reason_template
+      )
+    end
+
+    def retry_reason_label
+      RETRY_REASON_TEMPLATES.fetch(retry_reason_template)
     end
 
     def manual_match

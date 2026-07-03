@@ -33,6 +33,7 @@ type Review = components["schemas"]["Review"];
 type MeetingSourceType = components["schemas"]["MeetingSourceType"];
 type GitHubReconciliationAction = components["schemas"]["ResolveGitHubReconciliationRequest"]["resolution_action"];
 type GitHubReconciliationMatch = components["schemas"]["GitHubReconciliationMatch"];
+type RetryReasonTemplate = NonNullable<components["schemas"]["ResolveGitHubReconciliationRequest"]["retry_reason_template"]>;
 type GitHubReconciliationSearchSummary = {
   search_total_count?: number;
   search_incomplete_results?: boolean;
@@ -51,6 +52,12 @@ type ApiErrorPayload = {
 const defaultLog = `alice: Decision: Discord-firstで議事録MVPを切る。
 bob: Open question: レビュー依頼の担当者は誰にする？
 alice: Action: 会議ワークスペースから議事録生成を接続する。`;
+
+const retryReasonTemplates: { value: RetryReasonTemplate; label: string }[] = [
+  { value: "github_issue_absence_confirmed", label: "GitHub上でIssue未作成を確認" },
+  { value: "github_search_complete_no_match", label: "GitHub Search完了後も該当Issueなし" },
+  { value: "provider_transient_failure_confirmed", label: "外部APIの一時失敗を確認" },
+];
 
 function today() {
   return new Date().toISOString().slice(0, 10);
@@ -76,6 +83,30 @@ function errorJobId(error: unknown) {
   const payload = error as ApiErrorPayload;
   const value = payload.error?.details?.job_id;
   return typeof value === "string" ? value : undefined;
+}
+
+function githubIssueUrlValidationError(value: string, issueNumber: number, githubRepo?: string) {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:") return "GitHub Issue URLはhttpsのGitHub Issue URLで入力してください。";
+    if (url.hostname !== "github.com") return "GitHub Issue URLはgithub.comのIssue URLを入力してください。";
+
+    const [owner, repository, resource, number] = url.pathname.replace(/^\/+/, "").split("/");
+    if (resource !== "issues" || number !== String(issueNumber)) {
+      return "GitHub Issue URLはIssue番号と一致している必要があります。";
+    }
+
+    if (githubRepo) {
+      const [expectedOwner, expectedRepository] = githubRepo.split("/");
+      const sameRepository =
+        owner?.toLowerCase() === expectedOwner?.toLowerCase() && repository?.toLowerCase() === expectedRepository?.toLowerCase();
+      if (!sameRepository) return "GitHub Issue URLはプロジェクトのリポジトリとIssue番号に一致している必要があります。";
+    }
+
+    return "";
+  } catch {
+    return "GitHub Issue URLは有効なURLで入力してください。";
+  }
 }
 
 function formatDateTime(value?: string) {
@@ -150,6 +181,9 @@ export default function MeetingWorkspace() {
   const [reconciliationIssueNumber, setReconciliationIssueNumber] = useState("");
   const [reconciliationIssueUrl, setReconciliationIssueUrl] = useState("");
   const [reconciliationNote, setReconciliationNote] = useState("");
+  const [reconciliationApprover, setReconciliationApprover] = useState("");
+  const [reconciliationRetryReasonTemplate, setReconciliationRetryReasonTemplate] =
+    useState<RetryReasonTemplate>("github_issue_absence_confirmed");
   const [reconciliationMatches, setReconciliationMatches] = useState<GitHubReconciliationMatch[]>([]);
   const [reconciliationSearchSummary, setReconciliationSearchSummary] = useState<GitHubReconciliationSearchSummary | null>(null);
   const [openApiTitleDraft, setOpenApiTitleDraft] = useState("");
@@ -748,8 +782,25 @@ export default function MeetingWorkspace() {
         return;
       }
 
+      const issueUrlValidationError = githubIssueUrlValidationError(issueUrl, issueNumber, selectedProject?.github_repo);
+      if (issueUrlValidationError) {
+        setApiError(issueUrlValidationError);
+        return;
+      }
+
       body.github_issue_number = issueNumber;
       body.github_issue_url = issueUrl;
+    }
+
+    if (resolutionAction === "approve_retry") {
+      const approver = reconciliationApprover.trim();
+      if (!approver) {
+        setApiError("再試行の承認者を入力してください。");
+        return;
+      }
+
+      body.resolution_approver = approver;
+      body.retry_reason_template = reconciliationRetryReasonTemplate;
     }
 
     setLoading(true);
@@ -1052,6 +1103,8 @@ export default function MeetingWorkspace() {
           : "",
     );
     setReconciliationIssueUrl(nextIssueDraft.github_reconciliation?.github_issue_url ?? nextIssueDraft.github_issue_url ?? "");
+    setReconciliationApprover("");
+    setReconciliationRetryReasonTemplate("github_issue_absence_confirmed");
     setReconciliationMatches([]);
     setReconciliationSearchSummary(null);
   }
@@ -1096,6 +1149,8 @@ export default function MeetingWorkspace() {
     setReconciliationIssueNumber("");
     setReconciliationIssueUrl("");
     setReconciliationNote("");
+    setReconciliationApprover("");
+    setReconciliationRetryReasonTemplate("github_issue_absence_confirmed");
     setReconciliationMatches([]);
   }
 
@@ -1571,6 +1626,23 @@ export default function MeetingWorkspace() {
                       <label>
                         GitHub Issue URL
                         <input value={reconciliationIssueUrl} onChange={(event) => setReconciliationIssueUrl(event.target.value)} />
+                      </label>
+                      <label>
+                        再試行承認者
+                        <input value={reconciliationApprover} onChange={(event) => setReconciliationApprover(event.target.value)} />
+                      </label>
+                      <label>
+                        再試行理由
+                        <select
+                          value={reconciliationRetryReasonTemplate}
+                          onChange={(event) => setReconciliationRetryReasonTemplate(event.target.value as RetryReasonTemplate)}
+                        >
+                          {retryReasonTemplates.map((template) => (
+                            <option key={template.value} value={template.value}>
+                              {template.label}
+                            </option>
+                          ))}
+                        </select>
                       </label>
                       <label className="reconciliation-note">
                         解決メモ

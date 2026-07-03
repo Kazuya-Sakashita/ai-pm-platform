@@ -66,17 +66,28 @@ RSpec.describe GithubIssuePublish::ManualReconciliationService do
       attempt,
       {
         resolution_action: "approve_retry",
-        resolution_note: "Confirmed no GitHub Issue exists after marker search delay."
+        resolution_note: "Confirmed no GitHub Issue exists after marker search delay.",
+        resolution_approver: "Kazuya Reviewer",
+        retry_reason_template: "github_issue_absence_confirmed"
       }
     ).call
 
     expect(result.status).to eq("retry_approved")
+    expect(result.resolution_approver).to eq("Kazuya Reviewer")
+    expect(result.retry_reason_template).to eq("github_issue_absence_confirmed")
     expect(issue_draft.reload.status).to eq("approved")
     expect(issue_draft.publish_error).to be_nil
     expect(attempt.reload.status).to eq("retry_approved")
+    expect(attempt.safe_error_detail).to include("Controlled retry approved by Kazuya Reviewer")
     expect(review.reload.status).to eq("resolved")
+    expect(review.resolution_note).to include("Kazuya Reviewer")
     audit_log = project.audit_logs.find_by!(action: "issue_draft.github_publish_retry_approved")
-    expect(audit_log.metadata).to include("attempt_id" => attempt.id)
+    expect(audit_log.metadata).to include(
+      "attempt_id" => attempt.id,
+      "resolution_approver" => "Kazuya Reviewer",
+      "retry_reason_template" => "github_issue_absence_confirmed",
+      "retry_reason_template_label" => "GitHub上でIssue未作成を確認したため1回だけ再試行を承認します。"
+    )
   end
 
   it "rejects GitHub issue URLs outside the project repository" do
@@ -101,6 +112,65 @@ RSpec.describe GithubIssuePublish::ManualReconciliationService do
       described_class.new(attempt, { resolution_action: "approve_retry" }).call
     }.to raise_error(GithubIssuePublish::ProviderError) { |error|
       expect(error.code).to eq("github_reconciliation_resolution_note_required")
+    }
+  end
+
+  it "requires retry approval metadata for controlled retry" do
+    expect {
+      described_class.new(
+        attempt,
+        {
+          resolution_action: "approve_retry",
+          resolution_note: "Confirmed no GitHub Issue exists after marker search delay.",
+          retry_reason_template: "github_issue_absence_confirmed"
+        }
+      ).call
+    }.to raise_error(GithubIssuePublish::ProviderError) { |error|
+      expect(error.code).to eq("github_reconciliation_retry_approver_required")
+    }
+
+    expect {
+      described_class.new(
+        attempt,
+        {
+          resolution_action: "approve_retry",
+          resolution_note: "Confirmed no GitHub Issue exists after marker search delay.",
+          resolution_approver: "Kazuya Reviewer",
+          retry_reason_template: "custom_reason"
+        }
+      ).call
+    }.to raise_error(GithubIssuePublish::ProviderError) { |error|
+      expect(error.code).to eq("github_reconciliation_retry_reason_template_invalid")
+    }
+
+    expect {
+      described_class.new(
+        attempt,
+        {
+          resolution_action: "approve_retry",
+          resolution_note: "Confirmed no GitHub Issue exists after marker search delay.",
+          resolution_approver: "A" * 121,
+          retry_reason_template: "github_issue_absence_confirmed"
+        }
+      ).call
+    }.to raise_error(GithubIssuePublish::ProviderError) { |error|
+      expect(error.code).to eq("github_reconciliation_retry_approver_too_long")
+    }
+  end
+
+  it "rejects an oversized resolution note" do
+    expect {
+      described_class.new(
+        attempt,
+        {
+          resolution_action: "approve_retry",
+          resolution_note: "A" * 2001,
+          resolution_approver: "Kazuya Reviewer",
+          retry_reason_template: "github_issue_absence_confirmed"
+        }
+      ).call
+    }.to raise_error(GithubIssuePublish::ProviderError) { |error|
+      expect(error.code).to eq("github_reconciliation_resolution_note_too_long")
     }
   end
 end

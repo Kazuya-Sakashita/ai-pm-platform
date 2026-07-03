@@ -2517,6 +2517,18 @@ components:
           type: string
           minLength: 1
           maxLength: 2000
+        resolution_approver:
+          type: string
+          minLength: 1
+          maxLength: 120
+          description: Required when resolution_action is approve_retry.
+        retry_reason_template:
+          type: string
+          enum:
+            - github_issue_absence_confirmed
+            - github_search_complete_no_match
+            - provider_transient_failure_confirmed
+          description: Required when resolution_action is approve_retry.
         github_issue_number:
           type: integer
           minimum: 1
@@ -2548,6 +2560,14 @@ components:
             review_id:
               type: string
               format: uuid
+            resolution_approver:
+              type: string
+            retry_reason_template:
+              type: string
+              enum:
+                - github_issue_absence_confirmed
+                - github_search_complete_no_match
+                - provider_transient_failure_confirmed
             github_issue_number:
               type: integer
             github_issue_url:
