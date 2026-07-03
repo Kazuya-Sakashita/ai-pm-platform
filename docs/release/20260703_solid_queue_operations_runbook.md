@@ -16,22 +16,25 @@ Production background jobs must survive web process restarts and be observable b
 Required:
 
 - `DATABASE_URL`
+- `QUEUE_DATABASE_URL`
 - `RAILS_ENV=production`
 
 Optional:
 
-- `QUEUE_DATABASE_URL`
 - `JOB_THREADS`
 - `JOB_CONCURRENCY`
 - `RAILS_LOG_LEVEL`
 
-If `QUEUE_DATABASE_URL` is not set, the queue database uses `DATABASE_URL`. This is acceptable for a small beta, but production should prefer a separated queue database when traffic grows.
+`QUEUE_DATABASE_URL` is required. It must point to a queue database prepared from `db/queue_schema.rb`. Do not point it at an existing primary database unless the Solid Queue tables have already been loaded there intentionally.
 
 ## Setup
 
 Prepare the application and queue database:
 
 ```sh
+export RAILS_ENV=production
+export DATABASE_URL=postgres://...
+export QUEUE_DATABASE_URL=postgres://...
 bundle exec rails db:prepare
 ```
 

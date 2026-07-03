@@ -27,6 +27,7 @@ Solid Queueをproduction job queue backendとして導入し、GitHub reconcilia
 - `solid_queue` gemが追加されている
 - Solid Queue用migration/tableが追加されている
 - productionのActiveJob adapterが `:solid_queue` に設定されている
+- productionで `QUEUE_DATABASE_URL` が必須になっている
 - GitHub reconciliation retry jobが `github_reconciliation` queueへ分離されている
 - worker processの起動方法がDockerまたはrelease docsに記載されている
 - queue health、failed job、queue latency、worker livenessの最低限のrunbookがある
@@ -69,7 +70,7 @@ Solid Queueをproduction job queue backendとして導入し、GitHub reconcilia
 
 2026-07-03にCodex一次レビューを実施。ActiveJobによるGitHub reconciliation retryはローカル/CIでは検証済みだが、productionでは永続queue backendなしに完了扱いにできない。Solid Queue採用は、既存PostgreSQL構成とAI PM Platformの監査要件に合っている。ただし、実装後もworker health、queue latency、failed job、DB負荷、connection poolを継続監視する必要がある。
 
-2026-07-03にSolid Queue実装を追加。`solid_queue` gem、production adapter、queue database設定、`bin/jobs`、`config/queue.yml`、`config/recurring.yml`、`db/queue_schema.rb`、GitHub reconciliation専用queue、運用runbook、config specを追加した。
+2026-07-03にSolid Queue実装を追加。`solid_queue` gem、production adapter、queue database設定、`QUEUE_DATABASE_URL` 必須化、`bin/jobs`、`config/queue.yml`、`config/recurring.yml`、`db/queue_schema.rb`、GitHub reconciliation専用queue、運用runbook、config specを追加した。
 
 良かった点:
 
@@ -80,10 +81,11 @@ Solid Queueをproduction job queue backendとして導入し、GitHub reconcilia
 - Solid Queueの標準generator出力を取り込み、`bin/jobs` でworkerを起動できるようにした。
 - `docs/release/20260703_solid_queue_operations_runbook.md` にworker起動、監視、停止、失敗対応を整理した。
 - config specでqueue名とproduction queue database設定を検証した。
+- production smokeで同一DB fallbackの危険を検出し、`QUEUE_DATABASE_URL` 必須に修正した。
 
 改善点:
 
-- production相当のSolid Queue worker smokeは未実施。
+- production相当のSolid Queue worker smokeは、別queue DBを使う形で確認が必要。
 - worker processのdeploy組み込みはrunbookまでで、実際のホスティング設定は未作成。
 - failed job再実行の権限、承認ログ、UIは未整備。
 - DB負荷とconnection poolのcapacity仮説が未作成。
@@ -97,6 +99,7 @@ Solid Queueをproduction job queue backendとして導入し、GitHub reconcilia
 - `npm run api:verify`: OpenAPI OK、Redocly lint OK、型生成OK（Node engine警告あり）
 - `npm run frontend:build`: success
 - `FRONTEND_URL=http://localhost:3002 NEXT_PUBLIC_API_BASE_URL=http://localhost:3003/api/v1 npm run frontend:e2e`: 14 passed
+- production config runner: `active_job.queue_adapter=solid_queue`、DB configs=`primary,queue`
 
 ## 優先度
 
@@ -111,6 +114,6 @@ P0
 ## 次アクション
 
 - GitHub Actions CIを確認する
-- production modeまたはstagingで `bin/jobs` worker smokeを実施する
+- 別queue DBを使ってproduction modeまたはstagingで `bin/jobs` worker smokeを実施する
 - queue latency、failed job、worker heartbeatの監視実装を検討する
 - failed job再実行/破棄の権限と監査UIを設計する

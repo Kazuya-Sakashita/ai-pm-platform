@@ -51,22 +51,23 @@ The following work is required before production use:
 1. Add the Solid Queue gem to the backend.
 2. Install and migrate Solid Queue tables.
 3. Configure `config.active_job.queue_adapter = :solid_queue` in production.
-4. Define named queues at minimum:
+4. Require `QUEUE_DATABASE_URL` for production and point it to a queue database prepared from `db/queue_schema.rb`.
+5. Define named queues at minimum:
    - `github_reconciliation`
    - `ai_generation`
    - `ai_review`
    - `default`
-5. Move GitHub reconciliation retry jobs from `queue_as :default` to `queue_as :github_reconciliation`.
-6. Add a worker process command to Docker and deployment documentation.
-7. Add graceful shutdown guidance for deploys.
-8. Add queue health checks and runbook entries.
-9. Add monitoring for:
+6. Move GitHub reconciliation retry jobs from `queue_as :default` to `queue_as :github_reconciliation`.
+7. Add a worker process command to Docker and deployment documentation.
+8. Add graceful shutdown guidance for deploys.
+9. Add queue health checks and runbook entries.
+10. Add monitoring for:
    - queue latency
    - failed job count
    - retry count
    - job age
    - worker liveness
-10. Keep application `Job` records as the product-facing audit trail.
+11. Keep application `Job` records as the product-facing audit trail.
 
 ## Operational Policy
 
@@ -159,6 +160,7 @@ The async adapter is acceptable for local experimentation only. It does not prov
 
 - [Done 2026-07-03] Create implementation issue for Solid Queue backend setup.
 - [Done 2026-07-03] Add Solid Queue gem, queue schema, and production config.
+- [Done 2026-07-03] Require `QUEUE_DATABASE_URL` to avoid accidental missing queue schema on the primary database.
 - [Done 2026-07-03] Add worker process command and release runbook.
 - [Done 2026-07-03] Move GitHub reconciliation retry job to `github_reconciliation` queue.
 - [Done 2026-07-03] Add queue health and failed job runbook under `docs/release/`.

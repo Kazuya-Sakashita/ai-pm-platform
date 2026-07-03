@@ -39,7 +39,7 @@ bundle exec rails db:prepare
 bundle exec bin/jobs
 ```
 
-Set `QUEUE_DATABASE_URL` when the queue database should be separated from the primary application database. See `docs/release/20260703_solid_queue_operations_runbook.md` for the operations checklist.
+Set `QUEUE_DATABASE_URL` in production. It must point to the queue database prepared from `db/queue_schema.rb`. See `docs/release/20260703_solid_queue_operations_runbook.md` for the operations checklist.
 
 ## GitHub App issue publishing
 

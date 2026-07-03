@@ -17,5 +17,5 @@ production:
     url: <%= ENV["DATABASE_URL"] %>
   queue:
     <<: *primary_production
-    url: <%= ENV.fetch("QUEUE_DATABASE_URL") { ENV["DATABASE_URL"] } %>
+    url: <%= ENV["QUEUE_DATABASE_URL"] || (ENV["RAILS_ENV"] == "production" ? raise("QUEUE_DATABASE_URL is required") : ENV["DATABASE_URL"]) %>
     migrations_paths: db/queue_migrate

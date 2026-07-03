@@ -28,14 +28,15 @@ Codex as CTO, DevOps, Backend Architect, Security Engineer, QA, Tech Lead
 - `config.solid_queue.connects_to = { database: { writing: :queue } }` とproduction `queue` database設定を追加し、queue databaseを分離可能にした。
 - `config/queue.yml` で wildcard ではなく `github_reconciliation`、`ai_generation`、`ai_review`、`default` を明示した。
 - `GithubIssuePublish::ReconciliationRetryJob` を `github_reconciliation` queueへ移し、AI生成jobとの干渉を下げた。
+- production `QUEUE_DATABASE_URL` を必須にし、queue schemaがprimary DBへ未投入のままworker起動する事故を避ける方針にした。
 - `bin/jobs`、`config/recurring.yml`、`db/queue_schema.rb` を追加し、Solid Queueの標準起動経路とschemaを保存した。
 - `docs/release/20260703_solid_queue_operations_runbook.md` を追加し、worker起動、停止、監視、失敗対応を運用手順化した。
 - config specでqueue名とproduction queue database設定を検証した。
 
 ## 改善点
 
-- production相当のSolid Queue worker実行 smoke は未実施。CIはtest adapter中心であり、本番workerのheartbeatやscheduled executionまでは確認していない。
-- `QUEUE_DATABASE_URL` 未設定時に `DATABASE_URL` を使うfallbackはbeta向けには便利だが、本番負荷分離としては弱い。
+- production相当のSolid Queue worker実行 smoke は、同一DB fallbackの危険を検出した段階で止め、別queue DBでの確認が残っている。CIはtest adapter中心であり、本番workerのheartbeatやscheduled executionまでは確認していない。
+- `QUEUE_DATABASE_URL` 必須化により安全性は上がったが、deploy設定漏れではproduction bootが失敗するためrelease checklistが重要になる。
 - queue latencyやfailed executionのメトリクス収集先はrunbookに留まり、アプリ内ダッシュボードや外部監視には未接続。
 - failed jobのoperator retry/discard権限、承認者、監査UIは未実装。
 - PostgreSQL connection pool、worker concurrency、AI生成負荷のcapacity testは未実施。
@@ -44,7 +45,7 @@ Codex as CTO, DevOps, Backend Architect, Security Engineer, QA, Tech Lead
 
 - P0: GitHub Actions CIでSolid Queue導入後の全検証を通す。
 - P0: stagingまたはlocal production modeで `bin/jobs` が起動し、scheduled jobを処理できることをsmokeする。
-- P0: `QUEUE_DATABASE_URL` を本番運用で必須にするか、beta fallbackとして許容するかをrelease判定で明記する。
+- P0: 別queue DBで `bin/jobs` worker smokeを完了する。
 - P1: failed job再実行/破棄の権限設計と監査文言を追加する。
 - P1: queue latency、failed count、worker heartbeatの監視実装を追加する。
 
@@ -79,7 +80,7 @@ MVP-to-betaのproduction queue backendとしては前進。ただし、worker実
 
 ### Conclusion
 
-ISSUE-023の実装条件は概ね満たした。GitHub Actions CI成功後にクローズ候補。ただしISSUE-004は残タスクがあるためクローズ不可。
+ISSUE-023の実装条件は概ね満たしたが、worker smokeで同一DB fallbackの危険を検出した。`QUEUE_DATABASE_URL` 必須化後、別queue DBでのworker smokeを確認してからクローズ候補とする。ただしISSUE-004は残タスクがあるためクローズ不可。
 
 ### Knowledge
 
