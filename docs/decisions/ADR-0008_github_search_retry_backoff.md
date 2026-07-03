@@ -180,6 +180,6 @@ Frontendは以下を満たす。
 - [Done 2026-07-02] GitHub response headersから `retry-after`、`x-ratelimit-remaining`、`x-ratelimit-reset` をsafe metadataへ反映する。
 - [Done 2026-07-02] Reconciliation attemptにretry count、next retry at、cooldown状態を保存する。
 - [Done 2026-07-02] Frontendに再検索可能時刻を表示し、cooldown中のmarker searchとcontrolled retryを停止する。
-- [Todo] ActiveJob等の非同期reconciler jobでcooldown後のmarker searchを自動実行する。
+- [Done 2026-07-03] ActiveJobの `GithubIssuePublish::ReconciliationRetryJob` でcooldown後のmarker searchを自動実行する。
 - [Todo] live GitHub App credentialでrate limitではない通常search smokeを行う。
 - [Todo] sandbox/stagingでrate limit headerのsafe handlingをモックまたはrecordingで検証する。

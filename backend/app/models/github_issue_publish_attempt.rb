@@ -85,12 +85,13 @@ class GithubIssuePublishAttempt < ApplicationRecord
   end
 
   def schedule_reconciliation_retry!(available_at:)
-    return if reconciliation_retry_count >= MAX_RECONCILIATION_RETRY_COUNT
+    return false if reconciliation_retry_count >= MAX_RECONCILIATION_RETRY_COUNT
 
     update!(
       reconciliation_retry_count: reconciliation_retry_count + 1,
       next_reconciliation_retry_at: available_at
     )
+    true
   end
 
   def reconciliation_cooldown_active?(now: Time.current)

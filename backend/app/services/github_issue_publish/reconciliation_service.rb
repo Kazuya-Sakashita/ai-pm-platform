@@ -50,7 +50,7 @@ module GithubIssuePublish
         completed_at: Time.current
       }
       attempt.update!(attributes)
-      attempt.schedule_reconciliation_retry!(available_at: available_at) if available_at
+      schedule_retry!(available_at: available_at) if available_at
       raise
     end
 
@@ -236,7 +236,7 @@ module GithubIssuePublish
     def schedule_review_retry!(code)
       return unless retryable_review_code?(code)
 
-      attempt.schedule_reconciliation_retry!(available_at: Time.current + DEFAULT_RETRY_COOLDOWN)
+      schedule_retry!(available_at: Time.current + DEFAULT_RETRY_COOLDOWN)
     end
 
     def retryable_review_code?(code)
@@ -254,6 +254,12 @@ module GithubIssuePublish
       retry_after = error.safe_metadata[:github_retry_after_seconds].to_i
       retry_after = DEFAULT_RETRY_COOLDOWN.to_i if retry_after <= 0
       Time.current + retry_after.seconds
+    end
+
+    def schedule_retry!(available_at:)
+      return unless attempt.schedule_reconciliation_retry!(available_at: available_at)
+
+      ReconciliationRetryScheduler.call(attempt, available_at: attempt.next_reconciliation_retry_at)
     end
   end
 end
