@@ -679,6 +679,32 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
       expect(attempt.reload.status).to eq("reconciliation_required")
     end
 
+    it "rejects manual links when the URL issue number differs from the submitted number" do
+      issue_draft = create(:issue_draft, status: "publish_failed", publish_error: "Reconciliation required.")
+      project = issue_draft.requirement.minute.meeting.project
+      attempt = create(
+        :github_issue_publish_attempt,
+        issue_draft: issue_draft,
+        project: project,
+        status: "reconciliation_required",
+        idempotency_digest: Digest::SHA256.hexdigest("publish-key-issue-number-mismatch")
+      )
+
+      post "/api/v1/issue-drafts/#{issue_draft.id}/resolve-github-reconciliation", params: {
+        attempt_id: attempt.id,
+        resolution_action: "link_existing_issue",
+        resolution_note: "This should fail because the URL points to a different issue.",
+        github_issue_number: 42,
+        github_issue_url: "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/43"
+      }
+
+      expect(response).to have_http_status(422)
+      body = JSON.parse(response.body)
+      expect(body.dig("error", "code")).to eq("github_reconciliation_issue_url_invalid")
+      expect(attempt.reload.status).to eq("reconciliation_required")
+      expect(issue_draft.reload.status).to eq("publish_failed")
+    end
+
     it "blocks when no reconciliation attempt is pending" do
       issue_draft = create(:issue_draft, status: "approved")
 

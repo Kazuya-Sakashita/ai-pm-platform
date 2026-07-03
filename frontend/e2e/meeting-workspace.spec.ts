@@ -861,6 +861,15 @@ test.describe("Meeting Workspace", () => {
 
     await expect(page.locator("section[role='alert']")).toContainText("GitHub Issue URLはhttpsのGitHub Issue URLで入力してください。");
     await expect(page.locator("header").getByText("GitHub Issueに紐付けました")).toHaveCount(0);
+
+    await page
+      .locator("#issue-draft")
+      .getByRole("textbox", { name: "GitHub Issue URL", exact: true })
+      .fill("https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/43");
+    await page.locator("#issue-draft").getByRole("button", { name: "既存Issueに紐付け" }).click();
+
+    await expect(page.locator("section[role='alert']")).toContainText("GitHub Issue URLはIssue番号と一致している必要があります。");
+    await expect(page.locator("#issue-draft").getByText("公開ブロック")).toBeVisible();
   });
 
   test("shows repository validation errors before linking a GitHub Issue from another repository", async ({ page }) => {
