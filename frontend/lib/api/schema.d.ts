@@ -105,7 +105,8 @@ export interface paths {
         get: operations["getConversationImport"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** Anonymize a conversation import and remove retained DM text */
+        delete: operations["anonymizeConversationImport"];
         options?: never;
         head?: never;
         /** Update conversation import text, redaction, or consent metadata */
@@ -756,6 +757,14 @@ export interface components {
             status: components["schemas"]["ConversationImportStatus"];
             safety_flags: components["schemas"]["ConversationSafetyFlag"][];
             blocked_reasons: string[];
+            /** Format: date-time */
+            raw_text_retention_expires_at?: string;
+            /** Format: date-time */
+            raw_text_purged_at?: string;
+            /** Format: date-time */
+            retention_expires_at?: string;
+            /** Format: date-time */
+            anonymized_at?: string;
             latest_summary_draft?: components["schemas"]["ConversationSummaryDraft"];
             /** Format: date-time */
             created_at: string;
@@ -869,6 +878,8 @@ export interface components {
             source_quotes: components["schemas"]["ConversationSourceQuote"][];
             confidence: number;
             generated_by_model?: string;
+            /** Format: date-time */
+            retention_expires_at?: string;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -1785,6 +1796,27 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ConversationImportResponse"];
                 };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    anonymizeConversationImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_import_id: components["parameters"]["ConversationImportId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Conversation import anonymized */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             404: components["responses"]["NotFound"];
         };

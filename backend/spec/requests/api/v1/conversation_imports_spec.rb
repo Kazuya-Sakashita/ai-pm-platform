@@ -18,7 +18,16 @@ RSpec.describe "API V1 Conversation Imports", type: :request do
       body = JSON.parse(response.body)
       expect(body.dig("data", "source_type")).to eq("discord_dm_paste")
       expect(body.dig("data", "participants", 0, "display_name")).to eq("Kazuya")
+      expect(body.dig("data", "raw_text_retention_expires_at")).to be_present
+      expect(body.dig("data", "retention_expires_at")).to be_present
       expect(project.audit_logs.last.action).to eq("conversation_import.created")
+
+      conversation_import = ConversationImport.find(body.dig("data", "id"))
+      stored_raw_text = ConversationImport.connection.select_value(
+        "SELECT raw_text FROM conversation_imports WHERE id = #{ConversationImport.connection.quote(conversation_import.id)}"
+      )
+      expect(stored_raw_text).not_to include("まず手動貼り付け")
+      expect(conversation_import.raw_text).to include("まず手動貼り付け")
     end
   end
 
@@ -87,6 +96,86 @@ RSpec.describe "API V1 Conversation Imports", type: :request do
 
       expect(response).to have_http_status(422)
       expect(JSON.parse(response.body).dig("error", "code")).to eq("conversation_import_not_ready_for_ai")
+    end
+  end
+
+  describe "DELETE /api/v1/conversation-imports/:id" do
+    it "anonymizes retained text, summary drafts, and records safe audit metadata" do
+      conversation_import = create(
+        :conversation_import,
+        raw_text: "password=hunter2 を使ってください。",
+        redacted_text: "認証情報はマスキング済みです。"
+      )
+      draft = create(
+        :conversation_summary_draft,
+        conversation_import: conversation_import,
+        summary: "password=hunter2 を含む要約",
+        decisions: [{ text: "password=hunter2 を使う", confidence: 0.9 }],
+        source_quotes: [{ id: "q1", quote: "password=hunter2" }]
+      )
+
+      delete "/api/v1/conversation-imports/#{conversation_import.id}"
+
+      expect(response).to have_http_status(:no_content)
+      expect(response.body).to be_blank
+
+      conversation_import.reload
+      expect(conversation_import.status).to eq("archived")
+      expect(conversation_import.raw_text).to eq(ConversationImport::ANONYMIZED_TEXT)
+      expect(conversation_import.redacted_text).to be_nil
+      expect(conversation_import.participants).to eq([])
+      expect(conversation_import.anonymized_at).to be_present
+      expect(conversation_import.raw_text_purged_at).to be_present
+
+      draft.reload
+      expect(draft.status).to eq("rejected")
+      expect(draft.summary).to eq(ConversationSummaryDraft::ANONYMIZED_SUMMARY)
+      expect(draft.decisions).to eq([])
+      expect(draft.source_quotes).to eq([])
+
+      audit_log = conversation_import.project.audit_logs.last
+      expect(audit_log.action).to eq("conversation_import.anonymized")
+      expect(audit_log.metadata.to_s).not_to include("hunter2")
+
+      stored_raw_text = ConversationImport.connection.select_value(
+        "SELECT raw_text FROM conversation_imports WHERE id = #{ConversationImport.connection.quote(conversation_import.id)}"
+      )
+      expect(stored_raw_text).not_to include("hunter2")
+
+      post "/api/v1/conversation-imports/#{conversation_import.id}/scan"
+      expect(response).to have_http_status(422)
+      expect(JSON.parse(response.body).dig("error", "code")).to eq("conversation_import_anonymized")
+    end
+  end
+
+  describe "ConversationImportRetentionJob" do
+    it "purges expired raw text and anonymizes imports past full retention" do
+      raw_expired_import = create(
+        :conversation_import,
+        raw_text: "個人情報を含む原文",
+        redacted_text: "マスキング済み本文",
+        raw_text_retention_expires_at: 1.minute.ago,
+        retention_expires_at: 1.day.from_now
+      )
+      full_expired_import = create(
+        :conversation_import,
+        raw_text: "長期保持期限切れの原文",
+        redacted_text: "長期保持期限切れの本文",
+        raw_text_retention_expires_at: 1.day.from_now,
+        retention_expires_at: 1.minute.ago
+      )
+      create(:conversation_summary_draft, conversation_import: full_expired_import, summary: "期限切れの整理内容")
+
+      result = ConversationImportRetentionJob.perform_now(10)
+
+      expect(result.raw_text_purged_count).to eq(1)
+      expect(result.anonymized_count).to eq(1)
+      expect(raw_expired_import.reload.raw_text).to eq(ConversationImport::RAW_TEXT_PURGED_PLACEHOLDER)
+      expect(raw_expired_import.redacted_text).to eq("マスキング済み本文")
+      expect(full_expired_import.reload.status).to eq("archived")
+      expect(full_expired_import.conversation_summary_drafts.first.summary).to eq(ConversationSummaryDraft::ANONYMIZED_SUMMARY)
+      expect(AuditLog.where(action: "conversation_import.raw_text_purged").last.metadata.to_s).not_to include("個人情報")
+      expect(AuditLog.where(action: "conversation_import.anonymized").last.metadata.to_s).not_to include("長期保持期限切れ")
     end
   end
 

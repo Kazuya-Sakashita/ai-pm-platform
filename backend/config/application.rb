@@ -40,5 +40,14 @@ module Backend
     # Middleware like session, flash, cookies can be added back manually.
     # Skip views, helpers and assets when generating a new resource.
     config.api_only = true
+
+    encryption_key_missing = ->(name) { raise KeyError, "#{name} must be set for production Active Record encryption" }
+    config.active_record.encryption.primary_key =
+      ENV["ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY"] || (Rails.env.production? ? encryption_key_missing.call("ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY") : "development-test-primary-key-32")
+    config.active_record.encryption.deterministic_key =
+      ENV["ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY"] || (Rails.env.production? ? encryption_key_missing.call("ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY") : "development-test-deterministic-key")
+    config.active_record.encryption.key_derivation_salt =
+      ENV["ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT"] || (Rails.env.production? ? encryption_key_missing.call("ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT") : "development-test-key-derivation-salt")
+    config.active_record.encryption.support_unencrypted_data = !Rails.env.production?
   end
 end

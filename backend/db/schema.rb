@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_07_04_214600) do
+ActiveRecord::Schema[7.1].define(version: 2026_07_05_100000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pgcrypto"
   enable_extension "plpgsql"
@@ -53,10 +53,16 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_04_214600) do
     t.datetime "retention_expires_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.datetime "raw_text_retention_expires_at"
+    t.datetime "raw_text_purged_at"
+    t.datetime "anonymized_at"
+    t.index ["anonymized_at"], name: "index_conversation_imports_on_anonymized_at"
     t.index ["imported_by", "created_at"], name: "index_conversation_imports_on_imported_by_and_created_at"
     t.index ["project_id", "created_at"], name: "index_conversation_imports_on_project_id_and_created_at"
     t.index ["project_id", "status"], name: "index_conversation_imports_on_project_id_and_status"
     t.index ["project_id"], name: "index_conversation_imports_on_project_id"
+    t.index ["raw_text_purged_at"], name: "index_conversation_imports_on_raw_text_purged_at"
+    t.index ["raw_text_retention_expires_at"], name: "index_conversation_imports_on_raw_text_retention_expires_at"
     t.index ["retention_expires_at"], name: "index_conversation_imports_on_retention_expires_at"
   end
 
@@ -81,8 +87,10 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_04_214600) do
     t.string "approved_by"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.datetime "retention_expires_at"
     t.index ["conversation_import_id", "created_at"], name: "index_conversation_summary_drafts_on_import_and_created"
     t.index ["conversation_import_id"], name: "index_conversation_summary_drafts_on_conversation_import_id"
+    t.index ["retention_expires_at"], name: "index_conversation_summary_drafts_on_retention_expires_at"
     t.index ["status"], name: "index_conversation_summary_drafts_on_status"
   end
 

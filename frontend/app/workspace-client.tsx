@@ -18,6 +18,7 @@ import {
   RefreshCw,
   Save,
   Send,
+  Trash2,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { apiClient } from "@/lib/api/client";
@@ -591,6 +592,31 @@ export default function MeetingWorkspace() {
     setConversationSummaryDraft(data.data);
     await refreshConversationImport(data.data.conversation_import_id);
     setStatusMessage("DM整理ドラフトを承認しました");
+  }
+
+  async function anonymizeConversationImport() {
+    if (!selectedConversationImport) {
+      setApiError("匿名化するDMインポートがありません。");
+      return;
+    }
+
+    if (!window.confirm("DMインポートを匿名化し、本文と整理候補を削除します。")) return;
+
+    setLoading(true);
+    setError("");
+    const { error: apiError } = await apiClient.DELETE("/conversation-imports/{conversation_import_id}", {
+      params: { path: { conversation_import_id: selectedConversationImport.id } },
+    });
+    setLoading(false);
+
+    if (apiError) {
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    if (selectedProjectId) await loadConversationImports(selectedProjectId);
+    resetConversationImportDraft();
+    setStatusMessage("DMインポートを匿名化しました");
   }
 
   async function startGitHubConnection() {
@@ -2048,6 +2074,15 @@ export default function MeetingWorkspace() {
                 <CheckCircle2 size={16} />
                 整理ドラフト承認
               </button>
+              <button
+                className="button secondary"
+                type="button"
+                onClick={anonymizeConversationImport}
+                disabled={!selectedConversationImport || Boolean(selectedConversationImport.anonymized_at) || loading}
+              >
+                <Trash2 size={16} />
+                DM匿名化
+              </button>
             </div>
             <div className="conversation-editor-grid">
               <label>
@@ -2083,6 +2118,14 @@ export default function MeetingWorkspace() {
                 <span>{yesNoLabel(selectedConversationImport.consent_confirmed)}</span>
                 <strong>保存日時</strong>
                 <span>{formatDateTime(selectedConversationImport.created_at)}</span>
+                <strong>原文期限</strong>
+                <span>{formatDateTime(selectedConversationImport.raw_text_retention_expires_at)}</span>
+                <strong>本文期限</strong>
+                <span>{formatDateTime(selectedConversationImport.retention_expires_at)}</span>
+                <strong>原文削除</strong>
+                <span>{formatDateTime(selectedConversationImport.raw_text_purged_at)}</span>
+                <strong>匿名化</strong>
+                <span>{formatDateTime(selectedConversationImport.anonymized_at)}</span>
                 <strong>同意文言</strong>
                 <span>{selectedConversationImport.consent_statement_version}</span>
               </div>

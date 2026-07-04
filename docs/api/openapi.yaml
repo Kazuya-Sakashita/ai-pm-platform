@@ -268,6 +268,17 @@ paths:
           $ref: "#/components/responses/NotFound"
         "422":
           $ref: "#/components/responses/ValidationError"
+    delete:
+      tags: [ConversationImports]
+      summary: Anonymize a conversation import and remove retained DM text
+      operationId: anonymizeConversationImport
+      parameters:
+        - $ref: "#/components/parameters/ConversationImportId"
+      responses:
+        "204":
+          description: Conversation import anonymized
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /conversation-imports/{conversation_import_id}/scan:
     post:
@@ -1471,6 +1482,18 @@ components:
           type: array
           items:
             type: string
+        raw_text_retention_expires_at:
+          type: string
+          format: date-time
+        raw_text_purged_at:
+          type: string
+          format: date-time
+        retention_expires_at:
+          type: string
+          format: date-time
+        anonymized_at:
+          type: string
+          format: date-time
         latest_summary_draft:
           $ref: "#/components/schemas/ConversationSummaryDraft"
         created_at:
@@ -1766,6 +1789,9 @@ components:
           maximum: 1
         generated_by_model:
           type: string
+        retention_expires_at:
+          type: string
+          format: date-time
         created_at:
           type: string
           format: date-time

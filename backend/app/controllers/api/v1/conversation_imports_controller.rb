@@ -23,6 +23,8 @@ module Api
       end
 
       def update
+        return render_anonymized_error if conversation_import.anonymized_at?
+
         raw_text_changed = update_changes_summary_draft?
         conversation_import.update!(conversation_import_params)
         reset_scan_after_text_change! if raw_text_changed
@@ -36,7 +38,18 @@ module Api
         render json: { data: conversation_import.api_json }
       end
 
+      def destroy
+        ConversationImports::RetentionService.new.anonymize!(
+          conversation_import,
+          reason: "manual_delete",
+          actor_id: "system"
+        )
+        head :no_content
+      end
+
       def scan
+        return render_anonymized_error if conversation_import.anonymized_at?
+
         result = ConversationImports::ScanService.new(conversation_import).call
         render json: {
           data: {
@@ -51,6 +64,8 @@ module Api
       end
 
       def generate_summary
+        return render_anonymized_error if conversation_import.anonymized_at?
+
         job = conversation_import.project.jobs.create!(
           job_type: "ai_generation",
           status: "running",
@@ -125,6 +140,14 @@ module Api
           safety_flags: [],
           blocked_reasons: [],
           last_scanned_at: nil
+        )
+      end
+
+      def render_anonymized_error
+        render_error(
+          "conversation_import_anonymized",
+          "Conversation import has been anonymized.",
+          :unprocessable_entity
         )
       end
     end

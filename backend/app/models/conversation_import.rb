@@ -1,9 +1,17 @@
 class ConversationImport < ApplicationRecord
   SOURCE_TYPES = %w[discord_dm_paste].freeze
   STATUSES = %w[draft blocked ready_for_ai summarizing summary_draft approved rejected archived].freeze
+  RAW_TEXT_RETENTION_WINDOW = 30.days
+  CONTENT_RETENTION_WINDOW = 180.days
+  RAW_TEXT_PURGED_PLACEHOLDER = "保持期限によりDM原文は削除済みです。".freeze
+  ANONYMIZED_TITLE = "削除済みDMインポート".freeze
+  ANONYMIZED_TEXT = "削除済み".freeze
 
   belongs_to :project
   has_many :conversation_summary_drafts, dependent: :destroy
+
+  encrypts :raw_text
+  encrypts :redacted_text
 
   validates :source_type, inclusion: { in: SOURCE_TYPES }
   validates :status, inclusion: { in: STATUSES }
@@ -21,6 +29,27 @@ class ConversationImport < ApplicationRecord
 
   def ai_source_text
     redacted_text.presence || raw_text
+  end
+
+  def purge_raw_text!(purged_at: Time.current)
+    update!(raw_text: RAW_TEXT_PURGED_PLACEHOLDER, raw_text_purged_at: purged_at)
+  end
+
+  def anonymize!(anonymized_at: Time.current)
+    transaction do
+      conversation_summary_drafts.find_each { |draft| draft.anonymize!(anonymized_at: anonymized_at) }
+      update!(
+        title: ANONYMIZED_TITLE,
+        raw_text: ANONYMIZED_TEXT,
+        redacted_text: nil,
+        participants: [],
+        safety_flags: [],
+        blocked_reasons: [],
+        status: "archived",
+        raw_text_purged_at: raw_text_purged_at || anonymized_at,
+        anonymized_at: anonymized_at
+      )
+    end
   end
 
   def api_json(include_latest_summary: true)
@@ -41,6 +70,10 @@ class ConversationImport < ApplicationRecord
       status: status,
       safety_flags: safety_flags,
       blocked_reasons: blocked_reasons,
+      raw_text_retention_expires_at: iso_time(raw_text_retention_expires_at),
+      raw_text_purged_at: iso_time(raw_text_purged_at),
+      retention_expires_at: iso_time(retention_expires_at),
+      anonymized_at: iso_time(anonymized_at),
       created_at: iso_time(created_at),
       updated_at: iso_time(updated_at)
     }.compact
@@ -63,5 +96,7 @@ class ConversationImport < ApplicationRecord
     self.blocked_reasons ||= []
     self.consent_confirmed = false if consent_confirmed.nil?
     self.consent_confirmed_at ||= Time.current if consent_confirmed?
+    self.raw_text_retention_expires_at ||= Time.current + RAW_TEXT_RETENTION_WINDOW
+    self.retention_expires_at ||= Time.current + CONTENT_RETENTION_WINDOW
   end
 end

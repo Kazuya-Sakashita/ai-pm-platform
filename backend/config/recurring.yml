@@ -17,3 +17,7 @@ production:
     class: GithubIntegration::ConnectionStateCleanupJob
     queue: default
     schedule: every hour at minute 24
+  enforce_conversation_import_retention:
+    class: ConversationImportRetentionJob
+    queue: default
+    schedule: every hour at minute 36

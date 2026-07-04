@@ -11,7 +11,7 @@ Rails.application.routes.draw do
         post "integrations/github/connect", to: "integration_accounts#start_github_connection"
         post "integrations/github/disconnect", to: "integration_accounts#disconnect_github"
       end
-      resources :conversation_imports, only: %i[show update], path: "conversation-imports", param: :conversation_import_id do
+      resources :conversation_imports, only: %i[show update destroy], path: "conversation-imports", param: :conversation_import_id do
         post "scan", on: :member
         post "generate-summary", on: :member
       end

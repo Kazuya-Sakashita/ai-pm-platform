@@ -751,6 +751,8 @@ test.describe("Meeting Workspace", () => {
       consent_statement_version: "discord-dm-manual-import-v1",
       safety_flags: [],
       blocked_reasons: [],
+      raw_text_retention_expires_at: now,
+      retention_expires_at: now,
       created_at: now,
       updated_at: now,
     };
@@ -848,6 +850,11 @@ test.describe("Meeting Workspace", () => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [], meta: { total_count: 0 } }) });
     });
     await page.route(`**/api/v1/conversation-imports/${conversationImportBase.id}`, async (route) => {
+      if (route.request().method() === "DELETE") {
+        await route.fulfill({ status: 204 });
+        return;
+      }
+
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -940,6 +947,14 @@ test.describe("Meeting Workspace", () => {
     await expect(page.locator("header").getByText("DM整理ドラフトを承認しました")).toBeVisible();
     await expect(page.locator("#conversation-import .validation-panel.success .chip").first()).toHaveText("承認済み");
     await expect(page.getByLabel("DMインポート一覧").getByText("承認済み")).toBeVisible();
+
+    page.once("dialog", async (dialog) => {
+      expect(dialog.message()).toContain("DMインポートを匿名化");
+      await dialog.accept();
+    });
+    await page.locator("#conversation-import").getByRole("button", { name: "DM匿名化" }).click();
+    await expect(page.locator("header").getByText("DMインポートを匿名化しました")).toBeVisible();
+    await expect(page.getByLabel("DMインポート一覧").getByText("DMインポートなし")).toBeVisible();
   });
 
   test("shows pending GitHub reconciliation controls and approves a controlled retry", async ({ page }) => {

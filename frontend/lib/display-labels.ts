@@ -25,6 +25,7 @@ const messageLabels: Record<string, string> = {
   "Retry reason template is invalid for controlled GitHub publish retry.": "GitHub再試行の理由テンプレートが不正です。",
   "Conversation import must be scanned before AI summary generation.": "DMインポートはAI整理前にスキャンしてください。",
   "Conversation import is blocked by safety checks.": "DMインポートは安全チェックでブロックされています。",
+  "Conversation import has been anonymized.": "DMインポートは匿名化済みです。",
   "Validation failed": "入力内容の検証に失敗しました。",
 };
 
