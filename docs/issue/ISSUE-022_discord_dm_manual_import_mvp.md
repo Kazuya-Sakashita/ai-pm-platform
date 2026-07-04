@@ -128,6 +128,8 @@ AI PM Platformは、会議だけでなく、日常的な意思決定や仕様相
 - 2026-07-05 Frontend MVP: `npm run frontend:e2e -- e2e/meeting-workspace.spec.ts --grep "imports, scans"`: 1 passed
 - 2026-07-05 Frontend MVP: `npm run frontend:e2e -- e2e/meeting-workspace.spec.ts --grep "pending GitHub reconciliation controls"`: 1 passed
 - 2026-07-05 Frontend MVP: `git diff --check`: pass
+- 2026-07-05 Frontend MVP: GitHub Actions CI `28713806416`: success（commit `e8f62e2`）
+- 2026-07-05 Frontend MVP: GitHub Issue同期コメント `https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/22#issuecomment-4883209598`
 
 ## 優先度
 
@@ -147,7 +149,7 @@ P1
 - PII/redaction suggestionを強化する
 - Review CenterとConversation Summary Draft承認を接続する
 - 同意なし、secret検出、stale draft、生成失敗、モバイル表示のFrontend E2Eを追加する
-- GitHub IssueへFrontend MVP完了内容を同期する
+- GitHub IssueへFrontend MVP完了内容を同期する（完了）
 
 ## 関連ドキュメント
 
