@@ -11,6 +11,7 @@ https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/25
 登録日: 2026-07-04
 
 備考: 誤って重複作成した GitHub Issue #26 は #25 へ一本化し、重複としてクローズ済み。
+状態: 2026-07-04にmain push、CI success、GitHub Issueコメント同期後にクローズ済み。
 
 ## 背景
 
@@ -106,8 +107,6 @@ P1
 
 ## 次アクション
 
-- GitHub Issue #25へ実装結果と検証結果をコメントする
-- GitHub Actions CIを確認する
 - 実staging/production worker smoke証跡を取得する
 - failed job操作系UIは認証/承認ログ設計後に別Issue化する
 - queue latency、failed count、worker heartbeatの通知設計を追加する
