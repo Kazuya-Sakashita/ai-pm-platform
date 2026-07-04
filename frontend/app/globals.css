@@ -364,6 +364,23 @@ textarea {
   margin: 0;
 }
 
+.integration-summary {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 6px 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.integration-summary strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.integration-summary span {
+  overflow-wrap: anywhere;
+}
+
 .reconciliation-grid {
   display: grid;
   grid-template-columns: 180px minmax(0, 1fr);
@@ -380,6 +397,12 @@ textarea {
 }
 
 .reconciliation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.reconnection-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;

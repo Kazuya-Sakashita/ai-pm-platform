@@ -133,7 +133,8 @@ RSpec.describe "API V1 Integration Accounts", type: :request do
 
       post "/api/v1/integrations/github/callback", params: {
         state: state,
-        installation_id: "987654"
+        installation_id: "987654",
+        setup_action: "install"
       }
 
       expect(response).to have_http_status(:failed_dependency)
@@ -142,6 +143,16 @@ RSpec.describe "API V1 Integration Accounts", type: :request do
       expect(body.dig("error", "message")).to eq("GitHub installation could not be verified.")
       expect(project.integration_accounts).to be_empty
       expect(project.github_connection_states.last).to be_consumed
+      failure_log = project.audit_logs.find_by!(action: "github.connect.failed")
+      expect(failure_log.metadata).to include(
+        "repository" => "Kazuya-Sakashita/ai-pm-platform",
+        "setup_action" => "install",
+        "github_installation_id" => "987654",
+        "error_code" => "github_installation_verification_failed",
+        "safe_error_detail" => "GitHub installation could not be verified."
+      )
+      expect(failure_log.metadata).not_to include("state")
+      expect(failure_log.metadata).not_to include("nonce")
 
       post "/api/v1/integrations/github/callback", params: {
         state: state,

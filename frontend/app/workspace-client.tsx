@@ -8,6 +8,7 @@ import {
   Database,
   FileCheck2,
   FileCode2,
+  GitBranch,
   ListChecks,
   Loader2,
   Play,
@@ -30,6 +31,7 @@ type OpenApiDraft = components["schemas"]["OpenApiDraft"];
 type OpenApiValidationResult = components["schemas"]["OpenApiValidationResponse"]["data"];
 type Job = components["schemas"]["Job"];
 type Review = components["schemas"]["Review"];
+type IntegrationAccount = components["schemas"]["IntegrationAccount"];
 type MeetingSourceType = components["schemas"]["MeetingSourceType"];
 type GitHubReconciliationAction = components["schemas"]["ResolveGitHubReconciliationRequest"]["resolution_action"];
 type GitHubReconciliationMatch = components["schemas"]["GitHubReconciliationMatch"];
@@ -137,6 +139,7 @@ function isFutureDateTime(value?: string) {
 function statusTone(status?: string) {
   if (
     status === "approved" ||
+    status === "connected" ||
     status === "succeeded" ||
     status === "valid" ||
     status === "published" ||
@@ -147,6 +150,7 @@ function statusTone(status?: string) {
     return "success";
   }
   if (status === "failed" || status === "needs_changes" || status === "invalid" || status === "publish_failed") return "danger";
+  if (status === "error" || status === "revoked") return "danger";
   if (
     status === "in_review" ||
     status === "running" ||
@@ -180,9 +184,11 @@ export default function MeetingWorkspace() {
   const [lastJob, setLastJob] = useState<Job | null>(null);
   const [lastReview, setLastReview] = useState<Review | null>(null);
   const [openApiReview, setOpenApiReview] = useState<Review | null>(null);
+  const [integrationAccounts, setIntegrationAccounts] = useState<IntegrationAccount[]>([]);
   const [statusMessage, setStatusMessage] = useState("API接続待機中");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [githubInstallationUrl, setGithubInstallationUrl] = useState("");
 
   const [projectName, setProjectName] = useState("AI議事録プラットフォーム");
   const [projectRepo, setProjectRepo] = useState("Kazuya-Sakashita/ai-pm-platform");
@@ -224,6 +230,10 @@ export default function MeetingWorkspace() {
     () => projects.find((project) => project.id === selectedProjectId) ?? null,
     [projects, selectedProjectId],
   );
+  const githubIntegration = useMemo(
+    () => integrationAccounts.find((account) => account.provider === "github") ?? null,
+    [integrationAccounts],
+  );
 
   useEffect(() => {
     void loadProjects();
@@ -231,7 +241,10 @@ export default function MeetingWorkspace() {
 
   useEffect(() => {
     if (!selectedProjectId) return;
+    setIntegrationAccounts([]);
+    setGithubInstallationUrl("");
     void loadMeetings(selectedProjectId);
+    void loadIntegrations(selectedProjectId);
   }, [selectedProjectId]);
 
   function setApiError(message: string) {
@@ -271,6 +284,14 @@ export default function MeetingWorkspace() {
     setSelectedMeeting((current) => current ?? data.data[0] ?? null);
   }
 
+  async function loadIntegrations(projectId: string) {
+    const { data } = await apiClient.GET("/projects/{project_id}/integrations", {
+      params: { path: { project_id: projectId } },
+    });
+
+    setIntegrationAccounts(data?.data ?? []);
+  }
+
   async function createProject() {
     setLoading(true);
     setError("");
@@ -291,6 +312,35 @@ export default function MeetingWorkspace() {
     setProjects((current) => [data.data, ...current]);
     setSelectedProjectId(data.data.id);
     setStatusMessage("プロジェクトを作成しました");
+  }
+
+  async function startGitHubConnection() {
+    if (!selectedProjectId) {
+      setApiError("プロジェクトを先に作成または選択してください。");
+      return;
+    }
+
+    const repository = selectedProject?.github_repo || projectRepo.trim();
+    if (!repository) {
+      setApiError("GitHubリポジトリを入力してください。");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    const { data, error: apiError } = await apiClient.POST("/projects/{project_id}/integrations/github/connect", {
+      params: { path: { project_id: selectedProjectId } },
+      body: { repository },
+    });
+    setLoading(false);
+
+    if (apiError) {
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    setGithubInstallationUrl(data.data.installation_url);
+    setStatusMessage("GitHub接続URLを作成しました");
   }
 
   async function createMeeting() {
@@ -1201,6 +1251,8 @@ export default function MeetingWorkspace() {
     hasPendingGitHubReconciliation &&
     (issueDraft?.github_reconciliation?.reconciliation_cooldown_active === true ||
       isFutureDateTime(issueDraft?.github_reconciliation?.next_reconciliation_retry_at));
+  const githubConnectionStatus = githubIntegration?.status ?? "not_connected";
+  const githubConnectionActionLabel = githubConnectionStatus === "connected" ? "GitHub接続をやり直す" : "GitHub連携を開始";
 
   return (
     <div className="app-shell">
@@ -1340,6 +1392,39 @@ export default function MeetingWorkspace() {
                     </option>
                   ))}
                 </select>
+              </section>
+
+              <section className="tool-panel" aria-label="GitHub連携">
+                <div className="panel-header">
+                  <h3>GitHub連携</h3>
+                  <span className={`chip ${statusTone(githubConnectionStatus)}`}>{statusLabel(githubConnectionStatus)}</span>
+                </div>
+                <div className="integration-summary">
+                  <strong>リポジトリ</strong>
+                  <span>{selectedProject?.github_repo || projectRepo || "-"}</span>
+                  <strong>アカウント</strong>
+                  <span>{githubIntegration?.github_account_login ?? "-"}</span>
+                  <strong>権限</strong>
+                  <span>{githubIntegration?.granted_permissions?.issues ? `Issues ${githubIntegration.granted_permissions.issues}` : "-"}</span>
+                  <strong>最終同期</strong>
+                  <span>{formatDateTime(githubIntegration?.last_sync_at)}</span>
+                  {githubIntegration?.last_error_safe ? (
+                    <>
+                      <strong>エラー</strong>
+                      <span>{displayMessage(githubIntegration.last_error_safe)}</span>
+                    </>
+                  ) : null}
+                </div>
+                <button className="button full-width" type="button" onClick={startGitHubConnection} disabled={loading || !selectedProjectId}>
+                  <GitBranch size={16} />
+                  {githubConnectionActionLabel}
+                </button>
+                {githubInstallationUrl ? (
+                  <a className="button primary full-width" href={githubInstallationUrl} target="_blank" rel="noreferrer">
+                    <GitBranch size={16} />
+                    GitHub App設定を開く
+                  </a>
+                ) : null}
               </section>
 
               <section className="tool-panel">
@@ -1631,6 +1716,18 @@ export default function MeetingWorkspace() {
                   <strong>GitHub</strong>
                   <span>連携</span>
                   <p>{displayMessage(issueDraft.publish_error)}</p>
+                </div>
+                <div className="reconnection-actions" aria-label="GitHub再接続">
+                  <button className="button secondary" type="button" onClick={startGitHubConnection} disabled={loading || !selectedProjectId}>
+                    <GitBranch size={16} />
+                    {githubConnectionActionLabel}
+                  </button>
+                  {githubInstallationUrl ? (
+                    <a className="button primary" href={githubInstallationUrl} target="_blank" rel="noreferrer">
+                      <GitBranch size={16} />
+                      GitHub App設定を開く
+                    </a>
+                  ) : null}
                 </div>
                 {hasPendingGitHubReconciliation ? (
                   <>

@@ -37,12 +37,17 @@ module Api
       end
 
       def github_callback
+        connected_project = nil
+        repository = nil
+        installation_id = nil
+
         state_payload = GithubIntegration::ConnectionState.consume!(params.require(:state))
         connected_project = Project.find(state_payload.fetch("project_id"))
         repository = normalized_repository(state_payload.fetch("repository"))
         owner, name = repository.split("/", 2)
+        installation_id = params.require(:installation_id)
         verification = GithubIntegration::InstallationVerifier.verify(
-          installation_id: params.require(:installation_id),
+          installation_id: installation_id,
           repository: repository
         )
 
@@ -70,6 +75,13 @@ module Api
       rescue GithubIntegration::StateError => e
         render_error("github_state_invalid", e.message, :unauthorized)
       rescue GithubIntegration::VerifierError => e
+        record_github_connection_failure(
+          project: connected_project,
+          repository: repository,
+          installation_id: installation_id,
+          setup_action: params[:setup_action],
+          error: e
+        )
         render_error(e.code, e.safe_detail, e.http_status)
       rescue ActionController::ParameterMissing => e
         render_error("validation_error", e.message, :unprocessable_entity)
@@ -133,6 +145,30 @@ module Api
           "Repository does not match the project GitHub repository.",
           :unprocessable_entity,
           { project_repository: project.github_repo, requested_repository: repository }
+        )
+      end
+
+      def record_github_connection_failure(project:, repository:, installation_id:, setup_action:, error:)
+        return unless project
+
+        AuditLog.record!(
+          project: project,
+          action: "github.connect.failed",
+          target: project,
+          summary: "GitHub connection callback failed.",
+          metadata: {
+            repository: repository,
+            setup_action: setup_action,
+            github_installation_id: installation_id,
+            error_code: error.code,
+            safe_error_detail: error.safe_detail
+          }.compact
+        )
+      rescue StandardError => log_error
+        Rails.logger.warn(
+          event: "github_connection_failure_audit_log_failed",
+          project_id: project.id,
+          error_class: log_error.class.name
         )
       end
 

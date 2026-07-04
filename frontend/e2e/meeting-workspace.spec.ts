@@ -319,6 +319,32 @@ test.describe("Meeting Workspace", () => {
       });
     });
 
+    await page.route(`**/api/v1/projects/${project.id}/integrations`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [
+            {
+              id: "integration-github-reconciliation",
+              project_id: project.id,
+              provider: "github",
+              status: "error",
+              repository_owner: "Kazuya-Sakashita",
+              repository_name: "ai-pm-platform",
+              github_installation_id: "987654",
+              github_account_login: "Kazuya-Sakashita",
+              github_account_type: "User",
+              granted_permissions: { metadata: "read", issues: "write" },
+              last_error_safe: "GitHub integration is not connected.",
+              created_at: now,
+              updated_at: now,
+            },
+          ],
+        }),
+      });
+    });
+
     await page.route(`**/api/v1/meetings/${meeting.id}/generate-minutes`, async (route) => {
       await route.fulfill({
         status: 202,
@@ -643,6 +669,8 @@ test.describe("Meeting Workspace", () => {
     await expect(page.locator("#issue-draft").getByText("照合待ちなし")).toBeVisible();
     await expect(page.locator("#issue-draft").getByLabel("GitHub Issue番号")).toHaveCount(0);
     await expect(page.locator("#issue-draft").getByRole("button", { name: "マーカー検索" })).toHaveCount(0);
+    await expect(page.getByLabel("GitHub連携").getByRole("button", { name: "GitHub連携を開始" })).toBeVisible();
+    await expect(page.getByLabel("GitHub再接続").getByRole("button", { name: "GitHub連携を開始" })).toBeVisible();
   });
 
   test("shows validation errors when required meeting fields are missing", async ({ page, request }) => {
