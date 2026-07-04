@@ -57,8 +57,8 @@ Codex as CTO / Tech Lead / Backend Architect / DevOps / Security Engineer / QA /
 
 ## 次アクション
 
-1. ISSUE-033へrunbook更新と未実施理由を同期する。
-2. GitHub Issue #33へコメントし、CI成功後にrunbook化Issueとしてクローズする。
+1. ISSUE-033へrunbook更新と未実施理由を同期する（完了）。
+2. GitHub Issue #33へコメントし、CI成功後にrunbook化Issueとしてクローズする（完了）。
 3. 実staging環境が用意できたら、このrunbookに従ってsmoke証跡レビューを `docs/review/` へ追加する。
 4. ISSUE-030でQueue health/operations panelの閲覧権限を設計する。
 5. 将来Issueでretention dry-run modeとSLO/alertを検討する。

@@ -10,6 +10,8 @@ https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/33
 
 登録日: 2026-07-05
 
+状態: 2026-07-05にcommit `56d3827` をmainへ反映し、GitHub Actions CI `28721028171` success確認後にクローズ済み。
+
 ## 背景
 
 ISSUE-023でSolid Queue、ISSUE-025でQueue health、ISSUE-029でConversation Import retention jobが実装された。しかし、staging/production workerでrecurring taskが読み込まれ、実際にretention jobが実行できることの証跡はまだない。
@@ -74,7 +76,12 @@ ISSUE-029のレビューではretention jobの実装は完了。ただしstaging
 検証結果:
 
 - `git diff --check`: pass
-- GitHub Actions CI: push後に確認予定
+- GitHub Actions CI `28721028171`: success（commit `56d3827`）
+- GitHub Issue同期コメント: `https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/33#issuecomment-4883944880`
+- 関連Issue同期コメント:
+  - ISSUE-023: `https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/23#issuecomment-4883945378`
+  - ISSUE-025: `https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/25#issuecomment-4883945376`
+  - ISSUE-029: `https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/29#issuecomment-4883945377`
 
 実staging/prod未実施理由:
 
@@ -95,5 +102,5 @@ P0
 
 1. 既存のworker smoke runbookを確認する（完了）。
 2. retention jobのdry-run/実行/確認手順を追記する（完了。dry-runは未実装のためproductionは観測中心）。
-3. レビューとIssue同期を保存する（実施中）。
+3. レビューとIssue同期を保存する（完了）。
 4. staging環境が用意できた時点で実行証跡を追加する。
