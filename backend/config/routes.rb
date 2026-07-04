@@ -5,10 +5,18 @@ Rails.application.routes.draw do
 
       resources :projects, only: %i[index show create update destroy] do
         resources :meetings, only: %i[index create]
+        resources :conversation_imports, only: %i[index create], path: "conversation-imports"
         resources :audit_logs, only: %i[index], path: "audit-logs"
         resources :integration_accounts, only: %i[index], path: "integrations"
         post "integrations/github/connect", to: "integration_accounts#start_github_connection"
         post "integrations/github/disconnect", to: "integration_accounts#disconnect_github"
+      end
+      resources :conversation_imports, only: %i[show update], path: "conversation-imports", param: :conversation_import_id do
+        post "scan", on: :member
+        post "generate-summary", on: :member
+      end
+      resources :conversation_summary_drafts, only: %i[show update], path: "conversation-summary-drafts", param: :conversation_summary_draft_id do
+        post "approve", on: :member
       end
       post "integrations/github/callback", to: "integration_accounts#github_callback"
 

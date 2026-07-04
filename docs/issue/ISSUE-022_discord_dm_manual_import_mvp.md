@@ -58,10 +58,15 @@ AI PM Platformは、会議だけでなく、日常的な意思決定や仕様相
 - `docs/review/20260702_discord_dm_manual_import_requirements_review.md`
 - `docs/review/20260702_discord_dm_parallel_design_review.md`
 - `docs/review/20260702_discord_dm_openapi_design_review.md`
+- `docs/review/20260705_discord_dm_backend_mvp_review.md`
 
 ## レビュー結果
 
 2026-07-02にCodex一次レビューを実施。Discord DM整理はAI PM Platformの価値を広げる有望機能だが、DM自動取得は初期MVPとしてリスクが高い。世界レベルのSaaS基準では、ユーザーが明示的に貼り付けた会話だけを対象にし、同意確認、redaction、secret scan、レビューゲート、監査ログを必須にする方針が妥当。実装へ進む前にOpenAPI、DB設計、UI設計レビューが必要。
+
+2026-07-05にBackend MVPを実装。既存OpenAPI契約に合わせてConversation Import API、Conversation Summary Draft API、scan service、deterministic summary generation、DB migration、request specを追加した。ControllerはHTTP受付とレスポンスに留め、同意/secret scanと整理生成はServiceへ分離した。AuditLogには本文全文やsecret値を保存せず、safe metadataだけを残す。
+
+追加レビューで、raw/redacted text更新後に再scanなしでAI整理へ進める穴と、承認理由なしでsummary draftをapproveできる穴を修正した。更新後は既存draftを `stale` にし、import statusを `draft` へ戻す。承認時は `approval_note` を必須にする。
 
 良かった点:
 
@@ -72,14 +77,21 @@ AI PM Platformは、会議だけでなく、日常的な意思決定や仕様相
 - ADR、要件、API設計、セキュリティ設計を実装前に作成した。
 - DB設計、画面設計、AI prompt/schemaを並行して追加し、実装前の責任境界を整理した。
 - OpenAPI本体へConversation Import / Summary Draft endpointとschemaを追加し、TypeScript API型を生成した。
+- BackendでConversation Import作成/一覧/取得/更新、scan、summary生成、summary取得/更新/承認の最小APIを実装した。
+- 同意なし、secret-like contentありではAI整理へ進めないBackend gateを追加した。
+- raw/redacted text更新後は既存summary draftを `stale` にし、再scanを必須にした。
+- redacted textをAI整理入力として優先し、raw secretが生成結果へ混入しないことをrequest specで固定した。
+- 承認理由なしのsummary draft approveを拒否し、OpenAPI契約の必須項目とBackend挙動を揃えた。
 
 改善点:
 
-- OpenAPI本体への反映は完了したが、Backend route、controller、model、migration、serviceは未実施。
-- DB設計、画面設計、AI prompt/schemaは設計文書として追加済みだが、DB migration、UI実装、Structured Outputs接続は未実施。
+- OpenAPI本体への反映とBackend route、controller、model、migration、serviceは実装済み。
+- DB設計とDB migrationは実装済み。画面設計、AI prompt/schemaは設計文書として追加済みだが、UI実装、Structured Outputs接続は未実施。
 - Discord公式審査やDeveloper Policyに対する詳細リーガルレビューは未実施。
 - 参加者同意のUI文言、証跡保存粒度、削除/保持期間の仕様が未確定。
 - AI出力の引用根拠、confidence、誤要約訂正フローは未実装。
+- raw textは平文DB保存のため、本番前に暗号化、retention、削除/匿名化方針のADRが必要。
+- 認証ユーザー未実装のため、imported_by、approved_by、consent_confirmed_byは実ユーザーに紐付いていない。
 
 検証結果:
 
@@ -91,6 +103,15 @@ AI PM Platformは、会議だけでなく、日常的な意思決定や仕様相
 - `docs/architecture/20260702_discord_dm_manual_import_db_design.md`: 追加
 - `docs/product/20260702_discord_dm_manual_import_screen_design.md`: 追加
 - `docs/ai/20260702_discord_dm_summary_prompt_schema.md`: 追加
+- 2026-07-05 Backend MVP: `bundle exec rails db:migrate`: success
+- 2026-07-05 Backend MVP: `RAILS_ENV=test bundle exec rails db:migrate`: success
+- 2026-07-05 Backend MVP: `bundle exec rspec spec/requests/api/v1/conversation_imports_spec.rb spec/requests/api/v1/conversation_summary_drafts_spec.rb`: 12 examples, 0 failures
+- 2026-07-05 Backend MVP: `bundle exec rspec`: 165 examples, 0 failures
+- 2026-07-05 Backend MVP: `bundle exec ruby bin/rails zeitwerk:check`: All is good
+- 2026-07-05 Backend MVP: `npm run api:verify`: success
+- 2026-07-05 Backend MVP: `npm run display:check`: success
+- 2026-07-05 Backend MVP: `npm run frontend:build`: success
+- 2026-07-05 Backend MVP: `git diff --check`: pass
 
 ## 優先度
 
@@ -104,11 +125,12 @@ P1
 
 ## 次アクション
 
-- DB設計をmigration可能な形へ落とし込む
-- OpenAPI契約に合わせてConversation Import APIのBackend実装を開始する
 - DMインポートUIのワイヤーフレームまたは静的画面を作成する
-- AI整理prompt/schemaをStructured Outputs前提で実装可能なschemaへ変換する
-- STRIDEレビューを実装前に再実施する
+- AI整理prompt/schemaをStructured Outputs providerへ接続する
+- raw text暗号化、retention、削除/匿名化方針のADRを作成する
+- PII/redaction suggestionを強化する
+- Review CenterとConversation Summary Draft承認を接続する
+- Frontend/AI provider実装時にSTRIDEレビューを再実施する
 - GitHub Issueへ最新内容を同期する
 
 ## 関連ドキュメント

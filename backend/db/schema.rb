@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_07_02_120500) do
+ActiveRecord::Schema[7.1].define(version: 2026_07_04_214600) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pgcrypto"
   enable_extension "plpgsql"
@@ -28,6 +28,62 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_02_120500) do
     t.index ["project_id", "created_at"], name: "index_audit_logs_on_project_id_and_created_at"
     t.index ["project_id"], name: "index_audit_logs_on_project_id"
     t.index ["target_type", "target_id"], name: "index_audit_logs_on_target_type_and_target_id"
+  end
+
+  create_table "conversation_imports", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "project_id", null: false
+    t.string "source_type", default: "discord_dm_paste", null: false
+    t.string "title", null: false
+    t.text "raw_text", null: false
+    t.text "redacted_text"
+    t.jsonb "participants", default: [], null: false
+    t.datetime "conversation_started_at"
+    t.datetime "conversation_ended_at"
+    t.boolean "consent_confirmed", default: false, null: false
+    t.string "consent_confirmed_by"
+    t.datetime "consent_confirmed_at"
+    t.string "consent_statement_version", null: false
+    t.string "status", default: "draft", null: false
+    t.jsonb "safety_flags", default: [], null: false
+    t.jsonb "blocked_reasons", default: [], null: false
+    t.string "imported_by", default: "system", null: false
+    t.datetime "last_scanned_at"
+    t.datetime "approved_at"
+    t.string "approved_by"
+    t.datetime "retention_expires_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["imported_by", "created_at"], name: "index_conversation_imports_on_imported_by_and_created_at"
+    t.index ["project_id", "created_at"], name: "index_conversation_imports_on_project_id_and_created_at"
+    t.index ["project_id", "status"], name: "index_conversation_imports_on_project_id_and_status"
+    t.index ["project_id"], name: "index_conversation_imports_on_project_id"
+    t.index ["retention_expires_at"], name: "index_conversation_imports_on_retention_expires_at"
+  end
+
+  create_table "conversation_summary_drafts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "conversation_import_id", null: false
+    t.string "provider", default: "deterministic", null: false
+    t.string "model"
+    t.string "status", default: "draft", null: false
+    t.text "summary", null: false
+    t.jsonb "decisions", default: [], null: false
+    t.jsonb "open_questions", default: [], null: false
+    t.jsonb "action_items", default: [], null: false
+    t.jsonb "issue_candidates", default: [], null: false
+    t.jsonb "requirement_candidates", default: [], null: false
+    t.jsonb "risks", default: [], null: false
+    t.jsonb "participants", default: [], null: false
+    t.jsonb "source_quotes", default: [], null: false
+    t.decimal "confidence", precision: 4, scale: 3
+    t.jsonb "validation_errors", default: [], null: false
+    t.datetime "generated_at", null: false
+    t.datetime "approved_at"
+    t.string "approved_by"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["conversation_import_id", "created_at"], name: "index_conversation_summary_drafts_on_import_and_created"
+    t.index ["conversation_import_id"], name: "index_conversation_summary_drafts_on_conversation_import_id"
+    t.index ["status"], name: "index_conversation_summary_drafts_on_status"
   end
 
   create_table "github_connection_states", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -234,6 +290,8 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_02_120500) do
   end
 
   add_foreign_key "audit_logs", "projects"
+  add_foreign_key "conversation_imports", "projects"
+  add_foreign_key "conversation_summary_drafts", "conversation_imports"
   add_foreign_key "github_connection_states", "projects"
   add_foreign_key "github_issue_publish_attempts", "issue_drafts"
   add_foreign_key "github_issue_publish_attempts", "projects"
