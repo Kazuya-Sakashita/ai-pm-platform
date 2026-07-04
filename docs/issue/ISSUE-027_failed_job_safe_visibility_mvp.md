@@ -10,6 +10,8 @@ https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/27
 
 登録日: 2026-07-04
 
+状態: 2026-07-04にcommit `1fe4963` をmainへ反映し、GitHub Actions CI `28706040725` success確認後にクローズ済み。
+
 備考: 誤って重複作成した GitHub Issue #28 は #27 へ一本化し、重複としてクローズ済み。
 
 ## 背景
@@ -85,6 +87,7 @@ Queue health APIと運用監視パネルへ、直近failed jobのsafe summaryを
 - `npm run display:check`: Display labels OK
 - `npm run frontend:build`: success
 - `npm run frontend:e2e -- e2e/queue-health.spec.ts`: 1 passed
+- GitHub Actions CI `28706040725`: success（commit `1fe4963`）
 
 ## 優先度
 
@@ -103,5 +106,5 @@ P1
 - API設計レビューを保存する（完了）
 - Backend/Frontendを実装する（完了）
 - 実装レビューを保存する（完了）
-- CI成功後にGitHub Issue #27へ検証結果をコメントし、クローズする
+- CI成功後にGitHub Issue #27へ検証結果をコメントし、クローズする（完了）
 - retry/discard操作は認証/監査設計後に別Issueとして扱う

@@ -50,7 +50,7 @@ Codex / CTO / Tech Lead / Backend Architect / Frontend Architect / DevOps / Secu
 
 ## 次アクション
 
-- CI成功後にGitHub Issue #27へ結果をコメントし、クローズする。
+- GitHub Actions CI success確認後にGitHub Issue #27へ結果をコメントし、クローズする。（完了）
 - ISSUE-004、ISSUE-023、ISSUE-025の残タスクから「failed job safe visibility」を完了扱いへ更新する。
 - retry/discard操作は認証/監査設計後の別Issueとして扱う。
 - 実staging/production worker smoke証跡を `docs/review/` へ保存する。
@@ -62,6 +62,7 @@ Codex / CTO / Tech Lead / Backend Architect / Frontend Architect / DevOps / Secu
 - `npm run display:check`: Display labels OK
 - `npm run frontend:build`: success
 - `npm run frontend:e2e -- e2e/queue-health.spec.ts`: 1 passed
+- GitHub Actions CI `28706040725`: success（commit `1fe4963`）
 
 ## G-STACK
 
