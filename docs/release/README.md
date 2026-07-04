@@ -7,4 +7,5 @@
 ## Runbooks
 
 - `20260703_solid_queue_operations_runbook.md`: Solid Queue worker運用手順
+- `20260704_solid_queue_staging_worker_smoke_runbook.md`: Solid Queue staging/production worker smoke手順
 - `20260704_github_app_live_smoke_runbook.md`: GitHub App credentialを使ったlive smoke手順

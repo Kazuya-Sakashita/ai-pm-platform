@@ -1,6 +1,9 @@
 const messageLabels: Record<string, string> = {
   "AI response did not match the expected minutes schema.": "AI応答が想定された議事録形式に一致しませんでした。",
   "GitHub integration is not connected.": "GitHub連携が未接続です。",
+  "GitHub connection state already used.": "GitHub接続リンクは使用済みです。ワークスペースから接続をやり直してください。",
+  "GitHub connection state expired.": "GitHub接続リンクの有効期限が切れました。ワークスペースから接続をやり直してください。",
+  "GitHub connection state is invalid.": "GitHub接続リンクが無効です。ワークスペースから接続をやり直してください。",
   "GitHub installation could not be verified.": "GitHub Appのインストールを確認できませんでした。",
   "GitHub Issue marker search failed.": "GitHub Issueマーカー検索に失敗しました。",
   "GitHub reconciliation retry is cooling down.": "GitHub照合の再試行待機中です。",

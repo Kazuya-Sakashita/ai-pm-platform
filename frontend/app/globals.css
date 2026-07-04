@@ -54,6 +54,88 @@ button:disabled {
   min-height: 100vh;
 }
 
+.callback-shell {
+  display: grid;
+  min-height: 100vh;
+  padding: 24px;
+  place-items: center;
+}
+
+.callback-panel {
+  display: grid;
+  width: min(100%, 620px);
+  gap: 18px;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.callback-panel.success {
+  border-color: #9fd5c8;
+}
+
+.callback-panel.error {
+  border-color: #f0a5b6;
+}
+
+.callback-icon {
+  display: grid;
+  align-items: center;
+  justify-content: start;
+  color: var(--teal);
+}
+
+.callback-panel.error .callback-icon {
+  color: var(--red);
+}
+
+.callback-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.callback-copy h1,
+.callback-copy p {
+  margin: 0;
+}
+
+.callback-copy h1 {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.callback-copy p {
+  color: var(--muted);
+}
+
+.callback-summary {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 8px 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-alt);
+  font-size: 13px;
+}
+
+.callback-summary strong {
+  font-weight: 650;
+}
+
+.callback-summary span {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.callback-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .sidebar {
   border-right: 1px solid var(--border);
   background: #fbfcfa;
