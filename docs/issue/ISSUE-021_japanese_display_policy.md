@@ -56,10 +56,13 @@ AI PM Platformは日本語で運用されるプロジェクト管理・議事録
 - `docs/review/20260701_japanese_display_label_commonization_review.md`
 - `docs/review/20260704_japanese_display_label_consistency_check_review.md`
 - `docs/review/20260704_japanese_display_label_ci_gate_review.md`
+- `docs/review/20260704_queue_health_japanese_ui_copy_review.md`
 
 ## レビュー結果
 
 2026-07-01にCodex一次レビューを実施。日本語表示ポリシーとして妥当。追加で日本語UI用語集を作成し、主要ステータス、ボタン、ラベル、エラー文言テンプレートを整理した。Frontendの主要画面へ日本語表示を適用し、`statusLabel` / `targetLabel` / `displayMessage` で内部値と表示文言を分離した。さらに表示変換helper/mapを `frontend/lib/display-labels.ts` へ共通化した。Playwrightで主要導線、失敗導線、pending/link/validation reconciliation導線を日本語UI文言で確認した。2026-07-04に `scripts/check-display-labels.rb` と `npm run display:check` を追加し、日本語UI用語集、`display-labels.ts`、OpenAPIのGitHub照合履歴status enumの整合を静的確認できるようにした。同日にCI workflowへ `npm run display:check` を追加し、main反映前に表示ラベル劣化を検知できるようにした。API safe detail本体の日本語化範囲整理、AI生成テンプレート日本語統一、視覚回帰確認は未完了。
+
+2026-07-04にQueue health監視MVP追加後のUIコピーを確認し、運用監視パネル内の `Worker`、`Failed`、`Recurring`、`stale`、`Queue health` などの英語表示を日本語へ修正した。内部queue名やAPI enumは英語のまま維持し、ユーザーが読むラベル、aria-label、空状態、集計表示のみを日本語化した。
 
 良かった点:
 
@@ -70,6 +73,7 @@ AI PM Platformは日本語で運用されるプロジェクト管理・議事録
 - `display-labels.ts` と日本語UI用語集の主要status/target labelを自動照合できるようにした。
 - OpenAPIの `GitHubReconciliationHistoryItem.status` enumが表示ラベルに登録されていることを確認できるようにした。
 - CI workflowへ `npm run display:check` を追加し、表示ラベルのズレを継続的に検知できるようにした。
+- Queue health監視パネルの主要ラベル、aria-label、空状態、集計表示を日本語化した。
 
 改善点:
 
@@ -91,6 +95,9 @@ AI PM Platformは日本語で運用されるプロジェクト管理・議事録
 - 2026-07-04 display label consistency: `npm run frontend:e2e`: 14 passed
 - 2026-07-04 display label CI gate: `npm run display:check`: success
 - 2026-07-04 display label CI gate: `npm run frontend:build`: success
+- 2026-07-04 Queue health Japanese UI copy: `npm run display:check`: success
+- 2026-07-04 Queue health Japanese UI copy: `npm run frontend:build`: success
+- 2026-07-04 Queue health Japanese UI copy: `npm run frontend:e2e -- e2e/queue-health.spec.ts`: 1 passed
 
 ## 優先度
 

@@ -76,7 +76,7 @@ test.describe("Queue health operations panel", () => {
 
     const panel = page.getByLabel("運用監視");
     await expect(panel.getByText("要確認")).toBeVisible();
-    await expect(panel.getByText("1件 / stale 1件")).toBeVisible();
+    await expect(panel.getByText("全1件 / 古い応答1件")).toBeVisible();
     await expect(panel.getByText("2件 / 420秒")).toBeVisible();
     await expect(panel.getByText("failed executionが1件あります。")).toBeVisible();
     await expect(panel).not.toContainText("DATABASE_URL");
@@ -85,7 +85,7 @@ test.describe("Queue health operations panel", () => {
     await panel.getByRole("button", { name: "運用状態更新" }).click();
 
     await expect(panel.getByText("正常")).toBeVisible();
-    await expect(panel.getByText("1件 / stale 0件")).toBeVisible();
+    await expect(panel.getByText("全1件 / 古い応答0件")).toBeVisible();
     await expect(panel.getByText("0件 / -")).toBeVisible();
     await expect(panel.getByText("failed executionが1件あります。")).toHaveCount(0);
   });

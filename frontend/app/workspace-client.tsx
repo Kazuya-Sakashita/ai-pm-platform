@@ -1474,18 +1474,18 @@ export default function MeetingWorkspace() {
                 <div className="operation-summary">
                   <strong>更新</strong>
                   <span>{formatDateTime(queueHealth?.checked_at)}</span>
-                  <strong>Worker</strong>
+                  <strong>ワーカー</strong>
                   <span>
-                    {queueHealth ? `${queueHealth.workers.length}件 / stale ${staleWorkerCount}件` : "-"}
+                    {queueHealth ? `全${queueHealth.workers.length}件 / 古い応答${staleWorkerCount}件` : "-"}
                   </span>
-                  <strong>Failed</strong>
+                  <strong>失敗</strong>
                   <span>{failedExecutionCount}件</span>
-                  <strong>Product失敗</strong>
+                  <strong>アプリジョブ失敗</strong>
                   <span>{recentProductFailedCount}件</span>
-                  <strong>Recurring</strong>
+                  <strong>定期タスク</strong>
                   <span>{queueHealth ? `${queueHealth.recurring_tasks.length}件` : "-"}</span>
                 </div>
-                <div className="queue-list" aria-label="Queue health一覧">
+                <div className="queue-list" aria-label="キュー状態一覧">
                   {queueRows.map((queue) => (
                     <div className="queue-row" key={queue.queue_name}>
                       <strong>{queue.queue_name}</strong>
@@ -1494,10 +1494,10 @@ export default function MeetingWorkspace() {
                       </span>
                     </div>
                   ))}
-                  {queueRows.length === 0 ? <p className="empty">Queue未確認</p> : null}
+                  {queueRows.length === 0 ? <p className="empty">キュー未確認</p> : null}
                 </div>
                 {warningRows.length > 0 ? (
-                  <div className="warning-list" aria-label="Queue health warning">
+                  <div className="warning-list" aria-label="キュー警告">
                     {warningRows.map((warning) => (
                       <span key={warning}>{displayMessage(warning)}</span>
                     ))}
