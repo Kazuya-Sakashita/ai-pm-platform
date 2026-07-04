@@ -112,6 +112,7 @@ AI PM Platformは、会議だけでなく、日常的な意思決定や仕様相
 - 2026-07-05 Backend MVP: `npm run display:check`: success
 - 2026-07-05 Backend MVP: `npm run frontend:build`: success
 - 2026-07-05 Backend MVP: `git diff --check`: pass
+- 2026-07-05 Backend MVP: GitHub Actions CI `28713458334`: success（commit `c48d3b8`）
 
 ## 優先度
 
@@ -131,7 +132,7 @@ P1
 - PII/redaction suggestionを強化する
 - Review CenterとConversation Summary Draft承認を接続する
 - Frontend/AI provider実装時にSTRIDEレビューを再実施する
-- GitHub Issueへ最新内容を同期する
+- GitHub IssueへBackend MVP完了内容を同期する（完了）
 
 ## 関連ドキュメント
 
