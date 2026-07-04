@@ -366,11 +366,67 @@ textarea {
   gap: 14px;
 }
 
+.conversation-import-panel {
+  gap: 14px;
+}
+
 .issue-editor-grid,
 .openapi-editor-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 260px;
   gap: 12px;
+}
+
+.conversation-editor-grid,
+.conversation-summary-grid,
+.conversation-candidates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.conversation-wide {
+  grid-column: 1 / -1;
+}
+
+.conversation-editor-grid textarea,
+.conversation-summary-grid textarea {
+  min-height: 136px;
+}
+
+.conversation-editor-grid .conversation-wide textarea {
+  min-height: 190px;
+}
+
+.conversation-summary-grid .conversation-wide textarea {
+  min-height: 112px;
+}
+
+.checkbox-row {
+  grid-column: 1 / -1;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-alt);
+  color: var(--text);
+}
+
+.checkbox-row input {
+  width: 16px;
+  min-height: 16px;
+  margin: 0;
+}
+
+.conversation-candidates > div {
+  display: grid;
+  gap: 8px;
+}
+
+.conversation-audit {
+  grid-template-columns: 104px minmax(0, 1fr);
 }
 
 .issue-editor-grid textarea,
@@ -859,6 +915,9 @@ textarea {
   .form-grid,
   .editor-columns,
   .requirement-editor-grid,
+  .conversation-editor-grid,
+  .conversation-summary-grid,
+  .conversation-candidates,
   .issue-editor-grid,
   .openapi-editor-grid,
   .reconciliation-grid {
@@ -866,8 +925,13 @@ textarea {
   }
 
   .issue-body-field,
+  .conversation-wide,
   .openapi-content-field {
     grid-column: auto;
+  }
+
+  .conversation-audit {
+    grid-template-columns: 92px minmax(0, 1fr);
   }
 
   .validation-row {

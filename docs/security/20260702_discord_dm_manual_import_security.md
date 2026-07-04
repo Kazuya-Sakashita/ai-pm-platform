@@ -62,10 +62,26 @@ Discord DMは、会議ログよりも個人性・機密性が高い。MVPではD
 
 ## 実装前に必要な追加設計
 
-- raw text暗号化と保持期間
 - redaction UX
 - consent statementの文言とversioning
 - secret/PII detectorの対象パターン
 - AI prompt/schemaと引用根拠
 - Review blockerの条件
 - 削除/エクスポート/監査証跡の扱い
+
+## 2026-07-05 実装後のproduction gate
+
+Backend MVPとFrontend手動UIは、同意確認、マスキング入力、安全チェック、AI整理ドラフト生成、承認理由を扱える。ただし、現時点のraw text / redacted textはDB平文保存であり、本番投入可能な状態ではない。
+
+production release前に以下をP0 blockerとして扱う。
+
+- raw text / redacted text暗号化
+- raw text 30日以内、redacted text / AI整理ドラフト180日以内の既定保持期限
+- DMインポート単位の削除/匿名化API
+- project membershipに基づく閲覧、削除、承認権限
+- backup、AuditLog、ジョブログに本文が残らないことの検証
+- redacted text優先のAI送信と、scan valid必須のrequest spec
+
+関連ADR:
+
+- `docs/decisions/ADR-0012_discord_dm_text_encryption_retention.md`

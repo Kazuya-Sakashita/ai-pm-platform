@@ -12,6 +12,7 @@ import {
   GitBranch,
   ListChecks,
   Loader2,
+  MessageSquareText,
   Play,
   Plus,
   RefreshCw,
@@ -35,6 +36,11 @@ type QueueHealth = components["schemas"]["QueueHealth"];
 type Review = components["schemas"]["Review"];
 type IntegrationAccount = components["schemas"]["IntegrationAccount"];
 type MeetingSourceType = components["schemas"]["MeetingSourceType"];
+type ConversationImport = components["schemas"]["ConversationImport"];
+type ConversationSummaryDraft = components["schemas"]["ConversationSummaryDraft"];
+type ConversationParticipant = components["schemas"]["ConversationParticipant"];
+type ConversationSafetyFlag = components["schemas"]["ConversationSafetyFlag"];
+type ConversationRedactionSuggestion = components["schemas"]["ConversationRedactionSuggestion"];
 type GitHubReconciliationAction = components["schemas"]["ResolveGitHubReconciliationRequest"]["resolution_action"];
 type GitHubReconciliationMatch = components["schemas"]["GitHubReconciliationMatch"];
 type GitHubReconciliationHistoryItem = NonNullable<components["schemas"]["IssueDraft"]["github_reconciliation_history"]>[number];
@@ -58,6 +64,12 @@ const defaultLog = `alice: Decision: Discord-firstで議事録MVPを切る。
 bob: Open question: レビュー依頼の担当者は誰にする？
 alice: Action: 会議ワークスペースから議事録生成を接続する。`;
 
+const defaultDmText = `依頼者: 決定: MVPではDiscord DMを手動貼り付けで整理する。
+PM: 未決: 相手方同意とマスキング確認をどこで記録する？
+依頼者: 対応: 同意確認後にIssue候補を作る。`;
+
+const conversationConsentStatementVersion = "discord-dm-manual-import-v1";
+
 const retryReasonTemplates: { value: RetryReasonTemplate; label: string }[] = [
   { value: "github_issue_absence_confirmed", label: "GitHub上でIssue未作成を確認" },
   { value: "github_search_complete_no_match", label: "GitHub Search完了後も該当Issueなし" },
@@ -77,6 +89,32 @@ function compactLines(value: string) {
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
+}
+
+function conversationParticipantsFromText(value: string): ConversationParticipant[] {
+  return compactLines(value.replaceAll(",", "\n")).map((displayName) => ({
+    display_name: displayName,
+    role: "unknown",
+  }));
+}
+
+function summaryConfidence(value?: number) {
+  if (typeof value !== "number") return "-";
+  return `${Math.round(value * 100)}%`;
+}
+
+function safetyFlagTypeLabel(type: ConversationSafetyFlag["type"]) {
+  const labels: Record<ConversationSafetyFlag["type"], string> = {
+    consent_missing: "同意未確認",
+    credential: "認証情報",
+    financial: "金融情報",
+    legal: "法務情報",
+    personal_data: "個人情報",
+    secret: "秘密情報",
+    unknown: "要確認",
+  };
+
+  return labels[type];
 }
 
 function errorMessage(error: unknown) {
@@ -148,17 +186,30 @@ function statusTone(status?: string) {
     status === "reconciled" ||
     status === "retry_approved" ||
     status === "local_saved" ||
+    status === "ready_for_ai" ||
     status === "healthy"
   ) {
     return "success";
   }
-  if (status === "failed" || status === "needs_changes" || status === "invalid" || status === "publish_failed" || status === "unavailable") return "danger";
-  if (status === "degraded") return "warning";
+  if (
+    status === "failed" ||
+    status === "needs_changes" ||
+    status === "needs_revision" ||
+    status === "invalid" ||
+    status === "publish_failed" ||
+    status === "unavailable" ||
+    status === "rejected" ||
+    status === "blocked"
+  )
+    return "danger";
+  if (status === "degraded" || status === "stale") return "warning";
   if (status === "error" || status === "revoked") return "danger";
   if (
     status === "in_review" ||
     status === "running" ||
     status === "generating" ||
+    status === "summarizing" ||
+    status === "summary_draft" ||
     status === "publishing" ||
     status === "started" ||
     status === "github_created" ||
@@ -203,6 +254,18 @@ export default function MeetingWorkspace() {
   const [sourceType, setSourceType] = useState<MeetingSourceType>("discord_log");
   const [participants, setParticipants] = useState("Kazuya, プロダクト, エンジニアリング");
   const [rawText, setRawText] = useState(defaultLog);
+
+  const [conversationImports, setConversationImports] = useState<ConversationImport[]>([]);
+  const [selectedConversationImport, setSelectedConversationImport] = useState<ConversationImport | null>(null);
+  const [conversationSummaryDraft, setConversationSummaryDraft] = useState<ConversationSummaryDraft | null>(null);
+  const [conversationSafetyFlags, setConversationSafetyFlags] = useState<ConversationSafetyFlag[]>([]);
+  const [conversationRedactionSuggestions, setConversationRedactionSuggestions] = useState<ConversationRedactionSuggestion[]>([]);
+  const [conversationTitle, setConversationTitle] = useState("Discord DM仕様相談");
+  const [conversationParticipants, setConversationParticipants] = useState("依頼者, PM");
+  const [conversationRawText, setConversationRawText] = useState(defaultDmText);
+  const [conversationRedactedText, setConversationRedactedText] = useState("");
+  const [conversationConsentConfirmed, setConversationConsentConfirmed] = useState(false);
+  const [conversationApprovalNote, setConversationApprovalNote] = useState("同意確認とマスキング内容をレビューしました。");
 
   const [summaryDraft, setSummaryDraft] = useState("");
   const [decisionsDraft, setDecisionsDraft] = useState("");
@@ -250,8 +313,14 @@ export default function MeetingWorkspace() {
     if (!selectedProjectId) return;
     setIntegrationAccounts([]);
     setGithubInstallationUrl("");
+    setConversationImports([]);
+    setSelectedConversationImport(null);
+    setConversationSummaryDraft(null);
+    setConversationSafetyFlags([]);
+    setConversationRedactionSuggestions([]);
     void loadMeetings(selectedProjectId);
     void loadIntegrations(selectedProjectId);
+    void loadConversationImports(selectedProjectId);
   }, [selectedProjectId]);
 
   function setApiError(message: string) {
@@ -299,6 +368,37 @@ export default function MeetingWorkspace() {
     setIntegrationAccounts(data?.data ?? []);
   }
 
+  async function loadConversationImports(projectId: string) {
+    const { data, error: apiError } = await apiClient.GET("/projects/{project_id}/conversation-imports", {
+      params: { path: { project_id: projectId } },
+    });
+
+    if (apiError) {
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    const imports = data.data;
+    setConversationImports(imports);
+    const nextSelected = imports.find((item) => item.id === selectedConversationImport?.id) ?? imports[0] ?? null;
+    setSelectedConversationImport(nextSelected);
+    setConversationSummaryDraft(nextSelected?.latest_summary_draft ?? null);
+  }
+
+  async function refreshConversationImport(conversationImportId: string) {
+    const { data, error: apiError } = await apiClient.GET("/conversation-imports/{conversation_import_id}", {
+      params: { path: { conversation_import_id: conversationImportId } },
+    });
+
+    if (apiError) {
+      setApiError(errorMessage(apiError));
+      return null;
+    }
+
+    applyConversationImport(data.data);
+    return data.data;
+  }
+
   async function loadQueueHealth(options: { announce?: boolean } = {}) {
     const announce = options.announce !== false;
     setQueueHealthLoading(true);
@@ -341,6 +441,156 @@ export default function MeetingWorkspace() {
     setProjects((current) => [data.data, ...current]);
     setSelectedProjectId(data.data.id);
     setStatusMessage("プロジェクトを作成しました");
+  }
+
+  async function saveConversationImport() {
+    if (!selectedProjectId) {
+      setApiError("プロジェクトを先に作成または選択してください。");
+      return;
+    }
+
+    if (!conversationConsentConfirmed) {
+      setApiError("DM取り込み前に同意確認をチェックしてください。");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    const redactedText = conversationRedactedText.trim();
+    const participantsPayload = conversationParticipantsFromText(conversationParticipants);
+
+    if (selectedConversationImport) {
+      const { data, error: apiError } = await apiClient.PATCH("/conversation-imports/{conversation_import_id}", {
+        params: { path: { conversation_import_id: selectedConversationImport.id } },
+        body: {
+          title: conversationTitle,
+          raw_text: conversationRawText,
+          redacted_text: redactedText,
+          participants: participantsPayload,
+          consent_confirmed: conversationConsentConfirmed,
+          consent_statement_version: conversationConsentStatementVersion,
+        },
+      });
+      setLoading(false);
+
+      if (apiError) {
+        setApiError(errorMessage(apiError));
+        return;
+      }
+
+      applyConversationImport(data.data);
+      setConversationSafetyFlags([]);
+      setConversationRedactionSuggestions([]);
+      setStatusMessage("DMインポートを更新しました");
+      return;
+    }
+
+    const { data, error: apiError } = await apiClient.POST("/projects/{project_id}/conversation-imports", {
+      params: { path: { project_id: selectedProjectId } },
+      body: {
+        source_type: "discord_dm_paste",
+        title: conversationTitle,
+        raw_text: conversationRawText,
+        redacted_text: redactedText || undefined,
+        participants: participantsPayload,
+        consent_confirmed: conversationConsentConfirmed,
+        consent_statement_version: conversationConsentStatementVersion,
+      },
+    });
+    setLoading(false);
+
+    if (apiError) {
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    applyConversationImport(data.data);
+    setConversationSafetyFlags([]);
+    setConversationRedactionSuggestions([]);
+    setStatusMessage("DMインポートを保存しました");
+  }
+
+  async function scanConversationImport() {
+    if (!selectedConversationImport) {
+      setApiError("スキャンするDMインポートがありません。");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    const { data, error: apiError } = await apiClient.POST("/conversation-imports/{conversation_import_id}/scan", {
+      params: { path: { conversation_import_id: selectedConversationImport.id } },
+    });
+    setLoading(false);
+
+    if (apiError) {
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    applyConversationImport(data.data.conversation_import);
+    setConversationSafetyFlags(data.data.safety_flags);
+    setConversationRedactionSuggestions(data.data.redaction_suggestions);
+    setStatusMessage(data.data.valid ? "DMの安全チェックに合格しました" : "DMの安全チェックで修正が必要です");
+  }
+
+  async function generateConversationSummary() {
+    if (!selectedConversationImport) {
+      setApiError("整理するDMインポートがありません。");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setStatusMessage("DM整理ドラフトを生成中");
+    const { data, error: apiError } = await apiClient.POST("/conversation-imports/{conversation_import_id}/generate-summary", {
+      params: { path: { conversation_import_id: selectedConversationImport.id } },
+    });
+
+    if (apiError) {
+      await loadFailedJob(errorJobId(apiError));
+      setLoading(false);
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    setLastJob(data.data.job);
+    setConversationSummaryDraft(data.data.conversation_summary_draft ?? null);
+    await refreshConversationImport(selectedConversationImport.id);
+    setLoading(false);
+    setStatusMessage("DM整理ドラフトを生成しました");
+  }
+
+  async function approveConversationSummary() {
+    if (!conversationSummaryDraft) {
+      setApiError("承認するDM整理ドラフトがありません。");
+      return;
+    }
+
+    if (!conversationApprovalNote.trim()) {
+      setApiError("承認理由を入力してください。");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    const { data, error: apiError } = await apiClient.POST("/conversation-summary-drafts/{conversation_summary_draft_id}/approve", {
+      params: { path: { conversation_summary_draft_id: conversationSummaryDraft.id } },
+      body: {
+        approval_note: conversationApprovalNote.trim(),
+        generate_downstream_candidates: true,
+      },
+    });
+    setLoading(false);
+
+    if (apiError) {
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    setConversationSummaryDraft(data.data);
+    await refreshConversationImport(data.data.conversation_import_id);
+    setStatusMessage("DM整理ドラフトを承認しました");
   }
 
   async function startGitHubConnection() {
@@ -1174,6 +1424,44 @@ export default function MeetingWorkspace() {
     setStatusMessage("会議を選択しました");
   }
 
+  function selectConversationImport(conversationImport: ConversationImport) {
+    setSelectedConversationImport(conversationImport);
+    setConversationSummaryDraft(conversationImport.latest_summary_draft ?? null);
+    setConversationSafetyFlags(conversationImport.safety_flags);
+    setConversationRedactionSuggestions([]);
+    setConversationTitle(conversationImport.title);
+    setConversationParticipants(linesToText(conversationImport.participants.map((participant) => participant.display_name)));
+    setConversationRawText(conversationImport.raw_text);
+    setConversationRedactedText(conversationImport.redacted_text ?? "");
+    setConversationConsentConfirmed(conversationImport.consent_confirmed);
+    setStatusMessage("DMインポートを選択しました");
+  }
+
+  function resetConversationImportDraft() {
+    setSelectedConversationImport(null);
+    setConversationSummaryDraft(null);
+    setConversationSafetyFlags([]);
+    setConversationRedactionSuggestions([]);
+    setConversationTitle("Discord DM仕様相談");
+    setConversationParticipants("依頼者, PM");
+    setConversationRawText(defaultDmText);
+    setConversationRedactedText("");
+    setConversationConsentConfirmed(false);
+    setConversationApprovalNote("同意確認とマスキング内容をレビューしました。");
+    setStatusMessage("DM入力を初期化しました");
+  }
+
+  function applyConversationImport(nextConversationImport: ConversationImport) {
+    setSelectedConversationImport(nextConversationImport);
+    setConversationSummaryDraft(nextConversationImport.latest_summary_draft ?? null);
+    setConversationImports((current) => [nextConversationImport, ...current.filter((item) => item.id !== nextConversationImport.id)]);
+    setConversationTitle(nextConversationImport.title);
+    setConversationParticipants(linesToText(nextConversationImport.participants.map((participant) => participant.display_name)));
+    setConversationRawText(nextConversationImport.raw_text);
+    setConversationRedactedText(nextConversationImport.redacted_text ?? "");
+    setConversationConsentConfirmed(nextConversationImport.consent_confirmed);
+  }
+
   function applyMinutes(nextMinutes: Minutes) {
     setMinutes(nextMinutes);
     setSummaryDraft(nextMinutes.summary);
@@ -1275,6 +1563,7 @@ export default function MeetingWorkspace() {
     issueDraft?.status === "approved" &&
     (openApiDraft?.status === "valid" || openApiDraft?.status === "approved") &&
     openApiReview?.status !== "action_required";
+  const canGenerateConversationSummary = selectedConversationImport?.status === "ready_for_ai";
   const hasPendingGitHubReconciliation = issueDraft?.github_reconciliation?.pending === true;
   const isGitHubReconciliationCooldownActive =
     hasPendingGitHubReconciliation &&
@@ -1305,6 +1594,10 @@ export default function MeetingWorkspace() {
           <a className="nav-item" href="#minutes">
             <FileCheck2 size={16} />
             議事録
+          </a>
+          <a className="nav-item" href="#conversation-import">
+            <MessageSquareText size={16} />
+            DM整理
           </a>
           <a className="nav-item" href="#requirements">
             <ListChecks size={16} />
@@ -1367,6 +1660,14 @@ export default function MeetingWorkspace() {
                 <CheckCircle2 size={16} />
                 Issue承認
               </button>
+              <button className="button secondary" type="button" onClick={saveConversationImport} disabled={!selectedProjectId || loading}>
+                <Save size={16} />
+                DM保存
+              </button>
+              <button className="button secondary" type="button" onClick={scanConversationImport} disabled={!selectedConversationImport || loading}>
+                <CheckCircle2 size={16} />
+                DMスキャン
+              </button>
               <button className="button primary" type="button" onClick={publishIssueDraft} disabled={!canPublishIssueDraft || loading}>
                 <Send size={16} />
                 GitHub公開
@@ -1394,6 +1695,10 @@ export default function MeetingWorkspace() {
               <button className="button primary" type="button" onClick={generateOpenApiDraft} disabled={!requirement || requirement.status !== "approved" || loading}>
                 {loading ? <Loader2 className="spin" size={16} /> : <FileCode2 size={16} />}
                 OpenAPI生成
+              </button>
+              <button className="button primary" type="button" onClick={generateConversationSummary} disabled={!canGenerateConversationSummary || loading}>
+                {loading ? <Loader2 className="spin" size={16} /> : <MessageSquareText size={16} />}
+                DM整理生成
               </button>
             </div>
           </section>
@@ -1540,6 +1845,29 @@ export default function MeetingWorkspace() {
                     </button>
                   ))}
                   {meetings.length === 0 ? <p className="empty">会議なし</p> : null}
+                </div>
+              </section>
+
+              <section className="tool-panel" aria-label="DMインポート一覧">
+                <div className="panel-header">
+                  <h3>DM整理</h3>
+                  <span className="chip neutral">{conversationImports.length}</span>
+                </div>
+                <div className="meeting-list">
+                  {conversationImports.map((conversationImport) => (
+                    <button
+                      className={conversationImport.id === selectedConversationImport?.id ? "meeting-row active" : "meeting-row"}
+                      key={conversationImport.id}
+                      type="button"
+                      onClick={() => selectConversationImport(conversationImport)}
+                    >
+                      <strong>{conversationImport.title}</strong>
+                      <span>
+                        {statusLabel(conversationImport.status)} / {formatDateTime(conversationImport.created_at)}
+                      </span>
+                    </button>
+                  ))}
+                  {conversationImports.length === 0 ? <p className="empty">DMインポートなし</p> : null}
                 </div>
               </section>
             </div>
@@ -1689,6 +2017,174 @@ export default function MeetingWorkspace() {
                 <span>{openApiReview ? `${statusLabel(openApiReview.status)} / ${openApiReview.reviewer_role}` : "-"}</span>
               </div>
             </aside>
+          </section>
+
+          <section className="tool-panel conversation-import-panel" id="conversation-import">
+            <div className="panel-header">
+              <div>
+                <p className="eyebrow">Discord DM整理</p>
+                <h3>手動インポート</h3>
+              </div>
+              <span className={`chip ${statusTone(selectedConversationImport?.status)}`}>{statusLabel(selectedConversationImport?.status)}</span>
+            </div>
+            <div className="requirement-actions">
+              <button className="button secondary" type="button" onClick={resetConversationImportDraft} disabled={loading}>
+                <Plus size={16} />
+                新規入力
+              </button>
+              <button className="button primary" type="button" onClick={saveConversationImport} disabled={!selectedProjectId || loading}>
+                <Save size={16} />
+                DMインポートを保存
+              </button>
+              <button className="button secondary" type="button" onClick={scanConversationImport} disabled={!selectedConversationImport || loading}>
+                <CheckCircle2 size={16} />
+                安全チェック
+              </button>
+              <button className="button primary" type="button" onClick={generateConversationSummary} disabled={!canGenerateConversationSummary || loading}>
+                {loading ? <Loader2 className="spin" size={16} /> : <MessageSquareText size={16} />}
+                整理ドラフト生成
+              </button>
+              <button className="button primary" type="button" onClick={approveConversationSummary} disabled={!conversationSummaryDraft || loading}>
+                <CheckCircle2 size={16} />
+                整理ドラフト承認
+              </button>
+            </div>
+            <div className="conversation-editor-grid">
+              <label>
+                DMタイトル
+                <input value={conversationTitle} onChange={(event) => setConversationTitle(event.target.value)} />
+              </label>
+              <label>
+                参加者
+                <input value={conversationParticipants} onChange={(event) => setConversationParticipants(event.target.value)} />
+              </label>
+              <label className="checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={conversationConsentConfirmed}
+                  onChange={(event) => setConversationConsentConfirmed(event.target.checked)}
+                />
+                <span>取り込み権限と相手方同意を確認済み</span>
+              </label>
+              <label className="conversation-wide">
+                DM原文
+                <textarea value={conversationRawText} onChange={(event) => setConversationRawText(event.target.value)} />
+              </label>
+              <label className="conversation-wide">
+                マスキング後テキスト
+                <textarea value={conversationRedactedText} onChange={(event) => setConversationRedactedText(event.target.value)} />
+              </label>
+            </div>
+            {selectedConversationImport ? (
+              <div className="audit-box conversation-audit">
+                <strong>保存状態</strong>
+                <span>{statusLabel(selectedConversationImport.status)}</span>
+                <strong>同意</strong>
+                <span>{yesNoLabel(selectedConversationImport.consent_confirmed)}</span>
+                <strong>保存日時</strong>
+                <span>{formatDateTime(selectedConversationImport.created_at)}</span>
+                <strong>同意文言</strong>
+                <span>{selectedConversationImport.consent_statement_version}</span>
+              </div>
+            ) : null}
+            {conversationSafetyFlags.length > 0 || conversationRedactionSuggestions.length > 0 ? (
+              <div className={`validation-panel ${selectedConversationImport?.status === "blocked" ? "danger" : "warning"}`}>
+                <div className="panel-header">
+                  <h3>安全チェック結果</h3>
+                  <span className={`chip ${selectedConversationImport?.status === "blocked" ? "danger" : "warning"}`}>
+                    指摘{conversationSafetyFlags.length}件
+                  </span>
+                </div>
+                {conversationSafetyFlags.length > 0 ? (
+                  <div className="validation-list">
+                    {conversationSafetyFlags.map((flag, index) => (
+                      <div className="validation-row warning" key={`${flag.type}-${flag.location_hint ?? index}`}>
+                        <strong>{safetyFlagTypeLabel(flag.type)}</strong>
+                        <span>{statusLabel(flag.action)}</span>
+                        <p>{flag.message ?? flag.location_hint ?? "確認が必要です。"}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                {conversationRedactionSuggestions.length > 0 ? (
+                  <div className="validation-list">
+                    {conversationRedactionSuggestions.map((suggestion, index) => (
+                      <div className="validation-row warning" key={`${suggestion.location_hint}-${index}`}>
+                        <strong>{suggestion.location_hint}</strong>
+                        <span>{suggestion.suggested_replacement}</span>
+                        <p>{suggestion.reason}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+            {conversationSummaryDraft ? (
+              <div className="validation-panel success" aria-label="DM整理ドラフト">
+                <div className="panel-header">
+                  <h3>整理ドラフト</h3>
+                  <span className={`chip ${statusTone(conversationSummaryDraft.status)}`}>{statusLabel(conversationSummaryDraft.status)}</span>
+                  <span className="chip neutral">信頼度 {summaryConfidence(conversationSummaryDraft.confidence)}</span>
+                </div>
+                <div className="conversation-summary-grid">
+                  <label className="conversation-wide">
+                    整理要約
+                    <textarea readOnly value={conversationSummaryDraft.summary} />
+                  </label>
+                  <label>
+                    決定事項
+                    <textarea readOnly value={linesToText(conversationSummaryDraft.decisions.map((decision) => decision.text))} />
+                  </label>
+                  <label>
+                    未解決事項
+                    <textarea readOnly value={linesToText(conversationSummaryDraft.open_questions)} />
+                  </label>
+                  <label>
+                    アクション項目
+                    <textarea readOnly value={linesToText(conversationSummaryDraft.action_items.map((action) => action.text))} />
+                  </label>
+                  <label>
+                    リスク
+                    <textarea readOnly value={linesToText(conversationSummaryDraft.risks.map((risk) => risk.text))} />
+                  </label>
+                </div>
+                <div className="conversation-candidates" aria-label="DM由来候補">
+                  <div>
+                    <strong className="mini-heading">Issue候補</strong>
+                    <div className="validation-list">
+                      {conversationSummaryDraft.issue_candidates.map((candidate, index) => (
+                        <div className="validation-row warning" key={`${candidate.title}-${index}`}>
+                          <strong>{candidate.title}</strong>
+                          <span>{candidate.priority}</span>
+                          <p>{candidate.body}</p>
+                        </div>
+                      ))}
+                      {conversationSummaryDraft.issue_candidates.length === 0 ? <p className="empty">Issue候補なし</p> : null}
+                    </div>
+                  </div>
+                  <div>
+                    <strong className="mini-heading">要件候補</strong>
+                    <div className="validation-list">
+                      {conversationSummaryDraft.requirement_candidates.map((candidate, index) => (
+                        <div className="validation-row warning" key={`${candidate.title}-${index}`}>
+                          <strong>{candidate.title}</strong>
+                          <span>候補</span>
+                          <p>
+                            {candidate.requirement}
+                            {candidate.acceptance_criteria.length > 0 ? ` / 受け入れ条件: ${candidate.acceptance_criteria.join("、")}` : ""}
+                          </p>
+                        </div>
+                      ))}
+                      {conversationSummaryDraft.requirement_candidates.length === 0 ? <p className="empty">要件候補なし</p> : null}
+                    </div>
+                  </div>
+                </div>
+                <label>
+                  承認理由
+                  <input value={conversationApprovalNote} onChange={(event) => setConversationApprovalNote(event.target.value)} />
+                </label>
+              </div>
+            ) : null}
           </section>
 
           <section className="tool-panel requirement-panel" id="requirements">

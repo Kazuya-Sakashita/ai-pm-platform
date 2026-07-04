@@ -376,6 +376,14 @@ test.describe("Meeting Workspace", () => {
       });
     });
 
+    await page.route(`**/api/v1/projects/${project.id}/conversation-imports`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [], meta: { total_count: 0 } }),
+      });
+    });
+
     await page.route(`**/api/v1/meetings/${meeting.id}/generate-minutes`, async (route) => {
       await route.fulfill({
         status: 202,
@@ -715,6 +723,223 @@ test.describe("Meeting Workspace", () => {
 
     await expect(page.locator("section[role='alert']")).toContainText("入力内容の検証に失敗しました。");
     await expect(page.locator("header").getByText("APIエラー")).toBeVisible();
+  });
+
+  test("imports, scans, summarizes, and approves a Discord DM paste", async ({ page }) => {
+    const now = new Date().toISOString();
+    const project = {
+      id: "project-discord-dm",
+      name: "DM Import Project",
+      github_repo: "Kazuya-Sakashita/ai-pm-platform",
+      description: "Mocked project for Discord DM import UI.",
+      status: "active",
+      created_at: now,
+      updated_at: now,
+    };
+    const conversationImportBase = {
+      id: "conversation-import-discord-dm",
+      project_id: project.id,
+      source_type: "discord_dm_paste",
+      title: "Discord DM仕様相談",
+      raw_text: "依頼者: 決定: DM整理MVPを作る。\nPM: 対応: 同意確認を記録する。",
+      redacted_text: "依頼者: 決定: DM整理MVPを作る。\nPM: 対応: 同意確認を記録する。",
+      participants: [
+        { display_name: "依頼者", role: "requester" },
+        { display_name: "PM", role: "responder" },
+      ],
+      consent_confirmed: true,
+      consent_statement_version: "discord-dm-manual-import-v1",
+      safety_flags: [],
+      blocked_reasons: [],
+      created_at: now,
+      updated_at: now,
+    };
+    const summaryDraft = {
+      id: "conversation-summary-draft-discord-dm",
+      conversation_import_id: conversationImportBase.id,
+      status: "draft",
+      summary: "DMから手動インポートMVPと同意確認の必要性を整理した。",
+      decisions: [{ text: "Discord DM整理MVPを手動貼り付けで進める。", confidence: 0.92 }],
+      open_questions: ["マスキング確認者をどこに記録するか。"],
+      action_items: [{ text: "同意確認をAuditLogに残す。", status: "open", confidence: 0.88 }],
+      issue_candidates: [
+        {
+          title: "DM手動インポートUIを追加",
+          body: "同意確認、マスキング、安全チェック、整理ドラフト承認をUIで扱う。",
+          labels: ["discord", "dm"],
+          priority: "P1",
+          confidence: 0.86,
+        },
+      ],
+      requirement_candidates: [
+        {
+          title: "DM整理レビューゲート",
+          requirement: "DM由来の整理結果は人間承認後に下流へ渡す。",
+          acceptance_criteria: ["承認理由なしでは承認できない。"],
+          confidence: 0.84,
+        },
+      ],
+      risks: [{ text: "相手方同意なしの取り込み。", severity: "high", mitigation: "同意チェックを必須にする。", confidence: 0.9 }],
+      participants: conversationImportBase.participants,
+      source_quotes: [{ id: "quote-1", quote: "決定: DM整理MVPを作る。", speaker: "依頼者" }],
+      confidence: 0.89,
+      generated_by_model: "deterministic-conversation-summary-v1",
+      created_at: now,
+      updated_at: now,
+    };
+    let latestSummaryDraft: typeof summaryDraft | undefined;
+
+    await page.route("**/api/v1/operations/queue-health", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: {
+            status: "healthy",
+            checked_at: now,
+            heartbeat_stale_after_seconds: 60,
+            oldest_unfinished_threshold_seconds: 300,
+            workers: [],
+            queues: [],
+            failed_executions: { count: 0 },
+            failed_job_samples: [],
+            recurring_tasks: [],
+            product_jobs: {
+              by_status: [],
+              recent_failed_count: 0,
+            },
+            warnings: [],
+          },
+        }),
+      });
+    });
+    await page.route("**/api/v1/projects", async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [project] }) });
+    });
+    await page.route(`**/api/v1/projects/${project.id}/meetings`, async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [] }) });
+    });
+    await page.route(`**/api/v1/projects/${project.id}/integrations`, async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [] }) });
+    });
+    await page.route(`**/api/v1/projects/${project.id}/conversation-imports`, async (route) => {
+      if (route.request().method() === "POST") {
+        const requestBody = route.request().postDataJSON();
+        expect(requestBody).toMatchObject({
+          source_type: "discord_dm_paste",
+          title: "Discord DM整理E2E",
+          consent_confirmed: true,
+          consent_statement_version: "discord-dm-manual-import-v1",
+          redacted_text: "依頼者: 決定: DM整理MVPを作る。\nPM: 対応: 同意確認を記録する。",
+        });
+        expect(requestBody.participants).toEqual([
+          { display_name: "依頼者", role: "unknown" },
+          { display_name: "PM", role: "unknown" },
+        ]);
+
+        await route.fulfill({
+          status: 201,
+          contentType: "application/json",
+          body: JSON.stringify({ data: { ...conversationImportBase, title: requestBody.title } }),
+        });
+        return;
+      }
+
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [], meta: { total_count: 0 } }) });
+    });
+    await page.route(`**/api/v1/conversation-imports/${conversationImportBase.id}`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: {
+            ...conversationImportBase,
+            title: "Discord DM整理E2E",
+            status: latestSummaryDraft?.status === "approved" ? "approved" : latestSummaryDraft ? "summary_draft" : "ready_for_ai",
+            latest_summary_draft: latestSummaryDraft,
+          },
+        }),
+      });
+    });
+    await page.route(`**/api/v1/conversation-imports/${conversationImportBase.id}/scan`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: {
+            valid: true,
+            conversation_import: { ...conversationImportBase, title: "Discord DM整理E2E", status: "ready_for_ai" },
+            safety_flags: [],
+            blocked_reasons: [],
+            redaction_suggestions: [],
+            next_action: "generate_summary",
+          },
+        }),
+      });
+    });
+    await page.route(`**/api/v1/conversation-imports/${conversationImportBase.id}/generate-summary`, async (route) => {
+      latestSummaryDraft = summaryDraft;
+      await route.fulfill({
+        status: 202,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: {
+            job: {
+              id: "job-conversation-summary",
+              project_id: project.id,
+              job_type: "ai_generation",
+              status: "succeeded",
+              target_type: "conversation_summary_draft",
+              target_id: summaryDraft.id,
+              progress: 100,
+              created_at: now,
+              updated_at: now,
+            },
+            conversation_summary_draft: summaryDraft,
+          },
+        }),
+      });
+    });
+    await page.route(`**/api/v1/conversation-summary-drafts/${summaryDraft.id}/approve`, async (route) => {
+      const requestBody = route.request().postDataJSON();
+      expect(requestBody).toMatchObject({
+        approval_note: "同意確認とマスキング内容をレビューしました。",
+        generate_downstream_candidates: true,
+      });
+      latestSummaryDraft = { ...summaryDraft, status: "approved" };
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: latestSummaryDraft }) });
+    });
+
+    await page.goto("/");
+    await expect(page.getByRole("heading", { name: "DM Import Project" })).toBeVisible();
+    await expect(page.locator("#conversation-import").getByRole("heading", { name: "手動インポート" })).toBeVisible();
+
+    await page.locator("#conversation-import").getByLabel("DMタイトル").fill("Discord DM整理E2E");
+    await page.locator("#conversation-import").getByLabel("参加者").fill("依頼者, PM");
+    await page.locator("#conversation-import").getByLabel("DM原文").fill(conversationImportBase.raw_text);
+    await page.locator("#conversation-import").getByLabel("マスキング後テキスト").fill(conversationImportBase.redacted_text);
+    await page.locator("#conversation-import").getByLabel("取り込み権限と相手方同意を確認済み").check();
+
+    await page.locator("#conversation-import").getByRole("button", { name: "DMインポートを保存" }).click();
+    await expect(page.locator("header").getByText("DMインポートを保存しました")).toBeVisible();
+    await expect(page.locator("#conversation-import").getByText("保存状態")).toBeVisible();
+
+    await page.locator("#conversation-import").getByRole("button", { name: "安全チェック" }).click();
+    await expect(page.locator("header").getByText("DMの安全チェックに合格しました")).toBeVisible();
+    await expect(page.locator("#conversation-import > .panel-header .chip")).toHaveText("AI整理可能");
+
+    await page.locator("#conversation-import").getByRole("button", { name: "整理ドラフト生成" }).click();
+    await expect(page.locator("header").getByText("DM整理ドラフトを生成しました")).toBeVisible();
+    await expect(page.locator("header").getByText("ジョブ 完了")).toBeVisible();
+    await expect(page.locator("#conversation-import").getByLabel("整理要約")).toHaveValue(/DMから手動インポートMVP/);
+    await expect(page.locator("#conversation-import").getByLabel("決定事項")).toHaveValue(/手動貼り付けで進める/);
+    await expect(page.locator("#conversation-import").getByText("DM手動インポートUIを追加")).toBeVisible();
+    await expect(page.locator("#conversation-import").getByText("DM整理レビューゲート")).toBeVisible();
+
+    await page.locator("#conversation-import").getByRole("button", { name: "整理ドラフト承認" }).click();
+    await expect(page.locator("header").getByText("DM整理ドラフトを承認しました")).toBeVisible();
+    await expect(page.locator("#conversation-import .validation-panel.success .chip").first()).toHaveText("承認済み");
+    await expect(page.getByLabel("DMインポート一覧").getByText("承認済み")).toBeVisible();
   });
 
   test("shows pending GitHub reconciliation controls and approves a controlled retry", async ({ page }) => {
