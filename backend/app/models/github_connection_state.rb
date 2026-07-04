@@ -1,5 +1,9 @@
 class GithubConnectionState < ApplicationRecord
+  CLEANUP_RETENTION = 24.hours
+
   belongs_to :project
+
+  scope :expired_before, ->(time) { where("expires_at < ?", time) }
 
   validates :repository_owner, :repository_name, :nonce_digest, :state_digest, :expires_at, presence: true
   validates :nonce_digest, :state_digest, uniqueness: true
@@ -26,6 +30,12 @@ class GithubConnectionState < ApplicationRecord
 
       update!(consumed_at: Time.current)
     end
+  end
+
+  def self.cleanup_expired!(retention: CLEANUP_RETENTION, now: Time.current)
+    retention = retention.seconds if retention.is_a?(Numeric)
+
+    expired_before(now - retention).delete_all
   end
 
   private

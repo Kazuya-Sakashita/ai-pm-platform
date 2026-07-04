@@ -3,8 +3,6 @@ require "securerandom"
 require "time"
 
 module GithubIntegration
-  class StateError < StandardError; end
-
   class ConnectionState
     TTL = 15.minutes
 

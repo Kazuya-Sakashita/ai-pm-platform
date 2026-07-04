@@ -42,4 +42,15 @@ RSpec.describe "Solid Queue configuration" do
     )
     expect(production.fetch("queue").fetch("migrations_paths")).to eq("db/queue_migrate")
   end
+
+  it "schedules expired GitHub connection state cleanup" do
+    recurring_config = load_yaml("config/recurring.yml")
+    cleanup = recurring_config.fetch("production").fetch("cleanup_expired_github_connection_states")
+
+    expect(cleanup).to include(
+      "class" => "GithubIntegration::ConnectionStateCleanupJob",
+      "queue" => "default",
+      "schedule" => "every hour at minute 24"
+    )
+  end
 end

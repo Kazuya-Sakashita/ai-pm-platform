@@ -76,6 +76,9 @@ jobs:
       - name: Verify OpenAPI contract and generated types
         run: npm run api:verify
 
+      - name: Check Japanese display labels
+        run: npm run display:check
+
       - name: Build frontend
         run: npm run frontend:build
 
