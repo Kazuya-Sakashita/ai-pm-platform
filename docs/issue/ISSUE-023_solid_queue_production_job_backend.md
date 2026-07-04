@@ -62,6 +62,7 @@ Solid Queueをproduction job queue backendとして導入し、GitHub reconcilia
 - `docs/review/20260703_solid_queue_production_job_backend_implementation_review.md`
 - `docs/review/20260704_queue_health_monitoring_implementation_review.md`
 - `docs/review/20260704_failed_job_safe_visibility_implementation_review.md`
+- `docs/review/20260705_retention_worker_smoke_runbook_review.md`
 
 ## 関連ADR
 
@@ -90,6 +91,7 @@ Solid Queueをproduction job queue backendとして導入し、GitHub reconcilia
 改善点:
 
 - production相当のSolid Queue worker smokeは別queue DBで確認済み。staging/deploy環境での確認は未実施。
+- 2026-07-05にISSUE-033でstaging/production worker smoke runbookを拡張し、GitHub cleanupに加えてDM retention/anonymization、Queue health API/UI、restore後retention replayを確認対象にした。
 - worker processのdeploy組み込みはrunbookまでで、実際のホスティング設定は未作成。
 - Queue health監視MVPとfailed job safe visibilityは追加済み。ただしfailed job再実行/破棄の権限、承認ログ、操作UI、通知/SLOは未整備。
 - DB負荷とconnection poolのcapacity仮説が未作成。
@@ -125,6 +127,6 @@ P0
 
 - GitHub Actions CIを確認する
 - GitHub Actions CIを確認し、成功後にIssue #23のクローズ可否を判断する
-- staging/deploy環境で `bin/jobs` worker smokeを再確認する
+- staging/deploy環境で `bin/jobs` worker smokeを再確認する（ISSUE-033でretention含むrunbook更新済み。実環境証跡は未取得）
 - queue latency、failed job、worker heartbeatの通知/SLOを設計する
 - failed job再実行/破棄のoperator権限、承認ログ、監査UIを設計する

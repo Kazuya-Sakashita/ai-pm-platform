@@ -4,7 +4,7 @@
 
 AI PM Platform uses Solid Queue for production background jobs. This runbook defines how to prove that a staging or production-equivalent worker can start, heartbeat, load recurring tasks, execute scheduled jobs, and expose failure evidence without relying on GitHub App credentials.
 
-This smoke is required before Issue #4 can treat the GitHub connection state cleanup and reconciliation retry queue as production-operable.
+This smoke is required before Issue #4 can treat the GitHub connection state cleanup and reconciliation retry queue as production-operable, and before Issue #29 can treat Discord DM retention/anonymization as production-operable.
 
 ## Scope
 
@@ -13,7 +13,10 @@ This smoke is required before Issue #4 can treat the GitHub connection state cle
 - Worker heartbeat
 - Recurring schedule loading
 - `cleanup_expired_github_connection_states` scheduling
+- `enforce_conversation_import_retention` scheduling
 - Safe execution evidence for `GithubIntegration::ConnectionStateCleanupJob`
+- Safe execution evidence for `ConversationImportRetentionJob`
+- Restore-time retention/anonymization replay guidance
 - Failed job and queue latency checks
 
 Out of scope:
@@ -22,6 +25,7 @@ Out of scope:
 - GitHub webhook verification
 - AI provider live calls
 - Production incident response
+- Real user DM data inspection
 
 ## Preconditions
 
@@ -31,6 +35,8 @@ Out of scope:
 - `QUEUE_DATABASE_URL` points to the Solid Queue database prepared from `backend/db/queue_schema.rb`.
 - `RAILS_ENV=production` or a staging environment using production-equivalent queue settings.
 - `backend/config/recurring.yml` includes `cleanup_expired_github_connection_states`.
+- `backend/config/recurring.yml` includes `enforce_conversation_import_retention`.
+- Production-equivalent environments set Active Record Encryption keys without exposing their values.
 - Operators can inspect Rails logs and queue database tables.
 
 Do not run this smoke against production until it has passed in staging or an isolated production-equivalent environment.
@@ -42,6 +48,9 @@ RAILS_ENV=production
 DATABASE_URL=postgres://...
 QUEUE_DATABASE_URL=postgres://...
 RAILS_MASTER_KEY=...
+ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY=...
+ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY=...
+ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT=...
 ```
 
 Optional:
@@ -111,22 +120,28 @@ Expected:
 - `Supervisor`, `Dispatcher`, and `Scheduler` are visible, depending on supervisor mode.
 - Heartbeat is recent enough for the deployment SLA, normally within 60 seconds.
 
-### 4. Confirm Recurring Cleanup Task
+### 4. Confirm Recurring Tasks
 
 Use a read-only query:
 
 ```sql
 select key, class_name, command, schedule, queue_name
 from solid_queue_recurring_tasks
-where key = 'cleanup_expired_github_connection_states';
+where key in (
+  'cleanup_expired_github_connection_states',
+  'enforce_conversation_import_retention'
+)
+order by key;
 ```
 
 Expected:
 
-- One row exists.
-- `class_name` is `GithubIntegration::ConnectionStateCleanupJob`.
+- Two rows exist.
+- `cleanup_expired_github_connection_states` class is `GithubIntegration::ConnectionStateCleanupJob`.
+- `enforce_conversation_import_retention` class is `ConversationImportRetentionJob`.
 - `queue_name` is `default`.
-- Schedule matches `every hour at minute 24`.
+- Cleanup schedule matches `every hour at minute 24`.
+- Retention schedule matches `every hour at minute 36`.
 
 ### 5. Safe Cleanup Execution Smoke
 
@@ -178,7 +193,137 @@ Expected:
 - `cleanup-old` is absent after worker execution.
 - `cleanup-active` remains until it expires and passes retention.
 
-### 6. Failed Job Visibility
+### 6. Conversation Import Retention Smoke
+
+In staging only, create controlled DM import records that contain artificial smoke text. Do not use real user DM data. Do not run this data creation step in production.
+
+Recommended staging runner:
+
+```sh
+bundle exec ruby bin/rails runner '
+project = Project.first || Project.create!(name: "Solid Queue Retention Smoke")
+raw_expired = project.conversation_imports.create!(
+  title: "Retention Smoke Raw Purge",
+  raw_text: "retention-smoke-raw-text-to-purge",
+  redacted_text: "retention-smoke-redacted-text-to-keep",
+  consent_confirmed: true,
+  consent_statement_version: "retention-smoke-v1",
+  status: "ready_for_ai",
+  raw_text_retention_expires_at: 1.hour.ago,
+  retention_expires_at: 30.days.from_now
+)
+full_expired = project.conversation_imports.create!(
+  title: "Retention Smoke Full Anonymize",
+  raw_text: "retention-smoke-raw-text-to-anonymize",
+  redacted_text: "retention-smoke-redacted-text-to-anonymize",
+  participants: ["Smoke User"],
+  consent_confirmed: true,
+  consent_statement_version: "retention-smoke-v1",
+  status: "summary_draft",
+  raw_text_retention_expires_at: 2.hours.ago,
+  retention_expires_at: 1.hour.ago
+)
+full_expired.conversation_summary_drafts.create!(
+  summary: "retention smoke summary",
+  confidence: 0.8
+)
+ConversationImportRetentionJob.perform_later
+puts({ raw_expired_id: raw_expired.id, full_expired_id: full_expired.id }.to_json)
+'
+```
+
+Expected:
+
+- Job is enqueued to Solid Queue.
+- Worker executes `ConversationImportRetentionJob`.
+- `raw_expired` has `raw_text_purged_at` set and remains non-anonymized.
+- `full_expired` has `anonymized_at` set and related summary draft is anonymized.
+- AuditLog contains `conversation_import.raw_text_purged` and `conversation_import.anonymized` safe metadata.
+- Rails log includes `event=conversation_import_retention.completed` or JSON-equivalent structured log with counts only.
+
+Verification runner. Replace the IDs with the values printed by the staging runner. Do not print raw text.
+
+```sh
+RETENTION_SMOKE_RAW_ID=... RETENTION_SMOKE_FULL_ID=... bundle exec ruby bin/rails runner '
+ids = [ENV.fetch("RETENTION_SMOKE_RAW_ID"), ENV.fetch("RETENTION_SMOKE_FULL_ID")]
+imports = ConversationImport.where(id: ids).order(:id).map do |conversation_import|
+  {
+    id: conversation_import.id,
+    title: conversation_import.title,
+    status: conversation_import.status,
+    raw_text_purged: conversation_import.raw_text_purged_at.present?,
+    anonymized: conversation_import.anonymized_at.present?,
+    summary_draft_count: conversation_import.conversation_summary_drafts.count
+  }
+end
+audit_actions = AuditLog
+  .where(action: ["conversation_import.raw_text_purged", "conversation_import.anonymized"])
+  .order(created_at: :desc)
+  .limit(5)
+  .pluck(:action, :metadata)
+puts({ imports: imports, audit_actions: audit_actions }.to_json)
+'
+```
+
+Expected:
+
+- Output contains no raw DM body.
+- Raw purge record has `raw_text_purged: true` and `anonymized: false`.
+- Full anonymization record has `anonymized: true`.
+- Audit metadata includes counts/reasons only, not DM body.
+
+### 7. Queue Health API/UI Check
+
+Use the application API or Frontend operations panel after the worker smoke.
+
+API:
+
+```sh
+curl -s "$APP_BASE_URL/api/v1/operations/queue-health"
+```
+
+Frontend:
+
+- Open the workspace.
+- Go to the `運用監視` panel.
+- Click manual refresh.
+
+Expected:
+
+- Queue health status is `healthy` or an explicitly explained `degraded`.
+- Worker count is greater than zero in staging/production-equivalent environments.
+- Stale worker count is zero.
+- Failed execution count does not increase during smoke.
+- Recurring task count includes both cleanup and retention tasks.
+- Failed job samples show only safe queue/class/time fields.
+- No raw job arguments, DM body, database URL, state digest, or encryption key is visible.
+
+### 8. Restore-Time Retention Replay
+
+After any database restore that can contain DM import data, run retention/anonymization before returning public traffic.
+
+Required restore sequence:
+
+1. Restore database into an isolated environment.
+2. Confirm Active Record Encryption keys are available only to approved operators.
+3. Run migrations to the release schema.
+4. Start a worker or run the job manually in maintenance mode:
+
+```sh
+bundle exec ruby bin/rails runner 'ConversationImportRetentionJob.perform_now'
+```
+
+5. Reapply any manual anonymization/deletion events that happened after the backup timestamp.
+6. Check queue health and failed executions.
+7. Only then allow public traffic.
+
+Expected:
+
+- Expired raw text is purged before users can access restored data.
+- Expired imports and summary drafts are anonymized before users can access restored data.
+- Evidence contains counts, timestamps, and job status only.
+
+### 9. Failed Job Visibility
 
 Use a read-only query:
 
@@ -197,7 +342,7 @@ If it increases:
 2. Capture Rails log around the failed execution.
 3. Do not discard or retry the job until the failure is reviewed.
 
-### 7. Queue Latency Snapshot
+### 10. Queue Latency Snapshot
 
 Use a read-only query:
 
@@ -213,18 +358,23 @@ Expected:
 
 - No unexpectedly old unfinished jobs.
 - `github_reconciliation` and `default` queues are not stuck.
+- Retention work does not leave unexpectedly old unfinished `default` jobs.
 
 ## Production-Specific Rules
 
 - Do not create smoke `github_connection_states` in production without explicit release owner approval.
+- Do not create smoke `conversation_imports` in production.
 - Prefer observation-only production smoke:
   - worker heartbeat
   - recurring task exists
   - failed executions count
   - queue latency
   - Rails log confirms scheduled cleanup at the next minute 24
-- If production cleanup execution is observed, record only counts and timestamps. Do not copy raw state, nonce digest, or state digest into documents.
+  - Rails log confirms scheduled retention at the next minute 36
+- If production cleanup or retention execution is observed, record only counts and timestamps. Do not copy raw state, nonce digest, state digest, DM body, or encryption key into documents.
 - If `QUEUE_DATABASE_URL` is missing or points to the wrong database, stop the smoke and fail the release gate.
+- If Active Record Encryption keys are missing, stop the smoke and fail the release gate.
+- Retention/anonymization is not meaningfully reversible. If unexpected anonymization occurs, stop the worker, disable DM import, preserve logs without body content, and follow backup restore policy from ADR-0013.
 
 ## Evidence To Save
 
@@ -241,8 +391,12 @@ Required fields:
 - worker heartbeat timestamp
 - recurring task row observed
 - cleanup execution result or observation-only reason
+- retention task row observed
+- retention execution result or observation-only reason
+- queue health API/UI result
 - failed job count before/after
 - queue latency snapshot
+- restore-time retention replay status or not-applicable reason
 - pass/fail conclusion
 - Issue number
 
@@ -254,15 +408,19 @@ Staging worker smoke is complete when:
 
 - worker starts independently from web
 - heartbeat is visible
-- recurring task is loaded
+- cleanup and retention recurring tasks are loaded
 - cleanup job executes or is safely observed
+- retention job executes or is safely observed
+- Queue health API/UI confirms worker and failed job status without sensitive fields
 - failed job count is reviewed
 - evidence review is saved under `docs/review/`
 
 Production worker smoke is complete when:
 
 - production worker heartbeat is visible
-- recurring task is loaded
+- cleanup and retention recurring tasks are loaded
 - observation-only checks pass
 - next scheduled cleanup is observed without secret exposure
+- next scheduled retention is observed without DM body exposure
+- restore-time retention replay rule is acknowledged in the release review
 - evidence review is saved under `docs/review/`

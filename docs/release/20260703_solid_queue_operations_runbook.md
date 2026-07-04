@@ -7,6 +7,7 @@ Production background jobs must survive web process restarts and be observable b
 ## Scope
 
 - GitHub reconciliation retry
+- Conversation import retention/anonymization
 - Future AI generation jobs
 - Future AI review jobs
 - Future integration ingestion jobs
@@ -63,6 +64,11 @@ Configured queues:
 
 Queue order is explicit. Avoid wildcard queue polling in production unless an operator intentionally changes the runbook and review result.
 
+Current recurring tasks:
+
+- `cleanup_expired_github_connection_states`: `GithubIntegration::ConnectionStateCleanupJob`, every hour at minute 24
+- `enforce_conversation_import_retention`: `ConversationImportRetentionJob`, every hour at minute 36
+
 ## Monitoring
 
 Minimum checks:
@@ -111,6 +117,15 @@ When worker heartbeat is stale:
 3. Check database connectivity and connection pool saturation.
 4. Review failed executions before discarding or retrying jobs.
 
+When conversation import retention fails:
+
+1. Check `solid_queue_failed_executions` and application logs for `ConversationImportRetentionJob`.
+2. Record only job class, queue, timestamp, and safe error class/message.
+3. Do not copy DM body, encrypted ciphertext, or Active Record Encryption keys into the incident note.
+4. Stop DM import creation if retention failure means raw text purge or anonymization SLO cannot be met.
+5. Run `ConversationImportRetentionJob.perform_now` only in maintenance mode or approved staging/production smoke.
+6. If a database restore occurred, run retention/anonymization before public traffic returns.
+
 ## Shutdown
 
 Use graceful termination for deploys:
@@ -128,5 +143,8 @@ Avoid `kill -9` unless the process is unrecoverable. A forced kill can turn in-f
 - queue database is reachable
 - worker heartbeat is visible
 - a scheduled GitHub reconciliation retry can be enqueued
+- `cleanup_expired_github_connection_states` recurring task is loaded
+- `enforce_conversation_import_retention` recurring task is loaded
+- conversation import retention smoke is completed in staging or explicitly deferred with release-owner approval
 - failed job path is visible in application `jobs` and `audit_logs`
 - GitHub Actions CI passed

@@ -50,10 +50,36 @@ Conversation Import retention jobを含むSolid Queue worker smoke手順をstagi
 - `docs/review/20260704_solid_queue_staging_worker_smoke_runbook_review.md`
 - `docs/review/20260704_queue_health_monitoring_implementation_review.md`
 - `docs/review/20260705_discord_dm_retention_delete_implementation_review.md`
+- `docs/review/20260705_retention_worker_smoke_runbook_review.md`
 
 ## レビュー結果
 
 ISSUE-029のレビューではretention jobの実装は完了。ただしstaging worker smokeの対象に含める作業が残っている。ISSUE-025でも実staging/production worker smoke証跡が未実施として残っている。
+
+2026-07-05に `docs/release/20260704_solid_queue_staging_worker_smoke_runbook.md` を更新し、`enforce_conversation_import_retention` recurring task、`ConversationImportRetentionJob` staging smoke、Queue health API/UI確認、restore後retention/anonymization replay、production観測ルール、証跡テンプレートを追加した。
+
+良かった点:
+
+- GitHub App credentialなしでretention workerを確認できる手順になった。
+- productionではsmoke DM importを作らず、観測中心にした。
+- DM本文、ciphertext、暗号keyを証跡へ保存しないルールを明記した。
+- backup restore後にretention/anonymizationを再適用する手順を追加した。
+
+改善点:
+
+- 実staging/prod環境での実行証跡は未取得。
+- Queue health/operations panelの閲覧権限はISSUE-030待ち。
+- retention jobのdry-run modeは未実装。
+
+検証結果:
+
+- `git diff --check`: pass
+- GitHub Actions CI: push後に確認予定
+
+実staging/prod未実施理由:
+
+- このローカル環境にはstaging/production worker環境、deployment権限、production secret、KMS/backup provider設定がないため、実行証跡は取得していない。
+- 実行にはrelease owner承認、staging/prod URL、worker process access、queue DB read access、本文を露出しないログ閲覧権限が必要。
 
 ## 優先度
 
@@ -67,7 +93,7 @@ P0
 
 ## 次アクション
 
-1. 既存のworker smoke runbookを確認する。
-2. retention jobのdry-run/実行/確認手順を追記する。
-3. レビューとIssue同期を保存する。
+1. 既存のworker smoke runbookを確認する（完了）。
+2. retention jobのdry-run/実行/確認手順を追記する（完了。dry-runは未実装のためproductionは観測中心）。
+3. レビューとIssue同期を保存する（実施中）。
 4. staging環境が用意できた時点で実行証跡を追加する。

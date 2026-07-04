@@ -82,6 +82,7 @@ Solid Queueの稼働状態をread-only APIとFrontend運用パネルで可視化
 改善点:
 
 - 実staging/productionのSolid Queue tableでのhealthy/degraded確認は未実施。
+- 2026-07-05にISSUE-033でworker smoke runbookへQueue health API/UI確認、retention recurring task確認、restore後retention replayを追加した。ただし実staging/production証跡は未取得。
 - failed job再実行/破棄の権限、承認者、AuditLog、UIは未実装。
 - queue latency、failed count、worker heartbeatの通知/SLO/外部監視連携は未実装。
 - thresholdは固定値で、環境別設定ではない。
@@ -114,6 +115,6 @@ P1
 
 ## 次アクション
 
-- 実staging/production worker smoke証跡を取得する
+- 実staging/production worker smoke証跡を取得する（ISSUE-033でrunbook更新済み。実環境証跡は未取得）
 - failed job safe visibilityはISSUE-027で完了。操作系UIは認証/承認ログ設計後に別Issue化する
 - queue latency、failed count、worker heartbeatの通知設計を追加する
