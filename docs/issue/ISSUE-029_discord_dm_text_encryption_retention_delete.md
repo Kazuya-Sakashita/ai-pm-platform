@@ -78,7 +78,7 @@ Codex一次レビューでは、ISSUE-022のFrontend MVPは条件付き合格。
 
 2026-07-05にISSUE-033でretention worker smoke runbookを更新した。`ConversationImportRetentionJob`、Queue health API/UI確認、restore後retention/anonymization replayをstaging/production worker smoke手順へ追加した。GitHub #33はクローズ済み。実staging/prod実行証跡は環境未提供のため未取得。
 
-2026-07-05にISSUE-034でFrontend失敗系E2Eを追加した。confirm cancel時のDELETE未実行、API 500/403/422のsafe Japanese error、失敗時の一覧保持、390px mobile幅のaudit non-overlapを確認した。実Backendの403 Policy ObjectはISSUE-030で継続する。
+2026-07-05にISSUE-034でFrontend失敗系E2Eを追加した。confirm cancel時のDELETE未実行、API 500/403/422のsafe Japanese error、失敗時の一覧保持、390px mobile幅のaudit non-overlapを確認した。GitHub #34はクローズ済み。実Backendの403 Policy ObjectはISSUE-030で継続する。
 
 良かった点:
 
@@ -109,6 +109,7 @@ Codex一次レビューでは、ISSUE-022のFrontend MVPは条件付き合格。
 - GitHub Actions CI `28720456954`: success（commit `244b376`）
 - GitHub Issue同期コメント: `https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/29#issuecomment-4883892052`
 - 残P0/P1分割コメント: `https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/29#issuecomment-4883908857`
+- ISSUE-034完了同期コメント: `https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/29#issuecomment-4884039933`
 
 ## 優先度
 
@@ -126,4 +127,4 @@ P0
 2. ISSUE-031でkey rotation、KMS、backup削除方針ADRを追加する（2026-07-05完了、GitHub #31クローズ済み）。
 3. ISSUE-032でsummary draft JSON本文の暗号化可否を検証する。
 4. ISSUE-033でretention jobをstaging worker smoke runbookへ追加する（2026-07-05完了、GitHub #33クローズ済み。実staging/prod証跡は未取得）。
-5. ISSUE-034でFrontendの匿名化失敗、キャンセル、権限エラー、モバイル表示E2Eを追加する（実装済み。CI成功後にクローズ判定）。
+5. ISSUE-034でFrontendの匿名化失敗、キャンセル、権限エラー、モバイル表示E2Eを追加する（2026-07-05完了、GitHub #34クローズ済み）。
