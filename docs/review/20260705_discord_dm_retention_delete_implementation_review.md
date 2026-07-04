@@ -78,6 +78,8 @@ ISSUE-029
 - `npm run display:check`: success
 - `npm run frontend:build`: success
 - `npm run frontend:e2e -- e2e/meeting-workspace.spec.ts --grep "imports, scans"`: 1 passed
+- GitHub Actions CI `28720456954`: success（commit `244b376`）
+- GitHub Issue同期コメント: `https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/29#issuecomment-4883892052`
 
 ## G-STACK
 
