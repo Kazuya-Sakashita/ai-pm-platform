@@ -773,7 +773,7 @@ test.describe("Meeting Workspace", () => {
     await page.locator("#issue-draft").getByRole("button", { name: "既存Issueに紐付け" }).click();
 
     await expect(page.locator("header").getByText("GitHub Issueに紐付けました")).toBeVisible();
-    await expect(page.locator("#issue-draft").getByRole("heading", { name: "GitHub Issue", exact: true })).toBeVisible();
+    await expect(page.locator("#issue-draft").getByRole("heading", { name: "公開済みGitHub Issue", exact: true })).toBeVisible();
     await expect(
       page
         .locator("#issue-draft .validation-panel.success")
@@ -1024,7 +1024,7 @@ test.describe("Meeting Workspace", () => {
     await expect(page.locator("header").getByText("APIエラー")).toBeVisible();
     await expect(page.locator("#issue-draft").getByText("公開ブロック")).toBeVisible();
     await expect(page.locator("#issue-draft").getByRole("button", { name: "既存Issueに紐付け" })).toBeVisible();
-    await expect(page.locator("#issue-draft").getByRole("heading", { name: "GitHub Issue", exact: true })).toHaveCount(0);
+    await expect(page.locator("#issue-draft").getByRole("heading", { name: "公開済みGitHub Issue", exact: true })).toHaveCount(0);
   });
 
   test("blocks secret-like content and surfaces the failed generation job", async ({ page, request }) => {

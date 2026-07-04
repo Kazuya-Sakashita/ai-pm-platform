@@ -6,6 +6,16 @@ DISPLAY_LABELS_PATH = File.join(ROOT, "frontend/lib/display-labels.ts")
 GLOSSARY_PATH = File.join(ROOT, "docs/product/20260701_japanese_ui_glossary.md")
 OPENAPI_PATH = File.join(ROOT, "docs/api/openapi.yaml")
 JAPANESE_PATTERN = /[ぁ-んァ-ヶ一-龠々ー]/
+VISIBLE_COPY_FILES = Dir.glob(File.join(ROOT, "frontend/app/**/*.{ts,tsx}")).sort
+ALLOWED_ENGLISH_ONLY_COPY = [
+  "AI PM",
+  "AI PM Platform",
+  "AP"
+].freeze
+VISIBLE_ATTRIBUTE_PATTERN = /\b(?:aria-label|placeholder|title|alt)=["']([^"']*[A-Za-z][^"']*)["']/
+VISIBLE_PROPERTY_PATTERN = /^\s*(?:title|description|label|placeholder):\s*"([^"]*[A-Za-z][^"]*)"/
+VISIBLE_FUNCTION_PATTERN = /\b(?:setStatusMessage|setErrorMessage|setFormError)\("([^"]*[A-Za-z][^"]*)"\)/
+JSX_TEXT_PATTERN = %r{(?<!/)>([^<>{}\n]*[A-Za-z][^<>{}\n]*)<}
 
 def extract_ts_map(source, name)
   block = source[/const #{Regexp.escape(name)}: Record<string, string> = \{\n(.*?)\n\};/m, 1]
@@ -38,6 +48,36 @@ def extract_section_table(markdown, title)
     next if cells.first.match?(/内部値|英語|概念/)
 
     rows[cells[0]] = cells[1]
+  end
+end
+
+def english_only_visible_copy?(text)
+  normalized = text.gsub(/\s+/, " ").strip
+  return false if normalized.empty?
+  return false if normalized.match?(JAPANESE_PATTERN)
+  return false if ALLOWED_ENGLISH_ONLY_COPY.include?(normalized)
+
+  normalized.match?(/[A-Za-z]/)
+end
+
+def check_visible_copy(errors)
+  VISIBLE_COPY_FILES.each do |path|
+    relative_path = path.delete_prefix("#{ROOT}/")
+
+    File.readlines(path).each_with_index do |line, index|
+      candidates = []
+      line.scan(VISIBLE_ATTRIBUTE_PATTERN) { |match| candidates << ["attribute", match.first] }
+      line.scan(VISIBLE_PROPERTY_PATTERN) { |match| candidates << ["property", match.first] }
+      line.scan(VISIBLE_FUNCTION_PATTERN) { |match| candidates << ["message", match.first] }
+      line.scan(JSX_TEXT_PATTERN) { |match| candidates << ["jsx text", match.first] }
+
+      candidates.each do |kind, text|
+        normalized = text.gsub(/\s+/, " ").strip
+        next unless english_only_visible_copy?(normalized)
+
+        errors << "#{relative_path}:#{index + 1} #{kind} should be Japanese or explicitly allowlisted: #{normalized.inspect}"
+      end
+    end
   end
 end
 
@@ -101,6 +141,8 @@ target_expectations.each do |key, expected|
   errors << "targetLabels is missing glossary target #{key}" unless actual
   errors << "targetLabels.#{key} should be #{expected.inspect}, got #{actual.inspect}" if actual && actual != expected
 end
+
+check_visible_copy(errors)
 
 if errors.any?
   warn "Display label consistency check failed:"

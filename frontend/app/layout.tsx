@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "AI PM Platform",
-  description: "AI-powered meeting to project management workspace",
+  description: "AIで会議からプロジェクト管理までつなぐワークスペース",
 };
 
 export default function RootLayout({

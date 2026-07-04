@@ -1808,8 +1808,8 @@ export default function MeetingWorkspace() {
                   <span className="chip danger">{statusLabel(issueDraft.status)}</span>
                 </div>
                 <div className="validation-row">
-                  <strong>GitHub</strong>
-                  <span>連携</span>
+                  <strong>GitHub連携</strong>
+                  <span>未接続</span>
                   <p>{displayMessage(issueDraft.publish_error)}</p>
                 </div>
                 <div className="reconnection-actions" aria-label="GitHub再接続">
@@ -1968,12 +1968,12 @@ export default function MeetingWorkspace() {
             ) : issueDraft?.github_issue_url ? (
               <div className="validation-panel success">
                 <div className="panel-header">
-                  <h3>GitHub Issue</h3>
+                  <h3>公開済みGitHub Issue</h3>
                   <span className="chip success">公開済み</span>
                 </div>
                 <div className="validation-row warning">
                   <strong>#{issueDraft.github_issue_number}</strong>
-                  <span>GitHub</span>
+                  <span>公開先</span>
                   <p>
                     <a className="github-link" href={issueDraft.github_issue_url} target="_blank" rel="noreferrer">
                       {issueDraft.github_issue_url}

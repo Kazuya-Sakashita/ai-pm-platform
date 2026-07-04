@@ -57,12 +57,15 @@ AI PM Platformは日本語で運用されるプロジェクト管理・議事録
 - `docs/review/20260704_japanese_display_label_consistency_check_review.md`
 - `docs/review/20260704_japanese_display_label_ci_gate_review.md`
 - `docs/review/20260704_queue_health_japanese_ui_copy_review.md`
+- `docs/review/20260704_hardcoded_english_ui_copy_check_review.md`
 
 ## レビュー結果
 
 2026-07-01にCodex一次レビューを実施。日本語表示ポリシーとして妥当。追加で日本語UI用語集を作成し、主要ステータス、ボタン、ラベル、エラー文言テンプレートを整理した。Frontendの主要画面へ日本語表示を適用し、`statusLabel` / `targetLabel` / `displayMessage` で内部値と表示文言を分離した。さらに表示変換helper/mapを `frontend/lib/display-labels.ts` へ共通化した。Playwrightで主要導線、失敗導線、pending/link/validation reconciliation導線を日本語UI文言で確認した。2026-07-04に `scripts/check-display-labels.rb` と `npm run display:check` を追加し、日本語UI用語集、`display-labels.ts`、OpenAPIのGitHub照合履歴status enumの整合を静的確認できるようにした。同日にCI workflowへ `npm run display:check` を追加し、main反映前に表示ラベル劣化を検知できるようにした。API safe detail本体の日本語化範囲整理、AI生成テンプレート日本語統一、視覚回帰確認は未完了。
 
 2026-07-04にQueue health監視MVP追加後のUIコピーを確認し、運用監視パネル内の `Worker`、`Failed`、`Recurring`、`stale`、`Queue health` などの英語表示を日本語へ修正した。内部queue名やAPI enumは英語のまま維持し、ユーザーが読むラベル、aria-label、空状態、集計表示のみを日本語化した。
+
+2026-07-04に `display:check` へ直書き英語UIコピー検出を追加した。対象はFrontend app配下のJSX text、`aria-label`、`placeholder`、`title`、`alt`、表示系property、status/error message setterに限定し、API enumや内部識別子へ過剰反応しないようにした。あわせてmetadata description、GitHub単独ラベル、公開済みGitHub Issue見出しを日本語文脈へ修正し、E2E期待値も更新した。
 
 良かった点:
 
@@ -74,6 +77,7 @@ AI PM Platformは日本語で運用されるプロジェクト管理・議事録
 - OpenAPIの `GitHubReconciliationHistoryItem.status` enumが表示ラベルに登録されていることを確認できるようにした。
 - CI workflowへ `npm run display:check` を追加し、表示ラベルのズレを継続的に検知できるようにした。
 - Queue health監視パネルの主要ラベル、aria-label、空状態、集計表示を日本語化した。
+- Frontend app配下の可視コピーに英語のみ文字列が混入した場合、`npm run display:check` で検出できるようにした。
 
 改善点:
 
@@ -81,7 +85,7 @@ AI PM Platformは日本語で運用されるプロジェクト管理・議事録
 - AI生成されるIssue/Review/要件定義テンプレートの日本語統一は未完了。
 - スクリーンショットによる狭幅/視覚回帰確認は未実施。
 - 用語集ドキュメントと `display-labels.ts` の自動整合チェック、およびCI workflowへの組み込みは実装済み。
-- 直書き英語文言の網羅検出は未実装。
+- 直書き英語UIコピーの初期検出は実装済み。ただしBackend safe detail、AI生成テンプレート、複雑なJSX式の完全検出は未対応。
 - CIでの狭幅スクリーンショット、支援技術確認、視覚回帰確認は未実装。
 
 検証結果:
@@ -98,6 +102,9 @@ AI PM Platformは日本語で運用されるプロジェクト管理・議事録
 - 2026-07-04 Queue health Japanese UI copy: `npm run display:check`: success
 - 2026-07-04 Queue health Japanese UI copy: `npm run frontend:build`: success
 - 2026-07-04 Queue health Japanese UI copy: `npm run frontend:e2e -- e2e/queue-health.spec.ts`: 1 passed
+- 2026-07-04 hardcoded English UI copy check: `npm run display:check`: success
+- 2026-07-04 hardcoded English UI copy check: `npm run frontend:build`: success
+- 2026-07-04 hardcoded English UI copy check: `npm run frontend:e2e -- --grep "links an existing GitHub Issue|shows repository validation errors"`: 2 passed
 
 ## 優先度
 
@@ -115,7 +122,7 @@ P1
 - AI生成されるIssue/Review/要件定義テンプレートを日本語運用へ寄せる
 - 日本語UIのスクリーンショット/狭幅表示確認を追加する
 - CI上の `display:check` 成功をGitHub Actionsで確認する
-- 直書き英語文言の検出ルールを追加する
+- 直書き英語UIコピー検出をBackend safe detailとAI生成テンプレートへ拡張する
 - 日本語表示レビューの外部AIレビュー結果を追記する
 
 ## 関連ドキュメント
