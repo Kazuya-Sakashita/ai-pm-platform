@@ -90,6 +90,7 @@ AI PM Platformは日本語で運用されるプロジェクト管理・議事録
 - `npm run frontend:e2e`: 9 passed
 - 2026-07-04 display label consistency: `npm run frontend:e2e`: 14 passed
 - 2026-07-04 display label CI gate: `npm run display:check`: success
+- 2026-07-04 display label CI gate: `npm run frontend:build`: success
 
 ## 優先度
 
