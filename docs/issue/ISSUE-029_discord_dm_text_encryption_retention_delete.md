@@ -74,6 +74,8 @@ Codex一次レビューでは、ISSUE-022のFrontend MVPは条件付き合格。
 
 2026-07-05に残P0/P1を個別Issueへ分割した。権限境界はISSUE-030、鍵管理とbackup削除方針はISSUE-031、AI整理draft JSON保護はISSUE-032、retention worker smokeはISSUE-033、Frontend失敗系E2EはISSUE-034で追跡する。
 
+2026-07-05にISSUE-031でADR-0013とsecurity checklistを作成した。key rotation、KMS、backup削除方針は文書化済みだが、KMS provider選定、staging rotation smoke、backup retention provider設定、restore runbook反映は継続課題である。
+
 良かった点:
 
 - DB dump単体でraw/redacted textを読めない状態へ前進した。
@@ -117,7 +119,7 @@ P0
 ## 次アクション
 
 1. ISSUE-030でproject membership/Policy Objectを設計・実装する。
-2. ISSUE-031でkey rotation、KMS、backup削除方針ADRを追加する。
+2. ISSUE-031でkey rotation、KMS、backup削除方針ADRを追加する（ADR/checklist作成済み。CI成功後にクローズ判定）。
 3. ISSUE-032でsummary draft JSON本文の暗号化可否を検証する。
 4. ISSUE-033でretention jobをstaging worker smoke runbookへ追加する。
 5. ISSUE-034でFrontendの匿名化失敗、キャンセル、権限エラー、モバイル表示E2Eを追加する。

@@ -81,13 +81,15 @@ production release前に以下をP0 blockerとして扱う。
 - project membershipに基づく閲覧、削除、承認権限
 - backup、AuditLog、ジョブログに本文が残らないことの検証
 - redacted text優先のAI送信と、scan valid必須のrequest spec
-- key rotation、KMS、backup削除方針
+- key rotation、KMS、backup削除方針（2026-07-05 ADR-0013/checklist作成済み。KMS provider選定とstaging rotation smokeは未実施）
 - AI整理ドラフトJSON本文の暗号化または短期retention再評価
 
 関連ADR:
 
 - `docs/decisions/ADR-0012_discord_dm_text_encryption_retention.md`
+- `docs/decisions/ADR-0013_dm_key_rotation_kms_backup_policy.md`
 
 関連レビュー:
 
 - `docs/review/20260705_discord_dm_retention_delete_implementation_review.md`
+- `docs/review/20260705_dm_key_rotation_kms_backup_policy_review.md`
