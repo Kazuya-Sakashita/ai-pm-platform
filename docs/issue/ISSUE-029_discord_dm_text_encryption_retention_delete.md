@@ -72,6 +72,8 @@ Codex一次レビューでは、ISSUE-022のFrontend MVPは条件付き合格。
 
 2026-07-05に初期実装sliceを追加。Active Record Encryptionで `raw_text` / `redacted_text` を暗号化し、保持期限timestamp、匿名化API、retention service/job、Frontend匿名化導線、request spec、Playwright E2Eを追加した。
 
+2026-07-05に残P0/P1を個別Issueへ分割した。権限境界はISSUE-030、鍵管理とbackup削除方針はISSUE-031、AI整理draft JSON保護はISSUE-032、retention worker smokeはISSUE-033、Frontend失敗系E2EはISSUE-034で追跡する。
+
 良かった点:
 
 - DB dump単体でraw/redacted textを読めない状態へ前進した。
@@ -100,6 +102,7 @@ Codex一次レビューでは、ISSUE-022のFrontend MVPは条件付き合格。
 - `npm run frontend:e2e -- e2e/meeting-workspace.spec.ts --grep "imports, scans"`: 1 passed
 - GitHub Actions CI `28720456954`: success（commit `244b376`）
 - GitHub Issue同期コメント: `https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/29#issuecomment-4883892052`
+- 残P0/P1分割コメント: `https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/29#issuecomment-4883908857`
 
 ## 優先度
 
@@ -113,8 +116,8 @@ P0
 
 ## 次アクション
 
-1. project membership/Policy ObjectのIssueを作る。
-2. key rotation、KMS、backup削除方針ADRを追加する。
-3. summary draft JSON本文の暗号化可否を検証する。
-4. retention jobをstaging worker smoke runbookへ追加する。
-5. Frontendの匿名化失敗、キャンセル、権限エラー、モバイル表示E2Eを追加する。
+1. ISSUE-030でproject membership/Policy Objectを設計・実装する。
+2. ISSUE-031でkey rotation、KMS、backup削除方針ADRを追加する。
+3. ISSUE-032でsummary draft JSON本文の暗号化可否を検証する。
+4. ISSUE-033でretention jobをstaging worker smoke runbookへ追加する。
+5. ISSUE-034でFrontendの匿名化失敗、キャンセル、権限エラー、モバイル表示E2Eを追加する。
