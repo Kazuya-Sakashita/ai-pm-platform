@@ -303,6 +303,36 @@ test.describe("Meeting Workspace", () => {
       ],
     };
 
+    await page.route("**/api/v1/operations/queue-health", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: {
+            status: "degraded",
+            checked_at: now,
+            heartbeat_stale_after_seconds: 60,
+            oldest_unfinished_threshold_seconds: 300,
+            workers: [],
+            queues: [{ queue_name: "default", unfinished_count: 0 }],
+            failed_executions: { count: 0 },
+            recurring_tasks: [],
+            product_jobs: {
+              by_status: [
+                { status: "queued", count: 0 },
+                { status: "running", count: 0 },
+                { status: "succeeded", count: 0 },
+                { status: "failed", count: 0 },
+                { status: "cancelled", count: 0 },
+              ],
+              recent_failed_count: 0,
+            },
+            warnings: ["Solid Queue worker heartbeatが確認できません。"],
+          },
+        }),
+      });
+    });
+
     await page.route("**/api/v1/projects", async (route) => {
       await route.fulfill({
         status: 200,

@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Activity,
   AlertTriangle,
   CheckCircle2,
   CircleDot,
@@ -30,6 +31,7 @@ type IssueDraft = components["schemas"]["IssueDraft"];
 type OpenApiDraft = components["schemas"]["OpenApiDraft"];
 type OpenApiValidationResult = components["schemas"]["OpenApiValidationResponse"]["data"];
 type Job = components["schemas"]["Job"];
+type QueueHealth = components["schemas"]["QueueHealth"];
 type Review = components["schemas"]["Review"];
 type IntegrationAccount = components["schemas"]["IntegrationAccount"];
 type MeetingSourceType = components["schemas"]["MeetingSourceType"];
@@ -145,11 +147,13 @@ function statusTone(status?: string) {
     status === "published" ||
     status === "reconciled" ||
     status === "retry_approved" ||
-    status === "local_saved"
+    status === "local_saved" ||
+    status === "healthy"
   ) {
     return "success";
   }
-  if (status === "failed" || status === "needs_changes" || status === "invalid" || status === "publish_failed") return "danger";
+  if (status === "failed" || status === "needs_changes" || status === "invalid" || status === "publish_failed" || status === "unavailable") return "danger";
+  if (status === "degraded") return "warning";
   if (status === "error" || status === "revoked") return "danger";
   if (
     status === "in_review" ||
@@ -182,6 +186,8 @@ export default function MeetingWorkspace() {
   const [openApiDraft, setOpenApiDraft] = useState<OpenApiDraft | null>(null);
   const [openApiValidation, setOpenApiValidation] = useState<OpenApiValidationResult | null>(null);
   const [lastJob, setLastJob] = useState<Job | null>(null);
+  const [queueHealth, setQueueHealth] = useState<QueueHealth | null>(null);
+  const [queueHealthLoading, setQueueHealthLoading] = useState(false);
   const [lastReview, setLastReview] = useState<Review | null>(null);
   const [openApiReview, setOpenApiReview] = useState<Review | null>(null);
   const [integrationAccounts, setIntegrationAccounts] = useState<IntegrationAccount[]>([]);
@@ -237,6 +243,7 @@ export default function MeetingWorkspace() {
 
   useEffect(() => {
     void loadProjects();
+    void loadQueueHealth({ announce: false });
   }, []);
 
   useEffect(() => {
@@ -290,6 +297,28 @@ export default function MeetingWorkspace() {
     });
 
     setIntegrationAccounts(data?.data ?? []);
+  }
+
+  async function loadQueueHealth(options: { announce?: boolean } = {}) {
+    const announce = options.announce !== false;
+    setQueueHealthLoading(true);
+    if (announce) setError("");
+
+    try {
+      const { data, error: apiError } = await apiClient.GET("/operations/queue-health");
+      setQueueHealthLoading(false);
+
+      if (apiError) {
+        if (announce) setApiError(errorMessage(apiError));
+        return;
+      }
+
+      setQueueHealth(data.data);
+      if (announce) setStatusMessage("運用状態を更新しました");
+    } catch {
+      setQueueHealthLoading(false);
+      if (announce) setApiError("運用状態を取得できませんでした。");
+    }
   }
 
   async function createProject() {
@@ -1253,6 +1282,12 @@ export default function MeetingWorkspace() {
       isFutureDateTime(issueDraft?.github_reconciliation?.next_reconciliation_retry_at));
   const githubConnectionStatus = githubIntegration?.status ?? "not_connected";
   const githubConnectionActionLabel = githubConnectionStatus === "connected" ? "GitHub接続をやり直す" : "GitHub連携を開始";
+  const queueHealthStatus = queueHealth?.status ?? "unavailable";
+  const staleWorkerCount = queueHealth?.workers.filter((worker) => worker.stale).length ?? 0;
+  const failedExecutionCount = queueHealth?.failed_executions.count ?? 0;
+  const recentProductFailedCount = queueHealth?.product_jobs.recent_failed_count ?? 0;
+  const queueRows = queueHealth?.queues.slice(0, 4) ?? [];
+  const warningRows = queueHealth?.warnings.slice(0, 3) ?? [];
 
   return (
     <div className="app-shell">
@@ -1281,6 +1316,10 @@ export default function MeetingWorkspace() {
           <a className="nav-item" href="#openapi-draft">
             <FileCode2 size={16} />
             OpenAPIドラフト
+          </a>
+          <a className="nav-item" href="#operations">
+            <Activity size={16} />
+            運用
           </a>
           <a className="nav-item" href="#review">
             <CheckCircle2 size={16} />
@@ -1425,6 +1464,49 @@ export default function MeetingWorkspace() {
                     GitHub App設定を開く
                   </a>
                 ) : null}
+              </section>
+
+              <section className="tool-panel" id="operations" aria-label="運用監視">
+                <div className="panel-header">
+                  <h3>運用監視</h3>
+                  <span className={`chip ${statusTone(queueHealthStatus)}`}>{statusLabel(queueHealthStatus)}</span>
+                </div>
+                <div className="operation-summary">
+                  <strong>更新</strong>
+                  <span>{formatDateTime(queueHealth?.checked_at)}</span>
+                  <strong>Worker</strong>
+                  <span>
+                    {queueHealth ? `${queueHealth.workers.length}件 / stale ${staleWorkerCount}件` : "-"}
+                  </span>
+                  <strong>Failed</strong>
+                  <span>{failedExecutionCount}件</span>
+                  <strong>Product失敗</strong>
+                  <span>{recentProductFailedCount}件</span>
+                  <strong>Recurring</strong>
+                  <span>{queueHealth ? `${queueHealth.recurring_tasks.length}件` : "-"}</span>
+                </div>
+                <div className="queue-list" aria-label="Queue health一覧">
+                  {queueRows.map((queue) => (
+                    <div className="queue-row" key={queue.queue_name}>
+                      <strong>{queue.queue_name}</strong>
+                      <span>
+                        {queue.unfinished_count}件 / {queue.oldest_unfinished_age_seconds ? `${queue.oldest_unfinished_age_seconds}秒` : "-"}
+                      </span>
+                    </div>
+                  ))}
+                  {queueRows.length === 0 ? <p className="empty">Queue未確認</p> : null}
+                </div>
+                {warningRows.length > 0 ? (
+                  <div className="warning-list" aria-label="Queue health warning">
+                    {warningRows.map((warning) => (
+                      <span key={warning}>{displayMessage(warning)}</span>
+                    ))}
+                  </div>
+                ) : null}
+                <button className="button secondary full-width" type="button" onClick={() => loadQueueHealth()} disabled={queueHealthLoading}>
+                  {queueHealthLoading ? <Loader2 className="spin" size={16} /> : <RefreshCw size={16} />}
+                  運用状態更新
+                </button>
               </section>
 
               <section className="tool-panel">

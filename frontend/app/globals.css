@@ -463,6 +463,60 @@ textarea {
   overflow-wrap: anywhere;
 }
 
+.operation-summary {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr);
+  gap: 6px 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.operation-summary strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.operation-summary span {
+  overflow-wrap: anywhere;
+}
+
+.queue-list,
+.warning-list {
+  display: grid;
+  gap: 6px;
+}
+
+.queue-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  min-height: 34px;
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-alt);
+  font-size: 12px;
+}
+
+.queue-row strong,
+.queue-row span {
+  overflow-wrap: anywhere;
+}
+
+.queue-row span,
+.warning-list span {
+  color: var(--muted);
+}
+
+.warning-list {
+  padding: 9px;
+  border: 1px solid #f0c38a;
+  border-radius: 6px;
+  background: #fffaf2;
+  font-size: 12px;
+}
+
 .reconciliation-grid {
   display: grid;
   grid-template-columns: 180px minmax(0, 1fr);

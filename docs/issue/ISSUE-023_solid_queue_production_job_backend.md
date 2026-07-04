@@ -60,6 +60,7 @@ Solid Queueをproduction job queue backendとして導入し、GitHub reconcilia
 - `docs/review/20260703_github_reconciliation_async_retry_job_review.md`
 - `docs/review/20260703_production_job_queue_adr_review.md`
 - `docs/review/20260703_solid_queue_production_job_backend_implementation_review.md`
+- `docs/review/20260704_queue_health_monitoring_implementation_review.md`
 
 ## 関連ADR
 
@@ -82,12 +83,13 @@ Solid Queueをproduction job queue backendとして導入し、GitHub reconcilia
 - `docs/release/20260703_solid_queue_operations_runbook.md` にworker起動、監視、停止、失敗対応を整理した。
 - config specでqueue名とproduction queue database設定を検証した。
 - production smokeで同一DB fallbackの危険を検出し、`QUEUE_DATABASE_URL` 必須に修正した。
+- ISSUE-025でread-only Queue health APIとFrontend運用監視パネルを追加し、runbook外でもworker heartbeat、failed count、queue latencyを確認できるようにした。
 
 改善点:
 
 - production相当のSolid Queue worker smokeは別queue DBで確認済み。staging/deploy環境での確認は未実施。
 - worker processのdeploy組み込みはrunbookまでで、実際のホスティング設定は未作成。
-- failed job再実行の権限、承認ログ、UIは未整備。
+- Queue health監視MVPは追加済み。ただしfailed job再実行の権限、承認ログ、操作UI、通知/SLOは未整備。
 - DB負荷とconnection poolのcapacity仮説が未作成。
 
 検証結果:
@@ -118,5 +120,5 @@ P0
 - GitHub Actions CIを確認する
 - GitHub Actions CIを確認し、成功後にIssue #23のクローズ可否を判断する
 - staging/deploy環境で `bin/jobs` worker smokeを再確認する
-- queue latency、failed job、worker heartbeatの監視実装を検討する
+- queue latency、failed job、worker heartbeatの通知/SLOを設計する
 - failed job再実行/破棄の権限と監査UIを設計する

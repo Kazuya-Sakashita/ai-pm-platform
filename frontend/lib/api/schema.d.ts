@@ -594,6 +594,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/operations/queue-health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get read-only queue health */
+        get: operations["getQueueHealth"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/audit-logs": {
         parameters: {
             query?: never;
@@ -1165,6 +1182,59 @@ export interface components {
         };
         JobResponse: {
             data: components["schemas"]["Job"];
+        };
+        /** @enum {string} */
+        QueueHealthStatus: "healthy" | "degraded" | "unavailable";
+        QueueWorkerSummary: {
+            kind: string;
+            name: string;
+            hostname?: string;
+            /** Format: date-time */
+            last_heartbeat_at: string;
+            stale: boolean;
+        };
+        QueueSummary: {
+            queue_name: string;
+            unfinished_count: number;
+            /** Format: date-time */
+            oldest_unfinished_at?: string;
+            oldest_unfinished_age_seconds?: number;
+        };
+        FailedExecutionSummary: {
+            count: number;
+            /** Format: date-time */
+            latest_failed_at?: string;
+        };
+        RecurringTaskSummary: {
+            key: string;
+            class_name?: string;
+            queue_name?: string;
+            schedule?: string;
+        };
+        ProductJobStatusSummary: {
+            /** @enum {string} */
+            status: "queued" | "running" | "succeeded" | "failed" | "cancelled";
+            count: number;
+        };
+        ProductJobsSummary: {
+            by_status: components["schemas"]["ProductJobStatusSummary"][];
+            recent_failed_count: number;
+        };
+        QueueHealth: {
+            status: components["schemas"]["QueueHealthStatus"];
+            /** Format: date-time */
+            checked_at: string;
+            heartbeat_stale_after_seconds: number;
+            oldest_unfinished_threshold_seconds: number;
+            workers: components["schemas"]["QueueWorkerSummary"][];
+            queues: components["schemas"]["QueueSummary"][];
+            failed_executions: components["schemas"]["FailedExecutionSummary"];
+            recurring_tasks: components["schemas"]["RecurringTaskSummary"][];
+            product_jobs: components["schemas"]["ProductJobsSummary"];
+            warnings: string[];
+        };
+        QueueHealthResponse: {
+            data: components["schemas"]["QueueHealth"];
         };
         PublishGitHubIssueResponse: {
             data: {
@@ -2625,6 +2695,27 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+        };
+    };
+    getQueueHealth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Queue health summary */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueHealthResponse"];
+                };
+            };
+            429: components["responses"]["RateLimited"];
         };
     };
     listProjectAuditLogs: {

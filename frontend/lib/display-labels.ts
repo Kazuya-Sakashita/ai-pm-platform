@@ -40,6 +40,8 @@ const statusLabels: Record<string, string> = {
   generated: "生成済み",
   generating: "生成中",
   github_created: "GitHub作成済み",
+  degraded: "要確認",
+  healthy: "正常",
   in_review: "レビュー中",
   invalid: "検証失敗",
   local_saved: "ローカル保存済み",
@@ -61,6 +63,7 @@ const statusLabels: Record<string, string> = {
   saved: "保存済み",
   started: "開始済み",
   succeeded: "完了",
+  unavailable: "利用不可",
   valid: "検証済み",
 };
 

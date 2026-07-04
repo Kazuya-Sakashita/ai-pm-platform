@@ -1,0 +1,103 @@
+require "rails_helper"
+
+RSpec.describe Operations::QueueHealthQuery do
+  include ActiveSupport::Testing::TimeHelpers
+
+  describe "#call" do
+    it "returns safe queue health summary when Solid Queue tables are available" do
+      checked_at = Time.zone.parse("2026-07-04 12:00:00")
+      project = create(:project)
+      create(:job, project: project, status: "failed", safe_error_detail: "raw provider failure")
+
+      travel_to(checked_at) do
+        stub_solid_queue_tables(available: true)
+        stub_worker(last_heartbeat_at: checked_at - 10.seconds)
+        stub_unfinished_jobs(queue_name: "github_reconciliation", count: 2, oldest_at: checked_at - 400.seconds)
+        stub_failed_executions(count: 1, latest_failed_at: checked_at - 30.seconds)
+        stub_recurring_tasks
+
+        data = described_class.new.call
+
+        expect(data[:status]).to eq("degraded")
+        expect(data[:workers]).to contain_exactly(hash_including(kind: "worker", name: "worker-1", stale: false))
+        expect(data[:queues]).to include(hash_including(queue_name: "github_reconciliation", unfinished_count: 2, oldest_unfinished_age_seconds: 400))
+        expect(data[:failed_executions]).to include(count: 1, latest_failed_at: (checked_at - 30.seconds).iso8601)
+        expect(data[:recurring_tasks]).to contain_exactly(hash_including(key: "cleanup_expired_github_connection_states"))
+        expect(data.dig(:product_jobs, :recent_failed_count)).to eq(1)
+        expect(data.to_s).not_to include("raw provider failure")
+        expect(data.to_s).not_to include("backtrace")
+        expect(data.to_s).not_to include("DATABASE_URL")
+      end
+    end
+
+    it "returns unavailable fallback when Solid Queue tables are unavailable" do
+      create(:job, status: "failed", safe_error_detail: "raw provider failure")
+
+      stub_solid_queue_tables(available: false)
+
+      data = described_class.new.call
+
+      expect(data[:status]).to eq("unavailable")
+      expect(data[:warnings].join(" ")).to include("Solid Queue")
+      expect(data[:failed_executions]).to eq(count: 0)
+      expect(data.dig(:product_jobs, :recent_failed_count)).to eq(1)
+      expect(data.to_s).not_to include("raw provider failure")
+    end
+  end
+
+  def stub_solid_queue_tables(available:)
+    connection = instance_double(ActiveRecord::ConnectionAdapters::AbstractAdapter)
+    allow(connection).to receive(:data_source_exists?).and_return(available)
+
+    [
+      SolidQueue::Job,
+      SolidQueue::Process,
+      SolidQueue::FailedExecution,
+      SolidQueue::RecurringTask
+    ].each do |model|
+      allow(model).to receive(:connection).and_return(connection)
+    end
+  end
+
+  def stub_worker(last_heartbeat_at:)
+    worker = double(
+      "SolidQueue::Process",
+      kind: "worker",
+      name: "worker-1",
+      hostname: "worker-host",
+      last_heartbeat_at: last_heartbeat_at
+    )
+    ordered_workers = instance_double(ActiveRecord::Relation)
+    allow(SolidQueue::Process).to receive(:order).with(last_heartbeat_at: :desc).and_return(ordered_workers)
+    allow(ordered_workers).to receive(:limit).with(Operations::QueueHealthQuery::WORKER_LIMIT).and_return([ worker ])
+  end
+
+  def stub_unfinished_jobs(queue_name:, count:, oldest_at:)
+    unfinished_scope = instance_double(ActiveRecord::Relation)
+    grouped_scope = instance_double(ActiveRecord::Relation)
+
+    allow(SolidQueue::Job).to receive(:where).with(finished_at: nil).and_return(unfinished_scope)
+    allow(unfinished_scope).to receive(:group).with(:queue_name).and_return(grouped_scope)
+    allow(grouped_scope).to receive(:count).and_return(queue_name => count)
+    allow(grouped_scope).to receive(:minimum).with(:created_at).and_return(queue_name => oldest_at)
+  end
+
+  def stub_failed_executions(count:, latest_failed_at:)
+    allow(SolidQueue::FailedExecution).to receive(:count).and_return(count)
+    allow(SolidQueue::FailedExecution).to receive(:maximum).with(:created_at).and_return(latest_failed_at)
+  end
+
+  def stub_recurring_tasks
+    task = double(
+      "SolidQueue::RecurringTask",
+      key: "cleanup_expired_github_connection_states",
+      class_name: "GithubIntegration::ConnectionStateCleanupJob",
+      queue_name: "default",
+      schedule: "every hour at minute 24"
+    )
+    ordered_tasks = instance_double(ActiveRecord::Relation)
+
+    allow(SolidQueue::RecurringTask).to receive(:order).with(:key).and_return(ordered_tasks)
+    allow(ordered_tasks).to receive(:limit).with(Operations::QueueHealthQuery::RECURRING_TASK_LIMIT).and_return([ task ])
+  end
+end

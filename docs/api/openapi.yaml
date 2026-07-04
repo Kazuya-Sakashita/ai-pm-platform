@@ -36,6 +36,8 @@ tags:
     description: External service connection lifecycle and project integration accounts.
   - name: Jobs
     description: Asynchronous generation, validation, and publish jobs.
+  - name: Operations
+    description: Read-only operational health and queue monitoring endpoints.
   - name: Webhooks
     description: Incoming webhook endpoints for connected external systems.
   - name: AuditLogs
@@ -991,6 +993,21 @@ paths:
                 $ref: "#/components/schemas/JobResponse"
         "404":
           $ref: "#/components/responses/NotFound"
+
+  /operations/queue-health:
+    get:
+      tags: [Operations]
+      summary: Get read-only queue health
+      operationId: getQueueHealth
+      responses:
+        "200":
+          description: Queue health summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueueHealthResponse"
+        "429":
+          $ref: "#/components/responses/RateLimited"
 
   /projects/{project_id}/audit-logs:
     get:
@@ -2462,6 +2479,142 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/Job"
+
+    QueueHealthStatus:
+      type: string
+      enum: [healthy, degraded, unavailable]
+
+    QueueWorkerSummary:
+      type: object
+      required: [kind, name, last_heartbeat_at, stale]
+      properties:
+        kind:
+          type: string
+        name:
+          type: string
+        hostname:
+          type: string
+        last_heartbeat_at:
+          type: string
+          format: date-time
+        stale:
+          type: boolean
+
+    QueueSummary:
+      type: object
+      required: [queue_name, unfinished_count]
+      properties:
+        queue_name:
+          type: string
+        unfinished_count:
+          type: integer
+          minimum: 0
+        oldest_unfinished_at:
+          type: string
+          format: date-time
+        oldest_unfinished_age_seconds:
+          type: integer
+          minimum: 0
+
+    FailedExecutionSummary:
+      type: object
+      required: [count]
+      properties:
+        count:
+          type: integer
+          minimum: 0
+        latest_failed_at:
+          type: string
+          format: date-time
+
+    RecurringTaskSummary:
+      type: object
+      required: [key]
+      properties:
+        key:
+          type: string
+        class_name:
+          type: string
+        queue_name:
+          type: string
+        schedule:
+          type: string
+
+    ProductJobStatusSummary:
+      type: object
+      required: [status, count]
+      properties:
+        status:
+          type: string
+          enum: [queued, running, succeeded, failed, cancelled]
+        count:
+          type: integer
+          minimum: 0
+
+    ProductJobsSummary:
+      type: object
+      required: [by_status, recent_failed_count]
+      properties:
+        by_status:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductJobStatusSummary"
+        recent_failed_count:
+          type: integer
+          minimum: 0
+
+    QueueHealth:
+      type: object
+      required:
+        - status
+        - checked_at
+        - heartbeat_stale_after_seconds
+        - oldest_unfinished_threshold_seconds
+        - workers
+        - queues
+        - failed_executions
+        - recurring_tasks
+        - product_jobs
+        - warnings
+      properties:
+        status:
+          $ref: "#/components/schemas/QueueHealthStatus"
+        checked_at:
+          type: string
+          format: date-time
+        heartbeat_stale_after_seconds:
+          type: integer
+          minimum: 1
+        oldest_unfinished_threshold_seconds:
+          type: integer
+          minimum: 1
+        workers:
+          type: array
+          items:
+            $ref: "#/components/schemas/QueueWorkerSummary"
+        queues:
+          type: array
+          items:
+            $ref: "#/components/schemas/QueueSummary"
+        failed_executions:
+          $ref: "#/components/schemas/FailedExecutionSummary"
+        recurring_tasks:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecurringTaskSummary"
+        product_jobs:
+          $ref: "#/components/schemas/ProductJobsSummary"
+        warnings:
+          type: array
+          items:
+            type: string
+
+    QueueHealthResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/QueueHealth"
 
     PublishGitHubIssueResponse:
       type: object

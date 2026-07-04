@@ -37,6 +37,7 @@ Rails.application.routes.draw do
         post "accept-risk", to: "reviews#accept_risk", on: :member
       end
       resources :jobs, only: %i[show]
+      get "operations/queue-health", to: "operations#queue_health"
     end
   end
 
