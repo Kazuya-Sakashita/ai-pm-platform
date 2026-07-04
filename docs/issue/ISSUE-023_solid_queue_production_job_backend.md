@@ -61,6 +61,7 @@ Solid Queueをproduction job queue backendとして導入し、GitHub reconcilia
 - `docs/review/20260703_production_job_queue_adr_review.md`
 - `docs/review/20260703_solid_queue_production_job_backend_implementation_review.md`
 - `docs/review/20260704_queue_health_monitoring_implementation_review.md`
+- `docs/review/20260704_failed_job_safe_visibility_implementation_review.md`
 
 ## 関連ADR
 
@@ -84,12 +85,13 @@ Solid Queueをproduction job queue backendとして導入し、GitHub reconcilia
 - config specでqueue名とproduction queue database設定を検証した。
 - production smokeで同一DB fallbackの危険を検出し、`QUEUE_DATABASE_URL` 必須に修正した。
 - ISSUE-025でread-only Queue health APIとFrontend運用監視パネルを追加し、runbook外でもworker heartbeat、failed count、queue latencyを確認できるようにした。
+- ISSUE-027で直近failed jobのsafe summaryを追加し、raw exceptionやjob argumentsを出さずにqueue/class/failed_atを確認できるようにした。
 
 改善点:
 
 - production相当のSolid Queue worker smokeは別queue DBで確認済み。staging/deploy環境での確認は未実施。
 - worker processのdeploy組み込みはrunbookまでで、実際のホスティング設定は未作成。
-- Queue health監視MVPは追加済み。ただしfailed job再実行の権限、承認ログ、操作UI、通知/SLOは未整備。
+- Queue health監視MVPとfailed job safe visibilityは追加済み。ただしfailed job再実行/破棄の権限、承認ログ、操作UI、通知/SLOは未整備。
 - DB負荷とconnection poolのcapacity仮説が未作成。
 
 検証結果:
@@ -104,6 +106,10 @@ Solid Queueをproduction job queue backendとして導入し、GitHub reconcilia
 - production config runner: `active_job.queue_adapter=solid_queue`、DB configs=`primary,queue`
 - production mode local worker smoke: `RAILS_ENV=production ... QUEUE_DATABASE_URL=postgres://.../ai_pm_queue_test bundle exec bin/jobs` がSupervisor、Dispatcher、Worker、Schedulerを起動
 - production mode heartbeat check: `SolidQueue::Process` に Dispatcher、Scheduler、Supervisor(async)、Worker を確認
+- 2026-07-04 failed job safe visibility: `bundle exec rspec spec/services/operations/queue_health_query_spec.rb spec/requests/api/v1/operations_spec.rb`: 3 examples, 0 failures
+- 2026-07-04 failed job safe visibility: `npm run api:verify`: OpenAPI OK、Redocly lint OK、型生成OK
+- 2026-07-04 failed job safe visibility: `npm run frontend:build`: success
+- 2026-07-04 failed job safe visibility: `npm run frontend:e2e -- e2e/queue-health.spec.ts`: 1 passed
 
 ## 優先度
 
@@ -121,4 +127,4 @@ P0
 - GitHub Actions CIを確認し、成功後にIssue #23のクローズ可否を判断する
 - staging/deploy環境で `bin/jobs` worker smokeを再確認する
 - queue latency、failed job、worker heartbeatの通知/SLOを設計する
-- failed job再実行/破棄の権限と監査UIを設計する
+- failed job再実行/破棄のoperator権限、承認ログ、監査UIを設計する

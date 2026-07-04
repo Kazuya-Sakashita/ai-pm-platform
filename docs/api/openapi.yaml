@@ -2527,6 +2527,20 @@ components:
           type: string
           format: date-time
 
+    FailedJobSample:
+      type: object
+      required: [queue_name, class_name, failed_at]
+      properties:
+        queue_name:
+          type: string
+        class_name:
+          type: string
+        active_job_id:
+          type: string
+        failed_at:
+          type: string
+          format: date-time
+
     RecurringTaskSummary:
       type: object
       required: [key]
@@ -2573,6 +2587,7 @@ components:
         - workers
         - queues
         - failed_executions
+        - failed_job_samples
         - recurring_tasks
         - product_jobs
         - warnings
@@ -2598,6 +2613,10 @@ components:
             $ref: "#/components/schemas/QueueSummary"
         failed_executions:
           $ref: "#/components/schemas/FailedExecutionSummary"
+        failed_job_samples:
+          type: array
+          items:
+            $ref: "#/components/schemas/FailedJobSample"
         recurring_tasks:
           type: array
           items:

@@ -481,9 +481,16 @@ textarea {
 }
 
 .queue-list,
+.failed-job-list,
 .warning-list {
   display: grid;
   gap: 6px;
+}
+
+.mini-heading {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 650;
 }
 
 .queue-row {
@@ -506,6 +513,28 @@ textarea {
 
 .queue-row span,
 .warning-list span {
+  color: var(--muted);
+}
+
+.failed-job-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+  align-items: start;
+  min-height: 34px;
+  padding: 7px 8px;
+  border: 1px solid #f0c38a;
+  border-radius: 6px;
+  background: #fffaf2;
+  font-size: 12px;
+}
+
+.failed-job-row strong,
+.failed-job-row span {
+  overflow-wrap: anywhere;
+}
+
+.failed-job-row span {
   color: var(--muted);
 }
 

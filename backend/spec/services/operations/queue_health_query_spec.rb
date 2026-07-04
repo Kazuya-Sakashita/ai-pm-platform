@@ -14,6 +14,7 @@ RSpec.describe Operations::QueueHealthQuery do
         stub_worker(last_heartbeat_at: checked_at - 10.seconds)
         stub_unfinished_jobs(queue_name: "github_reconciliation", count: 2, oldest_at: checked_at - 400.seconds)
         stub_failed_executions(count: 1, latest_failed_at: checked_at - 30.seconds)
+        stub_failed_job_samples(failed_at: checked_at - 30.seconds)
         stub_recurring_tasks
 
         data = described_class.new.call
@@ -22,9 +23,18 @@ RSpec.describe Operations::QueueHealthQuery do
         expect(data[:workers]).to contain_exactly(hash_including(kind: "worker", name: "worker-1", stale: false))
         expect(data[:queues]).to include(hash_including(queue_name: "github_reconciliation", unfinished_count: 2, oldest_unfinished_age_seconds: 400))
         expect(data[:failed_executions]).to include(count: 1, latest_failed_at: (checked_at - 30.seconds).iso8601)
+        expect(data[:failed_job_samples]).to contain_exactly(
+          {
+            queue_name: "github_reconciliation",
+            class_name: "GithubIssuePublish::ReconciliationRetryJob",
+            active_job_id: "active-job-123",
+            failed_at: (checked_at - 30.seconds).iso8601
+          }
+        )
         expect(data[:recurring_tasks]).to contain_exactly(hash_including(key: "cleanup_expired_github_connection_states"))
         expect(data.dig(:product_jobs, :recent_failed_count)).to eq(1)
         expect(data.to_s).not_to include("raw provider failure")
+        expect(data.to_s).not_to include("raw solid queue error")
         expect(data.to_s).not_to include("backtrace")
         expect(data.to_s).not_to include("DATABASE_URL")
       end
@@ -40,6 +50,7 @@ RSpec.describe Operations::QueueHealthQuery do
       expect(data[:status]).to eq("unavailable")
       expect(data[:warnings].join(" ")).to include("Solid Queue")
       expect(data[:failed_executions]).to eq(count: 0)
+      expect(data[:failed_job_samples]).to eq([])
       expect(data.dig(:product_jobs, :recent_failed_count)).to eq(1)
       expect(data.to_s).not_to include("raw provider failure")
     end
@@ -85,6 +96,30 @@ RSpec.describe Operations::QueueHealthQuery do
   def stub_failed_executions(count:, latest_failed_at:)
     allow(SolidQueue::FailedExecution).to receive(:count).and_return(count)
     allow(SolidQueue::FailedExecution).to receive(:maximum).with(:created_at).and_return(latest_failed_at)
+  end
+
+  def stub_failed_job_samples(failed_at:)
+    failed_execution = double(
+      "SolidQueue::FailedExecution",
+      job_id: 123,
+      created_at: failed_at
+    )
+    expect(failed_execution).not_to receive(:error)
+
+    ordered_failed_executions = instance_double(ActiveRecord::Relation)
+    allow(SolidQueue::FailedExecution).to receive(:order).with(created_at: :desc).and_return(ordered_failed_executions)
+    allow(ordered_failed_executions).to receive(:limit).with(Operations::QueueHealthQuery::FAILED_JOB_SAMPLE_LIMIT).and_return([ failed_execution ])
+
+    queue_job = double(
+      "SolidQueue::Job",
+      id: 123,
+      queue_name: "github_reconciliation",
+      class_name: "GithubIssuePublish::ReconciliationRetryJob",
+      active_job_id: "active-job-123"
+    )
+    jobs_relation = instance_double(ActiveRecord::Relation)
+    allow(SolidQueue::Job).to receive(:where).with(id: [ 123 ]).and_return(jobs_relation)
+    allow(jobs_relation).to receive(:index_by).and_return(123 => queue_job)
   end
 
   def stub_recurring_tasks

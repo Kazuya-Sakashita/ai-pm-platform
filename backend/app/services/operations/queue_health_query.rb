@@ -8,6 +8,7 @@ module Operations
     RECENT_FAILURE_WINDOW = 24.hours
     WORKER_LIMIT = 20
     RECURRING_TASK_LIMIT = 20
+    FAILED_JOB_SAMPLE_LIMIT = 5
 
     SOLID_QUEUE_MODELS = [
       "SolidQueue::Job",
@@ -31,6 +32,7 @@ module Operations
       data[:workers] = worker_summaries(checked_at, warnings)
       data[:queues] = queue_summaries(checked_at, warnings)
       data[:failed_executions] = failed_execution_summary(warnings)
+      data[:failed_job_samples] = failed_job_samples
       data[:recurring_tasks] = recurring_task_summaries(warnings)
 
       recent_failed_count = data.dig(:product_jobs, :recent_failed_count).to_i
@@ -53,6 +55,7 @@ module Operations
         workers: [],
         queues: configured_queue_names.map { |queue_name| queue_summary(queue_name, 0, nil, nil) },
         failed_executions: { count: 0 },
+        failed_job_samples: [],
         recurring_tasks: [],
         product_jobs: { by_status: [], recent_failed_count: 0 },
         warnings: warnings
@@ -136,6 +139,22 @@ module Operations
         count: count,
         latest_failed_at: iso_time(latest_failed_at)
       }.compact
+    end
+
+    def failed_job_samples
+      failed_executions = SolidQueue::FailedExecution.order(created_at: :desc).limit(FAILED_JOB_SAMPLE_LIMIT)
+      job_ids = failed_executions.map(&:job_id).compact
+      jobs_by_id = job_ids.empty? ? {} : SolidQueue::Job.where(id: job_ids).index_by(&:id)
+
+      failed_executions.map do |failed_execution|
+        job = jobs_by_id[failed_execution.job_id]
+        {
+          queue_name: job&.queue_name || "unknown",
+          class_name: job&.class_name || "unknown",
+          active_job_id: job&.active_job_id,
+          failed_at: iso_time(failed_execution.created_at)
+        }.compact
+      end
     end
 
     def recurring_task_summaries(warnings)

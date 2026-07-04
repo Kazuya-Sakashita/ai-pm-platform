@@ -55,6 +55,16 @@ test.describe("Queue health operations panel", () => {
               },
             ],
             failed_executions: { count: healthy ? 0 : 1, latest_failed_at: healthy ? undefined : now },
+            failed_job_samples: healthy
+              ? []
+              : [
+                  {
+                    queue_name: "github_reconciliation",
+                    class_name: "GithubIssuePublish::ReconciliationRetryJob",
+                    active_job_id: "active-job-queue-health",
+                    failed_at: now,
+                  },
+                ],
             recurring_tasks: [{ key: "cleanup_expired_github_connection_states", class_name: "GithubConnectionStateCleanupJob", queue_name: "default", schedule: "*/10 * * * *" }],
             product_jobs: {
               by_status: [
@@ -78,15 +88,20 @@ test.describe("Queue health operations panel", () => {
     await expect(panel.getByText("要確認")).toBeVisible();
     await expect(panel.getByText("全1件 / 古い応答1件")).toBeVisible();
     await expect(panel.getByText("2件 / 420秒")).toBeVisible();
+    const failedJobs = panel.getByLabel("直近失敗ジョブ");
+    await expect(failedJobs).toContainText("GithubIssuePublish::ReconciliationRetryJob");
+    await expect(failedJobs).toContainText("github_reconciliation");
     await expect(panel.getByText("failed executionが1件あります。")).toBeVisible();
     await expect(panel).not.toContainText("DATABASE_URL");
     await expect(panel).not.toContainText("backtrace");
+    await expect(panel).not.toContainText("secret-token");
 
     await panel.getByRole("button", { name: "運用状態更新" }).click();
 
     await expect(panel.getByText("正常")).toBeVisible();
     await expect(panel.getByText("全1件 / 古い応答0件")).toBeVisible();
     await expect(panel.getByText("0件 / -")).toBeVisible();
+    await expect(panel.getByLabel("直近失敗ジョブ")).toHaveCount(0);
     await expect(panel.getByText("failed executionが1件あります。")).toHaveCount(0);
   });
 });

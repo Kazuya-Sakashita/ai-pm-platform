@@ -316,6 +316,7 @@ test.describe("Meeting Workspace", () => {
             workers: [],
             queues: [{ queue_name: "default", unfinished_count: 0 }],
             failed_executions: { count: 0 },
+            failed_job_samples: [],
             recurring_tasks: [],
             product_jobs: {
               by_status: [

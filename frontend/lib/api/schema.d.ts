@@ -1205,6 +1205,13 @@ export interface components {
             /** Format: date-time */
             latest_failed_at?: string;
         };
+        FailedJobSample: {
+            queue_name: string;
+            class_name: string;
+            active_job_id?: string;
+            /** Format: date-time */
+            failed_at: string;
+        };
         RecurringTaskSummary: {
             key: string;
             class_name?: string;
@@ -1229,6 +1236,7 @@ export interface components {
             workers: components["schemas"]["QueueWorkerSummary"][];
             queues: components["schemas"]["QueueSummary"][];
             failed_executions: components["schemas"]["FailedExecutionSummary"];
+            failed_job_samples: components["schemas"]["FailedJobSample"][];
             recurring_tasks: components["schemas"]["RecurringTaskSummary"][];
             product_jobs: components["schemas"]["ProductJobsSummary"];
             warnings: string[];

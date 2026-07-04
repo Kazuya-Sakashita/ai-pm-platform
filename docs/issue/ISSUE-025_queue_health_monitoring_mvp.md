@@ -61,12 +61,15 @@ Solid Queueの稼働状態をread-only APIとFrontend運用パネルで可視化
 - `docs/review/20260704_solid_queue_staging_worker_smoke_runbook_review.md`
 - `docs/review/20260704_queue_health_api_design_review.md`
 - `docs/review/20260704_queue_health_monitoring_implementation_review.md`
+- `docs/review/20260704_failed_job_safe_visibility_implementation_review.md`
 
 ## レビュー結果
 
 2026-07-04にAPI設計レビューを実施。監視MVPはread-onlyに限定し、秘密情報、raw job arguments、exception backtrace、database URL、state digestを返さない方針とした。
 
 2026-07-04にQueue health監視MVPを実装。`GET /api/v1/operations/queue-health`、`Operations::QueueHealthQuery`、Frontend運用監視パネル、Playwright E2E、request spec、service specを追加した。
+
+2026-07-04にISSUE-027として直近failed job safe visibilityを追加。Queue health APIと運用監視パネルで、raw exceptionやjob argumentsを返さずにqueue/class/failed_atを確認できるようにした。
 
 良かった点:
 
@@ -93,6 +96,10 @@ Solid Queueの稼働状態をread-only APIとFrontend運用パネルで可視化
 - `npm run frontend:build`: success
 - `npm run frontend:e2e -- e2e/queue-health.spec.ts`: 1 passed
 - `git diff --check`: pass
+- 2026-07-04 failed job safe visibility: `bundle exec rspec spec/services/operations/queue_health_query_spec.rb spec/requests/api/v1/operations_spec.rb`: 3 examples, 0 failures
+- 2026-07-04 failed job safe visibility: `npm run api:verify`: OpenAPI OK、Redocly lint OK、型生成OK
+- 2026-07-04 failed job safe visibility: `npm run frontend:build`: success
+- 2026-07-04 failed job safe visibility: `npm run frontend:e2e -- e2e/queue-health.spec.ts`: 1 passed
 
 ## 優先度
 
@@ -108,5 +115,5 @@ P1
 ## 次アクション
 
 - 実staging/production worker smoke証跡を取得する
-- failed job操作系UIは認証/承認ログ設計後に別Issue化する
+- failed job safe visibilityはISSUE-027で完了。操作系UIは認証/承認ログ設計後に別Issue化する
 - queue latency、failed count、worker heartbeatの通知設計を追加する

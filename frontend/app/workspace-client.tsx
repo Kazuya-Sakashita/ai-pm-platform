@@ -1287,6 +1287,7 @@ export default function MeetingWorkspace() {
   const failedExecutionCount = queueHealth?.failed_executions.count ?? 0;
   const recentProductFailedCount = queueHealth?.product_jobs.recent_failed_count ?? 0;
   const queueRows = queueHealth?.queues.slice(0, 4) ?? [];
+  const failedJobRows = queueHealth?.failed_job_samples.slice(0, 3) ?? [];
   const warningRows = queueHealth?.warnings.slice(0, 3) ?? [];
 
   return (
@@ -1496,6 +1497,18 @@ export default function MeetingWorkspace() {
                   ))}
                   {queueRows.length === 0 ? <p className="empty">キュー未確認</p> : null}
                 </div>
+                {failedJobRows.length > 0 ? (
+                  <div className="failed-job-list" aria-label="直近失敗ジョブ">
+                    <strong className="mini-heading">直近失敗ジョブ</strong>
+                    {failedJobRows.map((job) => (
+                      <div className="failed-job-row" key={`${job.class_name}-${job.active_job_id ?? job.failed_at}`}>
+                        <strong>{job.class_name}</strong>
+                        <span>{job.queue_name}</span>
+                        <span>{formatDateTime(job.failed_at)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
                 {warningRows.length > 0 ? (
                   <div className="warning-list" aria-label="キュー警告">
                     {warningRows.map((warning) => (
