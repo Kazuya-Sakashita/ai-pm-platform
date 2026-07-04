@@ -117,7 +117,7 @@ RSpec.describe "API V1 Integration Accounts", type: :request do
       expect(body.dig("error", "code")).to eq("github_state_invalid")
     end
 
-    it "returns a safe error when GitHub installation verification fails" do
+    it "returns a safe error and consumes the state when GitHub installation verification fails" do
       project = create(:project, github_repo: "Kazuya-Sakashita/ai-pm-platform")
       state = GithubIntegration::ConnectionState.generate(
         project: project,
@@ -141,6 +141,18 @@ RSpec.describe "API V1 Integration Accounts", type: :request do
       expect(body.dig("error", "code")).to eq("github_installation_verification_failed")
       expect(body.dig("error", "message")).to eq("GitHub installation could not be verified.")
       expect(project.integration_accounts).to be_empty
+      expect(project.github_connection_states.last).to be_consumed
+
+      post "/api/v1/integrations/github/callback", params: {
+        state: state,
+        installation_id: "987654"
+      }
+
+      expect(response).to have_http_status(:unauthorized)
+      body = JSON.parse(response.body)
+      expect(body.dig("error", "code")).to eq("github_state_invalid")
+      expect(body.dig("error", "message")).to eq("GitHub connection state already used.")
+      expect(GithubIntegration::InstallationVerifier).to have_received(:verify).once
     end
 
     it "rejects replayed connection states" do
