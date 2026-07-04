@@ -56,7 +56,7 @@ ISSUE-031
 2. deployment target決定後、KMS providerとbackup retention設定をADR追補する。
 3. staging環境でActive Record Encryption rotation smokeを実施する。
 4. ISSUE-032でAI整理draft JSON本文の暗号化/短期retentionを決める。
-5. ISSUE-031へGitHub同期コメントを残し、CI成功後にクローズする。
+5. ISSUE-031へGitHub同期コメントを残し、CI成功後にクローズする（完了）。
 
 ## STRIDE / OWASP評価
 

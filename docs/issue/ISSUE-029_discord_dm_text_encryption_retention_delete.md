@@ -119,7 +119,7 @@ P0
 ## 次アクション
 
 1. ISSUE-030でproject membership/Policy Objectを設計・実装する。
-2. ISSUE-031でkey rotation、KMS、backup削除方針ADRを追加する（ADR/checklist作成済み。CI成功後にクローズ判定）。
+2. ISSUE-031でkey rotation、KMS、backup削除方針ADRを追加する（2026-07-05完了、GitHub #31クローズ済み）。
 3. ISSUE-032でsummary draft JSON本文の暗号化可否を検証する。
 4. ISSUE-033でretention jobをstaging worker smoke runbookへ追加する。
 5. ISSUE-034でFrontendの匿名化失敗、キャンセル、権限エラー、モバイル表示E2Eを追加する。
