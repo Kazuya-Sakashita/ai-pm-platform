@@ -26,6 +26,8 @@ const messageLabels: Record<string, string> = {
   "Conversation import must be scanned before AI summary generation.": "DMインポートはAI整理前にスキャンしてください。",
   "Conversation import is blocked by safety checks.": "DMインポートは安全チェックでブロックされています。",
   "Conversation import has been anonymized.": "DMインポートは匿名化済みです。",
+  "Conversation import anonymization failed.": "DMインポートの匿名化に失敗しました。時間を置いて再試行してください。",
+  "Conversation import access is forbidden.": "DMインポートを操作する権限がありません。",
   "Validation failed": "入力内容の検証に失敗しました。",
 };
 

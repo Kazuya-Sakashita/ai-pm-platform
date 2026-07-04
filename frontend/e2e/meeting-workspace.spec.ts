@@ -44,6 +44,12 @@ test.describe("Meeting Workspace", () => {
       jobId: string;
     };
   };
+  type DmAnonymizationFailure = {
+    status: number;
+    code: string;
+    message: string;
+    expectedMessage: string;
+  };
 
   const providerFailures: GenerationFailure[] = [
     {
@@ -94,6 +100,119 @@ test.describe("Meeting Workspace", () => {
     await page.getByLabel("原文ログ").fill(rawText);
     await page.getByRole("button", { name: "会議を保存" }).click();
     await expect(page.getByRole("button", { name: new RegExp(meetingTitle) })).toBeVisible();
+  }
+
+  async function mockExistingDmImportForAnonymization(
+    page: Page,
+    options: { deleteFailure?: DmAnonymizationFailure } = {},
+  ) {
+    const now = new Date().toISOString();
+    let deleted = false;
+    let deleteRequestCount = 0;
+    const project = {
+      id: "project-dm-anonymization",
+      name: "DM Anonymization Project",
+      github_repo: "Kazuya-Sakashita/ai-pm-platform",
+      description: "Mocked project for DM anonymization failure paths.",
+      status: "active",
+      created_at: now,
+      updated_at: now,
+    };
+    const conversationImport = {
+      id: "conversation-import-dm-anonymization",
+      project_id: project.id,
+      source_type: "discord_dm_paste",
+      title: "DM匿名化E2E",
+      raw_text: "依頼者: 削除前にキャンセルと失敗を確認する。",
+      redacted_text: "依頼者: 削除前にキャンセルと失敗を確認する。",
+      participants: [{ display_name: "依頼者", role: "requester" }],
+      consent_confirmed: true,
+      consent_statement_version: "discord-dm-manual-import-v1",
+      status: "approved",
+      safety_flags: [],
+      blocked_reasons: [],
+      raw_text_retention_expires_at: now,
+      raw_text_purged_at: null,
+      retention_expires_at: now,
+      anonymized_at: null,
+      created_at: now,
+      updated_at: now,
+    };
+
+    await page.route("**/api/v1/operations/queue-health", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: {
+            status: "healthy",
+            checked_at: now,
+            heartbeat_stale_after_seconds: 60,
+            oldest_unfinished_threshold_seconds: 300,
+            workers: [],
+            queues: [],
+            failed_executions: { count: 0 },
+            failed_job_samples: [],
+            recurring_tasks: [],
+            product_jobs: {
+              by_status: [],
+              recent_failed_count: 0,
+            },
+            warnings: [],
+          },
+        }),
+      });
+    });
+    await page.route("**/api/v1/projects", async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [project] }) });
+    });
+    await page.route(`**/api/v1/projects/${project.id}/meetings`, async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [] }) });
+    });
+    await page.route(`**/api/v1/projects/${project.id}/integrations`, async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [] }) });
+    });
+    await page.route(`**/api/v1/projects/${project.id}/conversation-imports`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: deleted ? [] : [conversationImport], meta: { total_count: deleted ? 0 : 1 } }),
+      });
+    });
+    await page.route(`**/api/v1/conversation-imports/${conversationImport.id}`, async (route) => {
+      if (route.request().method() === "DELETE") {
+        deleteRequestCount += 1;
+        if (options.deleteFailure) {
+          await route.fulfill({
+            status: options.deleteFailure.status,
+            contentType: "application/json",
+            body: JSON.stringify({
+              error: {
+                code: options.deleteFailure.code,
+                message: options.deleteFailure.message,
+              },
+            }),
+          });
+          return;
+        }
+
+        deleted = true;
+        await route.fulfill({ status: 204 });
+        return;
+      }
+
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: conversationImport }) });
+    });
+
+    await page.goto("/");
+    await expect(page.getByRole("heading", { name: project.name })).toBeVisible();
+    await expect(page.getByLabel("DMインポート一覧").getByRole("button", { name: /DM匿名化E2E/ })).toBeVisible();
+    await expect(page.locator("#conversation-import").getByRole("button", { name: "DM匿名化" })).toBeEnabled();
+
+    return {
+      conversationImport,
+      deleteRequestCount: () => deleteRequestCount,
+    };
   }
 
   async function mockGenerationFailure(page: Page, failure: GenerationFailure) {
@@ -955,6 +1074,103 @@ test.describe("Meeting Workspace", () => {
     await page.locator("#conversation-import").getByRole("button", { name: "DM匿名化" }).click();
     await expect(page.locator("header").getByText("DMインポートを匿名化しました")).toBeVisible();
     await expect(page.getByLabel("DMインポート一覧").getByText("DMインポートなし")).toBeVisible();
+  });
+
+  test("does not call DELETE when DM anonymization confirmation is cancelled", async ({ page }) => {
+    const scenario = await mockExistingDmImportForAnonymization(page);
+
+    page.once("dialog", async (dialog) => {
+      expect(dialog.message()).toContain("DMインポートを匿名化");
+      await dialog.dismiss();
+    });
+
+    await page.locator("#conversation-import").getByRole("button", { name: "DM匿名化" }).click();
+
+    expect(scenario.deleteRequestCount()).toBe(0);
+    await expect(page.locator("header").getByText("DMインポートを匿名化しました")).toHaveCount(0);
+    await expect(page.getByLabel("DMインポート一覧").getByText(scenario.conversationImport.title)).toBeVisible();
+    await expect(page.locator("#conversation-import").getByRole("button", { name: "DM匿名化" })).toBeEnabled();
+  });
+
+  test("shows a safe Japanese error when DM anonymization fails", async ({ page }) => {
+    const scenario = await mockExistingDmImportForAnonymization(page, {
+      deleteFailure: {
+        status: 500,
+        code: "conversation_import_anonymization_failed",
+        message: "Conversation import anonymization failed.",
+        expectedMessage: "DMインポートの匿名化に失敗しました。",
+      },
+    });
+
+    page.once("dialog", async (dialog) => {
+      await dialog.accept();
+    });
+    await page.locator("#conversation-import").getByRole("button", { name: "DM匿名化" }).click();
+
+    expect(scenario.deleteRequestCount()).toBe(1);
+    await expect(page.locator("header").getByText("APIエラー")).toBeVisible();
+    await expect(page.locator("section[role='alert']")).toContainText("DMインポートの匿名化に失敗しました。");
+    await expect(page.getByLabel("DMインポート一覧").getByText(scenario.conversationImport.title)).toBeVisible();
+  });
+
+  for (const failure of [
+    {
+      status: 403,
+      code: "conversation_import_forbidden",
+      message: "Conversation import access is forbidden.",
+      expectedMessage: "DMインポートを操作する権限がありません。",
+    },
+    {
+      status: 422,
+      code: "conversation_import_anonymized",
+      message: "Conversation import has been anonymized.",
+      expectedMessage: "DMインポートは匿名化済みです。",
+    },
+  ] satisfies DmAnonymizationFailure[]) {
+    test(`shows safe Japanese copy for DM anonymization ${failure.status} errors`, async ({ page }) => {
+      const scenario = await mockExistingDmImportForAnonymization(page, { deleteFailure: failure });
+
+      page.once("dialog", async (dialog) => {
+        await dialog.accept();
+      });
+      await page.locator("#conversation-import").getByRole("button", { name: "DM匿名化" }).click();
+
+      expect(scenario.deleteRequestCount()).toBe(1);
+      await expect(page.locator("header").getByText("APIエラー")).toBeVisible();
+      await expect(page.locator("section[role='alert']")).toContainText(failure.expectedMessage);
+      await expect(page.getByLabel("DMインポート一覧").getByText(scenario.conversationImport.title)).toBeVisible();
+    });
+  }
+
+  test("keeps DM anonymization controls and retention audit readable on mobile", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 900 });
+    await mockExistingDmImportForAnonymization(page);
+
+    const panel = page.locator("#conversation-import");
+    const anonymizeButton = panel.getByRole("button", { name: "DM匿名化" });
+    const auditBox = panel.locator(".conversation-audit");
+
+    await anonymizeButton.scrollIntoViewIfNeeded();
+    await expect(anonymizeButton).toBeVisible();
+    await auditBox.scrollIntoViewIfNeeded();
+    await expect(auditBox.locator("strong", { hasText: "原文期限" })).toBeVisible();
+    await expect(auditBox.locator("strong", { hasText: "本文期限" })).toBeVisible();
+    await expect(auditBox.locator("strong", { hasText: "匿名化" })).toBeVisible();
+
+    const buttonBox = await anonymizeButton.boundingBox();
+    const auditBoxBounds = await auditBox.boundingBox();
+    expect(buttonBox).not.toBeNull();
+    expect(auditBoxBounds).not.toBeNull();
+
+    const overlaps =
+      buttonBox !== null &&
+      auditBoxBounds !== null &&
+      buttonBox.x < auditBoxBounds.x + auditBoxBounds.width &&
+      buttonBox.x + buttonBox.width > auditBoxBounds.x &&
+      buttonBox.y < auditBoxBounds.y + auditBoxBounds.height &&
+      buttonBox.y + buttonBox.height > auditBoxBounds.y;
+
+    expect(overlaps).toBe(false);
   });
 
   test("shows pending GitHub reconciliation controls and approves a controlled retry", async ({ page }) => {

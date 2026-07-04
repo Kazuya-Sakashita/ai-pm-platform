@@ -49,10 +49,33 @@ DMインポート匿名化導線の失敗系、キャンセル、権限エラー
 
 - `docs/review/20260705_discord_dm_frontend_mvp_review.md`
 - `docs/review/20260705_discord_dm_retention_delete_implementation_review.md`
+- `docs/review/20260705_discord_dm_frontend_failure_path_e2e_review.md`
 
 ## レビュー結果
 
 ISSUE-029の実装レビューでは、匿名化happy pathは合格。ただし失敗系、キャンセル、権限エラー、モバイル表示E2Eが不足しており、復元困難な操作としてはテストが薄いと評価した。
+
+2026-07-05にFrontend E2Eを追加。confirm cancel時にDELETE APIが呼ばれないこと、API 500/403/422で安全な日本語エラーを表示すること、失敗時にDMインポート一覧が残ること、390px mobile幅で匿名化ボタンと保持期限/audit表示が重ならないことを固定した。
+
+良かった点:
+
+- 復元困難な匿名化操作のキャンセル挙動をE2Eで固定した。
+- 権限エラーと状態エラーの日本語safe copyを追加した。
+- モバイル幅で保持期限と匿名化状態を読めることを確認した。
+
+改善点:
+
+- 403はISSUE-030のBackend Policy Object実装前のmock E2Eである。
+- request idやsupport導線は未実装。
+- 320px幅とscreen reader読み上げ順は未検証。
+
+検証結果:
+
+- `git diff --check`: pass
+- `npm run display:check`: Display labels OK
+- `npm run frontend:build`: success
+- `npm run frontend:e2e -- e2e/meeting-workspace.spec.ts --grep "DM anonymization"`: 5 passed
+- GitHub Actions CI: push後に確認予定
 
 ## 優先度
 
@@ -66,7 +89,7 @@ P1
 
 ## 次アクション
 
-1. 既存のDM E2E mockを確認する。
-2. cancel/failure/permission/mobileのテストを追加する。
-3. 必要ならFrontendのerror handlingと表示ラベルを修正する。
-4. 検証結果をISSUE-029へ同期する。
+1. 既存のDM E2E mockを確認する（完了）。
+2. cancel/failure/permission/mobileのテストを追加する（完了）。
+3. 必要ならFrontendのerror handlingと表示ラベルを修正する（完了）。
+4. 検証結果をISSUE-029へ同期する（実施中）。
