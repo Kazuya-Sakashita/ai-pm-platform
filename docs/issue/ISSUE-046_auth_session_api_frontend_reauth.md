@@ -108,3 +108,12 @@ P1
 - admin forced revokeはglobal admin/organization role modelがないため、ISSUE-046ではpublic API化しない。
 - refresh token / external IdP login画面は非スコープであり、後続Issueで扱う。
 - device labelは未実装。raw User-Agentを保存せずに粗いdevice labelを扱う設計が必要である。
+
+## クローズ記録
+
+- GitHub Issue状態: CLOSED
+- GitHub Issue URL: https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/46
+- PR: https://github.com/Kazuya-Sakashita/ai-pm-platform/pull/51
+- Merge commit: `04ccaa4`
+- クローズ確認日時: 2026-07-06 07:22:35 JST
+- クローズ理由: Auth session APIs、Frontend再ログイン導線、session revoke/logout everywhere、safe auth lock E2E、レビュー保存が完了したため。
