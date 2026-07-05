@@ -379,14 +379,93 @@ RSpec.describe "API V1 Conversation Imports", type: :request do
   end
 
   describe "project membership policy" do
-    it "requires an actor header for DM access" do
+    it "requires authentication for DM access" do
       conversation_import = create(:conversation_import)
 
       get "/api/v1/conversation-imports/#{conversation_import.id}"
 
       expect(response).to have_http_status(:unauthorized)
-      expect(JSON.parse(response.body).dig("error", "code")).to eq("conversation_import_actor_required")
+      expect(JSON.parse(response.body).dig("error", "code")).to eq("authentication_required")
       expect(response.body).not_to include(conversation_import.raw_text)
+    end
+
+    it "rejects malformed bearer tokens without exposing DM body" do
+      conversation_import = create(:conversation_import, raw_text: "token失敗時に見せないDM本文")
+
+      get "/api/v1/conversation-imports/#{conversation_import.id}", headers: { "Authorization" => "Bearer not-a-jwt" }
+
+      expect(response).to have_http_status(:unauthorized)
+      expect(JSON.parse(response.body).dig("error", "code")).to eq("invalid_token")
+      expect(response.body).not_to include("token失敗時に見せないDM本文")
+    end
+
+    it "rejects bearer tokens with a bad signature" do
+      conversation_import = create(:conversation_import)
+      authorize_project(conversation_import.project)
+      token = jwt_token(actor_id: "dm-editor", secret: "wrong-secret")
+
+      get "/api/v1/conversation-imports/#{conversation_import.id}", headers: { "Authorization" => "Bearer #{token}" }
+
+      expect(response).to have_http_status(:unauthorized)
+      expect(JSON.parse(response.body).dig("error", "code")).to eq("invalid_token")
+    end
+
+    it "rejects bearer tokens with an unexpected algorithm" do
+      conversation_import = create(:conversation_import)
+      authorize_project(conversation_import.project)
+      token = jwt_token(actor_id: "dm-editor", algorithm: "none")
+
+      get "/api/v1/conversation-imports/#{conversation_import.id}", headers: { "Authorization" => "Bearer #{token}" }
+
+      expect(response).to have_http_status(:unauthorized)
+      expect(JSON.parse(response.body).dig("error", "code")).to eq("invalid_token")
+    end
+
+    it "rejects expired bearer tokens" do
+      conversation_import = create(:conversation_import)
+      authorize_project(conversation_import.project)
+
+      get "/api/v1/conversation-imports/#{conversation_import.id}", headers: actor_headers("dm-editor", expires_at: 1.hour.ago)
+
+      expect(response).to have_http_status(:unauthorized)
+      expect(JSON.parse(response.body).dig("error", "code")).to eq("token_expired")
+    end
+
+    it "rejects bearer tokens that are not active yet" do
+      conversation_import = create(:conversation_import)
+      authorize_project(conversation_import.project)
+
+      get "/api/v1/conversation-imports/#{conversation_import.id}", headers: actor_headers("dm-editor", not_before: 1.hour.from_now)
+
+      expect(response).to have_http_status(:unauthorized)
+      expect(JSON.parse(response.body).dig("error", "code")).to eq("token_not_yet_valid")
+    end
+
+    it "rejects bearer tokens with the wrong issuer or audience" do
+      conversation_import = create(:conversation_import)
+      authorize_project(conversation_import.project)
+
+      get "/api/v1/conversation-imports/#{conversation_import.id}", headers: actor_headers("dm-editor", issuer: "wrong-issuer")
+      expect(response).to have_http_status(:unauthorized)
+      expect(JSON.parse(response.body).dig("error", "code")).to eq("invalid_token")
+
+      get "/api/v1/conversation-imports/#{conversation_import.id}", headers: actor_headers("dm-editor", audience: "wrong-audience")
+      expect(response).to have_http_status(:unauthorized)
+      expect(JSON.parse(response.body).dig("error", "code")).to eq("invalid_token")
+    end
+
+    it "ignores spoofed X-Actor-Id when a bearer token is present" do
+      conversation_import = create(:conversation_import)
+      authorize_project(conversation_import.project, actor_id: "real-viewer", role: "viewer")
+      authorize_project(conversation_import.project, actor_id: "spoofed-owner", role: "owner")
+
+      patch "/api/v1/conversation-imports/#{conversation_import.id}", params: {
+        title: "spoofed update"
+      }, headers: actor_headers("real-viewer").merge("X-Actor-Id" => "spoofed-owner")
+
+      expect(response).to have_http_status(:forbidden)
+      expect(JSON.parse(response.body).dig("error", "code")).to eq("conversation_import_forbidden")
+      expect(conversation_import.reload.title).not_to eq("spoofed update")
     end
 
     it "rejects a non-member without exposing DM body" do
@@ -422,19 +501,11 @@ RSpec.describe "API V1 Conversation Imports", type: :request do
     end
   end
 
-  def actor_headers(actor_id = "dm-editor")
-    { "X-Actor-Id" => actor_id }
+  def actor_headers(actor_id = "dm-editor", **options)
+    auth_headers(actor_id, **options)
   end
 
   def authorize_project(project, actor_id: "dm-editor", role: "editor")
     create(:project_membership, project: project, actor_id: actor_id, role: role)
-  end
-
-  def with_env(values)
-    originals = values.keys.to_h { |key| [key, ENV[key]] }
-    values.each { |key, value| value.nil? ? ENV.delete(key) : ENV[key] = value }
-    yield
-  ensure
-    originals.each { |key, value| value.nil? ? ENV.delete(key) : ENV[key] = value }
   end
 end

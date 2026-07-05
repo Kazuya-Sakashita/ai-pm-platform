@@ -30,6 +30,12 @@ const messageLabels: Record<string, string> = {
   "Conversation import anonymization failed.": "DMインポートの匿名化に失敗しました。時間を置いて再試行してください。",
   "Conversation import access is forbidden.": "DMインポートを操作する権限がありません。",
   "Conversation import actor is required.": "DMインポート操作には利用者情報が必要です。",
+  "Authentication is required.": "ログインが必要です。もう一度ログインしてください。",
+  "Authentication token is invalid.": "ログイン情報が無効です。もう一度ログインしてください。",
+  "Authentication token has expired.": "ログインの有効期限が切れました。もう一度ログインしてください。",
+  "Authentication token is not active yet.": "ログイン情報がまだ有効ではありません。時間を確認して再ログインしてください。",
+  "Authentication is not configured.": "認証設定が未完了です。管理者に確認してください。",
+  "Project access is forbidden.": "このプロジェクトを操作する権限がありません。",
   "Validation failed": "入力内容の検証に失敗しました。",
 };
 
