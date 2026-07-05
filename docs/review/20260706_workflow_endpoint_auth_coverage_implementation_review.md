@@ -1,4 +1,4 @@
-# Workflow endpoint auth coverage implementation review
+# ワークフローエンドポイント認可カバレッジ実装レビュー
 
 ## 評価日時
 
@@ -6,7 +6,7 @@
 
 ## 評価担当
 
-Codex Review Orchestrator / Security Engineer / Backend Architect / Frontend Architect / QA / Tech Lead
+Codexレビュー統括 / Security Engineer / Backend Architect / Frontend Architect / QA / Tech Lead
 
 外部AIレビュー: Claude/ChatGPTレビューは未実施。現時点ではCodex一次レビューとして保存し、外部AIレビュー結果が追加された場合は差分分析を追記する。
 
@@ -45,7 +45,7 @@ ISSUE-048 / GitHub #48
 
 ## 良かった点
 
-- ProjectMembershipをworkflow endpointsの共通authorization境界として採用し、read/write/review/admin相当のrole policyを `ApplicationController` に集約した。
+- ProjectMembershipをワークフローエンドポイントの共通authorization境界として採用し、read/write/review/admin相当のrole policyを `ApplicationController` に集約した。
 - Meetings、Minutes、Requirements、IssueDrafts、OpenApiDrafts、IntegrationAccounts、Reviews、Jobs、Operationsの未認証/非member/cross-project/role不足をrequest specで固定した。
 - GitHub publish/reconciliation、integration connect/disconnect、operations queue healthなど外部副作用または運用情報を伴う操作をowner/adminへ限定した。
 - Reviewsはtarget resourceからprojectを推定し、globalなlist/createを避ける実装に変えた。
@@ -97,9 +97,9 @@ ISSUE-048 / GitHub #48
 
 | 項目 | 評価 |
 | --- | --- |
-| Goal | Workflow endpointsのauth coverage gapを閉じ、project boundaryを統一する |
+| Goal | ワークフローエンドポイントの認可カバレッジ不足を閉じ、project boundaryを統一する |
 | Strategy | ProjectMembership role policyを共通化し、controllerごとにresourceからprojectを辿って認可する |
-| Tactics | coverage matrix、OpenAPI更新、request spec、Frontend queue health更新、E2E検証 |
+| Tactics | 認可カバレッジ表、OpenAPI更新、request spec、Frontend queue health更新、E2E検証 |
 | Assessment | ISSUE-048のMVPは満たした。global/organization RBAC、external AI review、policy object化は後続課題 |
 | Conclusion | PR化してよい |
 | Knowledge | 古いAPIを保護する時は認証追加だけでは不十分で、resourceのproject所属と副作用の強さに応じたrole gateが必要 |
@@ -108,7 +108,7 @@ ISSUE-048 / GitHub #48
 
 | Threat | 実装対応 |
 | --- | --- |
-| Spoofing | Protected workflow endpointsはactor authを必須化した |
+| Spoofing | 保護対象のワークフローエンドポイントはactor authを必須化した |
 | Tampering | create/update/generate/publish/reconcileをwrite/admin roleで制限した |
 | Repudiation | 主要な生成/承認/外部連携操作でactor_idをaudit logに渡すようにした |
 | Information Disclosure | read endpointsをproject member限定にし、Jobs/Operations/Reviewsのglobal exposureを閉じた |
