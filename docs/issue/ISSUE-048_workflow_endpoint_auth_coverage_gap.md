@@ -9,6 +9,8 @@ ISSUE-048
 https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/48
 
 登録日: 2026-07-06
+状態: CLOSED
+クローズ日時: 2026-07-06 08:11:45 JST
 
 ## 背景
 
