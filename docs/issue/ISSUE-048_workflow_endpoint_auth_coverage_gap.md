@@ -1,4 +1,4 @@
-# ISSUE-048: Workflow endpointsのauth coverage gapを解消する
+# ISSUE-048: ワークフローエンドポイントの認可カバレッジ不足を解消する
 
 ## Issue番号
 
@@ -14,15 +14,15 @@ https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/48
 
 ## 背景
 
-ISSUE-039とISSUE-040でJWT actor identityとProjectMembership管理を導入したが、古いworkflow endpointsには未認証またはproject authorizationが弱いpathが残っている。Backend/Auth Architect Agentは、Meetings、Minutes、Requirements、IssueDrafts、OpenApiDrafts、Integrations、Reviews、Jobs、Operations周辺のauth coverage gapを別Issueとして解消すべきと指摘した。
+ISSUE-039とISSUE-040でJWT actor identityとProjectMembership管理を導入したが、古いワークフローエンドポイントには未認証またはproject authorizationが弱いpathが残っている。Backend/Auth Architect Agentは、Meetings、Minutes、Requirements、IssueDrafts、OpenApiDrafts、Integrations、Reviews、Jobs、Operations周辺の認可カバレッジ不足を別Issueとして解消すべきと指摘した。
 
 ## 目的
 
-既存workflow endpointsの認証/認可coverageを洗い出し、OpenAPI、request specs、Frontend影響を含めて統一的に解消する。
+既存ワークフローエンドポイントの認証/認可カバレッジを洗い出し、OpenAPI、request specs、Frontend影響を含めて統一的に解消する。
 
 ## 完了条件
 
-- 対象controllerごとのauth coverage matrixがある
+- 対象controllerごとの認可カバレッジ表がある
 - 未認証path、project ownership不明path、role不足pathが分類されている
 - OpenAPI security/401/403 contractが実装と一致している
 - request specで未認証、非member、role不足、cross-project拒否を検証している
@@ -62,7 +62,7 @@ ISSUE-039とISSUE-040でJWT actor identityとProjectMembership管理を導入し
 
 ## レビュー結果
 
-Backend/Auth Architect Agentは、ProjectMembershipで保護済みの新しいDM系APIと比較して、古いworkflow endpointsのauth coverageが不均一であると指摘した。ISSUE-045とは分離し、認証基盤の成熟後に既存API全体のcoverageを揃える。
+Backend/Auth Architect Agentは、ProjectMembershipで保護済みの新しいDM系APIと比較して、古いワークフローエンドポイントの認可カバレッジが不均一であると指摘した。ISSUE-045とは分離し、認証基盤の成熟後に既存API全体のカバレッジを揃える。
 
 2026-07-06 実装レビュー:
 
@@ -81,13 +81,13 @@ P1
 
 理由:
 
-- endpointごとのauth差分は権限昇格と情報漏えいの原因になる
+- endpointごとの認可差分は権限昇格と情報漏えいの原因になる
 - OpenAPIと実装の乖離を放置するとAPI駆動開発の信頼が落ちる
-- enterprise SaaSではauth coverage matrixとrequest specが必要である
+- enterprise SaaSでは認可カバレッジ表とrequest specが必要である
 
 ## 次アクション
 
-1. controllerごとのauth coverage matrixを作成する。
+1. controllerごとの認可カバレッジ表を作成する。
 2. OpenAPI security contractをレビューする。
 3. request specを先に追加してから実装を修正する。
 
@@ -97,7 +97,7 @@ P1
 
 ### 主な変更
 
-- Workflow endpointsをProjectMembership境界で保護した。
+- ワークフローエンドポイントをProjectMembership境界で保護した。
 - read/write/review/admin相当のrole policyを共通化した。
 - 外部副作用のあるGitHub publish/reconciliation、integration connect/disconnect、operations queue healthをowner/adminへ限定した。
 - OpenAPI contractとgenerated frontend schemaを更新した。
