@@ -9,6 +9,9 @@ ISSUE-039
 https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/39
 
 登録日: 2026-07-05
+クローズ日: 2026-07-05
+クローズPR: https://github.com/Kazuya-Sakashita/ai-pm-platform/pull/43
+マージcommit: 5723385910ff1ac27fe7929b942a05bc7cd8ef20
 
 ## 背景
 
