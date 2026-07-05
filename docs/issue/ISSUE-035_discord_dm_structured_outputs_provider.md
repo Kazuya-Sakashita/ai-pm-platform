@@ -75,6 +75,7 @@ Codex一次レビューでは、deterministic providerはMVP開発とCI安定性
 - `npm run frontend:build`: success
 - `bundle exec rspec`: 194 examples, 0 failures
 - `npm run frontend:e2e`: 25 passed
+- GitHub Actions CI `28734063674`: success（commit `5dbe0a5`）
 
 補足: 実OpenAI API smokeは未実施。通常CIでは外部OpenAI通信を行わず、manual smoke手順を `docs/ai/20260705_discord_dm_structured_outputs_provider.md` に保存した。
 
@@ -90,6 +91,5 @@ P1
 
 ## 次アクション
 
-1. GitHub Issue #35へ実装結果を同期する。
-2. CI成功後にGitHub Issue #35をcloseする。
-3. 次の推奨順としてISSUE-039またはISSUE-036へ進む。
+1. GitHub Issue #35をcloseする。
+2. 次の推奨順としてISSUE-039またはISSUE-036へ進む。

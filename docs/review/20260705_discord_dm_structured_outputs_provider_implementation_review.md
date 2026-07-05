@@ -75,6 +75,7 @@ Codex as Product Owner / CTO / Tech Lead / AI Architect / Backend Architect / Se
 - `npm run frontend:build`: success
 - `bundle exec rspec`: 194 examples, 0 failures
 - `npm run frontend:e2e`: 25 passed
+- GitHub Actions CI `28734063674`: success（commit `5dbe0a5`）
 
 補足: 最初の `npm run frontend:e2e` はRails API `127.0.0.1:3001` 未起動のため実APIケースが失敗した。Rails APIを起動後、同じE2E全体を再実行し25 passedを確認した。
 
