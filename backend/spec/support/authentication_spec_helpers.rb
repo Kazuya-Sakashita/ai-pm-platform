@@ -11,6 +11,10 @@ module AuthenticationSpecHelpers
     { "X-Actor-Id" => actor_id }
   end
 
+  def authorize_project(project, actor_id: "dm-editor", role: "editor")
+    create(:project_membership, project: project, actor_id: actor_id, role: role)
+  end
+
   def jwt_token(
     actor_id: "dm-editor",
     secret: Authentication::JwtVerifier::DEVELOPMENT_SECRET,

@@ -2,24 +2,34 @@ module Api
   module V1
     class ReviewsController < ApplicationController
       def index
-        reviews = Review.order(created_at: :desc)
-        reviews = reviews.where(target_type: params[:target_type]) if params[:target_type].present?
-        reviews = reviews.where(target_id: params[:target_id]) if params[:target_id].present?
+        return unless require_actor!(action: "review_read")
+
+        reviews = scoped_reviews_for_read
+        return unless reviews
 
         render json: { data: reviews.map(&:api_json), meta: pagination_meta(reviews) }
       end
 
       def create
+        return unless require_actor!(action: "review_create")
+        target_project = project_for_review_target(params[:target_type], params[:target_id])
+        return unless target_project
+        return unless authorize_project_role!(target_project, action: "review_create", allowed_roles: project_review_roles)
+
         review = Review.create!(review_params.merge(status: "open"))
         render json: { data: review.api_json }, status: :created
       end
 
       def resolve_action
+        return unless authorize_review!("review_resolve", project_review_roles)
+
         review.update!(status: "resolved", resolution_note: params.require(:resolution_note))
         render json: { data: review.api_json }
       end
 
       def accept_risk
+        return unless authorize_review!("review_accept_risk", project_review_roles)
+
         review.update!(
           status: "accepted_risk",
           accepted_risk: {
@@ -38,6 +48,80 @@ module Api
 
       def review
         @review ||= Review.find(params[:id])
+      end
+
+      def authorize_review!(action, allowed_roles)
+        return false unless require_actor!(action: action)
+
+        target_project = project_for_review_target(review.target_type, review.target_id)
+        return false unless target_project
+
+        authorize_project_role!(target_project, action: action, allowed_roles: allowed_roles)
+      end
+
+      def scoped_reviews_for_read
+        if params[:target_type].present? || params[:target_id].present?
+          target_project = project_for_review_target(params[:target_type], params[:target_id])
+          return nil unless target_project
+          return nil unless authorize_project_role!(target_project, action: "review_read", allowed_roles: project_read_roles)
+
+          return Review.where(target_type: params[:target_type], target_id: params[:target_id]).order(created_at: :desc)
+        end
+
+        return nil if params[:project_id].blank? && render_project_required
+
+        project = Project.find(params[:project_id])
+        return nil unless authorize_project_role!(project, action: "review_read", allowed_roles: project_read_roles)
+
+        Review.order(created_at: :desc).select { |candidate| review_belongs_to_project?(candidate, project) }
+      end
+
+      def review_belongs_to_project?(candidate, project)
+        project_for_review_target(candidate.target_type, candidate.target_id, render_errors: false)&.id == project.id
+      rescue ActiveRecord::RecordNotFound
+        false
+      end
+
+      def project_for_review_target(target_type, target_id, render_errors: true)
+        if target_type.blank? || target_id.blank?
+          render_review_target_required if render_errors
+          return nil
+        end
+
+        case target_type
+        when "meeting"
+          Meeting.find(target_id).project
+        when "minutes"
+          Minute.find(target_id).meeting.project
+        when "requirement"
+          Requirement.find(target_id).minute.meeting.project
+        when "issue_draft"
+          IssueDraft.find(target_id).requirement.minute.meeting.project
+        when "openapi_draft"
+          OpenApiDraft.find(target_id).requirement.minute.meeting.project
+        else
+          render_review_target_required if render_errors
+          nil
+        end
+      end
+
+      def render_project_required
+        render_error(
+          "validation_error",
+          "project_id is required when no review target is specified.",
+          :unprocessable_entity,
+          { parameter: "project_id" }
+        )
+        true
+      end
+
+      def render_review_target_required
+        render_error(
+          "validation_error",
+          "Review target must belong to a project-scoped workflow resource.",
+          :unprocessable_entity,
+          { supported_target_types: %w[meeting minutes requirement issue_draft openapi_draft] }
+        )
       end
 
       def review_params

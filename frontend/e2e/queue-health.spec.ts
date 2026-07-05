@@ -30,7 +30,7 @@ test.describe("Queue health operations panel", () => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [] }) });
     });
 
-    await page.route("**/api/v1/operations/queue-health", async (route) => {
+    await page.route("**/api/v1/operations/queue-health**", async (route) => {
       queueHealthRequests += 1;
       const healthy = queueHealthRequests > 1;
 

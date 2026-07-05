@@ -103,7 +103,7 @@ async function mockBaseWorkspace(page: Page, options: { projectAuthError?: strin
     });
   });
 
-  await page.route("**/api/v1/operations/queue-health", async (route) => {
+  await page.route("**/api/v1/operations/queue-health**", async (route) => {
     if (options.queueAuthError) {
       await route.fulfill({
         status: 401,

@@ -348,6 +348,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MeetingListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
     post:
@@ -369,6 +373,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MeetingResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "422":
           $ref: "#/components/responses/ValidationError"
 
@@ -633,6 +643,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MeetingResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -651,6 +665,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GenerationJobResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "422":
@@ -676,6 +694,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MinutesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
     patch:
@@ -697,6 +719,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MinutesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "422":
@@ -716,6 +742,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MinutesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
@@ -736,6 +766,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GenerationJobResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "409":
           $ref: "#/components/responses/ReviewRequired"
 
@@ -753,6 +787,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RequirementResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
     patch:
@@ -774,6 +812,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RequirementResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "422":
           $ref: "#/components/responses/ValidationError"
 
@@ -791,6 +835,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RequirementResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
@@ -811,6 +859,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GenerationJobResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/ReviewRequired"
 
@@ -829,6 +883,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GenerationJobResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/ReviewRequired"
 
@@ -846,6 +906,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/IssueDraftResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
     patch:
@@ -867,6 +931,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/IssueDraftResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "422":
           $ref: "#/components/responses/ValidationError"
 
@@ -885,6 +955,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PublishGitHubIssueResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/ReviewRequired"
         "424":
@@ -905,6 +981,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ReconcileGitHubIssueResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/ReviewRequired"
         "424":
@@ -935,6 +1017,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ResolveGitHubReconciliationResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/ReviewRequired"
         "422":
@@ -954,6 +1042,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/OpenApiDraftResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
     patch:
@@ -975,6 +1067,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/OpenApiDraftResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "422":
           $ref: "#/components/responses/ValidationError"
 
@@ -992,6 +1090,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/OpenApiValidationResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -1003,6 +1105,7 @@ paths:
       parameters:
         - $ref: "#/components/parameters/Page"
         - $ref: "#/components/parameters/PerPage"
+        - $ref: "#/components/parameters/ProjectIdQueryOptional"
         - name: target_type
           in: query
           required: false
@@ -1022,6 +1125,12 @@ paths:
                 $ref: "#/components/schemas/ReviewListResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
     post:
       tags: [Reviews]
       summary: Create review
@@ -1039,6 +1148,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ReviewResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "422":
           $ref: "#/components/responses/ValidationError"
 
@@ -1062,6 +1177,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ReviewResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "422":
@@ -1087,6 +1206,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ReviewResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "422":
           $ref: "#/components/responses/ValidationError"
 
@@ -1110,6 +1235,10 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/IntegrationAccount"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -1133,6 +1262,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StartGitHubConnectionResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "422":
           $ref: "#/components/responses/ValidationError"
 
@@ -1151,6 +1286,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/IntegrationAccountResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -1227,6 +1366,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/JobResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -1235,6 +1378,8 @@ paths:
       tags: [Operations]
       summary: Get read-only queue health
       operationId: getQueueHealth
+      parameters:
+        - $ref: "#/components/parameters/ProjectIdQuery"
       responses:
         "200":
           description: Queue health summary
@@ -1242,6 +1387,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/QueueHealthResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationError"
         "429":
           $ref: "#/components/responses/RateLimited"
 
@@ -1281,6 +1432,21 @@ components:
       name: project_id
       in: path
       required: true
+      schema:
+        type: string
+        format: uuid
+    ProjectIdQuery:
+      name: project_id
+      in: query
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ProjectIdQueryOptional:
+      name: project_id
+      in: query
+      required: false
+      description: Required when no review target_type/target_id filter is provided.
       schema:
         type: string
         format: uuid

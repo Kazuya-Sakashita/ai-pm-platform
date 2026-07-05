@@ -1709,6 +1709,9 @@ export interface components {
     };
     parameters: {
         ProjectId: string;
+        ProjectIdQuery: string;
+        /** @description Required when no review target_type/target_id filter is provided. */
+        ProjectIdQueryOptional: string;
         AuthSessionId: string;
         MembershipId: string;
         MeetingId: string;
@@ -2110,6 +2113,8 @@ export interface operations {
                     "application/json": components["schemas"]["MeetingListResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -2137,6 +2142,9 @@ export interface operations {
                     "application/json": components["schemas"]["MeetingResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             422: components["responses"]["ValidationError"];
         };
     };
@@ -2443,6 +2451,8 @@ export interface operations {
                     "application/json": components["schemas"]["MeetingResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -2468,6 +2478,8 @@ export interface operations {
                     "application/json": components["schemas"]["GenerationJobResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             422: components["responses"]["ValidationError"];
             424: components["responses"]["IntegrationNotConnected"];
@@ -2495,6 +2507,8 @@ export interface operations {
                     "application/json": components["schemas"]["MinutesResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -2522,6 +2536,8 @@ export interface operations {
                     "application/json": components["schemas"]["MinutesResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             422: components["responses"]["ValidationError"];
         };
@@ -2546,6 +2562,8 @@ export interface operations {
                     "application/json": components["schemas"]["MinutesResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["ReviewRequired"];
         };
@@ -2572,6 +2590,8 @@ export interface operations {
                     "application/json": components["schemas"]["GenerationJobResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             409: components["responses"]["ReviewRequired"];
         };
     };
@@ -2595,6 +2615,8 @@ export interface operations {
                     "application/json": components["schemas"]["RequirementResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -2622,6 +2644,9 @@ export interface operations {
                     "application/json": components["schemas"]["RequirementResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             422: components["responses"]["ValidationError"];
         };
     };
@@ -2645,6 +2670,8 @@ export interface operations {
                     "application/json": components["schemas"]["RequirementResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["ReviewRequired"];
         };
@@ -2671,6 +2698,9 @@ export interface operations {
                     "application/json": components["schemas"]["GenerationJobResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             409: components["responses"]["ReviewRequired"];
         };
     };
@@ -2696,6 +2726,9 @@ export interface operations {
                     "application/json": components["schemas"]["GenerationJobResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             409: components["responses"]["ReviewRequired"];
         };
     };
@@ -2719,6 +2752,8 @@ export interface operations {
                     "application/json": components["schemas"]["IssueDraftResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -2746,6 +2781,9 @@ export interface operations {
                     "application/json": components["schemas"]["IssueDraftResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             422: components["responses"]["ValidationError"];
         };
     };
@@ -2771,6 +2809,9 @@ export interface operations {
                     "application/json": components["schemas"]["PublishGitHubIssueResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             409: components["responses"]["ReviewRequired"];
             424: components["responses"]["IntegrationNotConnected"];
         };
@@ -2797,6 +2838,9 @@ export interface operations {
                     "application/json": components["schemas"]["ReconcileGitHubIssueResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             409: components["responses"]["ReviewRequired"];
             424: components["responses"]["IntegrationNotConnected"];
             429: components["responses"]["RateLimited"];
@@ -2829,6 +2873,9 @@ export interface operations {
                     "application/json": components["schemas"]["ResolveGitHubReconciliationResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             409: components["responses"]["ReviewRequired"];
             422: components["responses"]["ValidationError"];
         };
@@ -2853,6 +2900,8 @@ export interface operations {
                     "application/json": components["schemas"]["OpenApiDraftResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -2880,6 +2929,9 @@ export interface operations {
                     "application/json": components["schemas"]["OpenApiDraftResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             422: components["responses"]["ValidationError"];
         };
     };
@@ -2903,6 +2955,8 @@ export interface operations {
                     "application/json": components["schemas"]["OpenApiValidationResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -2911,6 +2965,8 @@ export interface operations {
             query?: {
                 page?: components["parameters"]["Page"];
                 per_page?: components["parameters"]["PerPage"];
+                /** @description Required when no review target_type/target_id filter is provided. */
+                project_id?: components["parameters"]["ProjectIdQueryOptional"];
                 target_type?: components["schemas"]["ReviewTargetType"];
                 target_id?: string;
             };
@@ -2930,6 +2986,9 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationError"];
         };
     };
     createReview: {
@@ -2954,6 +3013,9 @@ export interface operations {
                     "application/json": components["schemas"]["ReviewResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             422: components["responses"]["ValidationError"];
         };
     };
@@ -2981,6 +3043,8 @@ export interface operations {
                     "application/json": components["schemas"]["ReviewResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             422: components["responses"]["ValidationError"];
         };
@@ -3009,6 +3073,9 @@ export interface operations {
                     "application/json": components["schemas"]["ReviewResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             422: components["responses"]["ValidationError"];
         };
     };
@@ -3034,6 +3101,8 @@ export interface operations {
                     };
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -3061,6 +3130,9 @@ export interface operations {
                     "application/json": components["schemas"]["StartGitHubConnectionResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             422: components["responses"]["ValidationError"];
         };
     };
@@ -3086,6 +3158,8 @@ export interface operations {
                     "application/json": components["schemas"]["IntegrationAccountResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -3171,12 +3245,16 @@ export interface operations {
                     "application/json": components["schemas"]["JobResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
     };
     getQueueHealth: {
         parameters: {
-            query?: never;
+            query: {
+                project_id: components["parameters"]["ProjectIdQuery"];
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -3192,6 +3270,9 @@ export interface operations {
                     "application/json": components["schemas"]["QueueHealthResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationError"];
             429: components["responses"]["RateLimited"];
         };
     };

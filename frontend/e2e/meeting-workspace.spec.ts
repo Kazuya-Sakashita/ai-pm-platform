@@ -139,7 +139,7 @@ test.describe("Meeting Workspace", () => {
       updated_at: now,
     };
 
-    await page.route("**/api/v1/operations/queue-health", async (route) => {
+    await page.route("**/api/v1/operations/queue-health**", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -442,7 +442,7 @@ test.describe("Meeting Workspace", () => {
       ],
     };
 
-    await page.route("**/api/v1/operations/queue-health", async (route) => {
+    await page.route("**/api/v1/operations/queue-health**", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -907,7 +907,7 @@ test.describe("Meeting Workspace", () => {
       },
     ];
 
-    await page.route("**/api/v1/operations/queue-health", async (route) => {
+    await page.route("**/api/v1/operations/queue-health**", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -1068,7 +1068,7 @@ test.describe("Meeting Workspace", () => {
     };
     let latestSummaryDraft: typeof summaryDraft | undefined;
 
-    await page.route("**/api/v1/operations/queue-health", async (route) => {
+    await page.route("**/api/v1/operations/queue-health**", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -1284,7 +1284,7 @@ test.describe("Meeting Workspace", () => {
       updated_at: now,
     };
 
-    await page.route("**/api/v1/operations/queue-health", async (route) => {
+    await page.route("**/api/v1/operations/queue-health**", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",

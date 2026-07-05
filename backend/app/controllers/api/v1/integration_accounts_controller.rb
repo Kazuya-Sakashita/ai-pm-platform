@@ -4,11 +4,17 @@ module Api
   module V1
     class IntegrationAccountsController < ApplicationController
       def index
+        return unless require_actor!(action: "integration_read")
+        return unless authorize_project_role!(project, action: "integration_read", allowed_roles: project_read_roles)
+
         accounts = project.integration_accounts.order(created_at: :desc)
         render json: { data: accounts.map(&:api_json) }
       end
 
       def start_github_connection
+        return unless require_actor!(action: "integration_connect")
+        return unless authorize_project_role!(project, action: "integration_connect", allowed_roles: project_admin_roles)
+
         repository = normalized_repository(params.require(:repository))
         return render_repository_mismatch(repository) unless repository_allowed?(repository)
 
@@ -22,6 +28,7 @@ module Api
           project: project,
           action: "github.connect.started",
           target: project,
+          actor_id: current_actor_id,
           metadata: { repository: repository }
         )
 
@@ -88,6 +95,9 @@ module Api
       end
 
       def disconnect_github
+        return unless require_actor!(action: "integration_disconnect")
+        return unless authorize_project_role!(project, action: "integration_disconnect", allowed_roles: project_admin_roles)
+
         account = project.integration_accounts
                          .where(provider: "github")
                          .order(updated_at: :desc)
@@ -102,6 +112,7 @@ module Api
           project: project,
           action: "github.disconnect",
           target: account,
+          actor_id: current_actor_id,
           metadata: { repository: account.github_repository }
         )
 
