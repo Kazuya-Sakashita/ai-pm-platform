@@ -82,7 +82,7 @@ Codex一次レビューでは、ISSUE-022のFrontend MVPは条件付き合格。
 
 2026-07-05にISSUE-032でsummary draft派生データ保護を実装した。`summary`、候補JSON、`participants`、`source_quotes`、`validation_errors` を **Confidential / Derived Sensitive Data** と分類し、`conversation_summary_drafts.protected_payload` へActive Record Encryptionで集約した。旧 `summary` / JSONB列は互換用に残しつつ、保存時は `暗号化済み` と空配列へ無害化する。GitHub #32はクローズ済み。検証: `bundle exec rspec` 170 examples, 0 failures / `npm run api:verify` success / CI `28725428860` success。
 
-2026-07-05にISSUE-030でDM系APIのproject membership/Policy Objectを実装した。`project_memberships`、`ConversationImportPolicy`、`X-Actor-Id` 暫定actor、safe 401/403、AuditLog actor接続を追加し、DM閲覧/作成/更新/安全チェック/AI整理/承認/匿名化をrole別に制御した。実認証/JWT接続とmembership管理APIは継続課題。
+2026-07-05にISSUE-030でDM系APIのproject membership/Policy Objectを実装した。`project_memberships`、`ConversationImportPolicy`、`X-Actor-Id` 暫定actor、safe 401/403、AuditLog actor接続を追加し、DM閲覧/作成/更新/安全チェック/AI整理/承認/匿名化をrole別に制御した。GitHub #30はクローズ済み。実認証/JWT接続とmembership管理APIは継続課題。
 
 良かった点:
 
@@ -115,7 +115,8 @@ Codex一次レビューでは、ISSUE-022のFrontend MVPは条件付き合格。
 - ISSUE-034完了同期コメント: `https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/29#issuecomment-4884039933`
 - ISSUE-032検証: `bundle exec rails db:migrate` success、`bundle exec rspec` 170 examples, 0 failures、`npm run api:verify` success、GitHub Actions CI `28725428860` success
 - ISSUE-032完了同期コメント: `https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/29#issuecomment-4884385285`
-- ISSUE-030検証: `bundle exec rails db:migrate` success、`bundle exec rspec` 175 examples, 0 failures、`npm run api:verify` success、`npm run frontend:build` success
+- ISSUE-030検証: `bundle exec rails db:migrate` success、`bundle exec rspec` 175 examples, 0 failures、`npm run api:verify` success、`npm run frontend:build` success、GitHub Actions CI `28732661801` success
+- ISSUE-030完了同期コメント: `https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/29#issuecomment-4885166477`
 
 ## 優先度
 
@@ -129,7 +130,7 @@ P0
 
 ## 次アクション
 
-1. ISSUE-030でproject membership/Policy Objectを設計・実装する（2026-07-05実装完了、GitHub #30クローズ予定）。
+1. ISSUE-030でproject membership/Policy Objectを設計・実装する（2026-07-05完了、GitHub #30クローズ済み）。
 2. ISSUE-031でkey rotation、KMS、backup削除方針ADRを追加する（2026-07-05完了、GitHub #31クローズ済み）。
 3. ISSUE-032でsummary draft JSON本文の暗号化可否を検証する（2026-07-05完了、GitHub #32クローズ済み）。
 4. ISSUE-033でretention jobをstaging worker smoke runbookへ追加する（2026-07-05完了、GitHub #33クローズ済み。実staging/prod証跡は未取得）。

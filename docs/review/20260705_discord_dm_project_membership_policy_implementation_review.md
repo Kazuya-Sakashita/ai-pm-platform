@@ -62,6 +62,7 @@ Codex / Security Engineer / CTO / Backend Architect / Frontend Architect / QA / 
 - `npm run api:verify`: success
 - `npm run display:check`: success
 - `npm run frontend:build`: success
+- GitHub Actions CI `28732661801`: success（commit `80caf2c`）
 
 補足: `npm run api:verify` で Node `v22.7.0` が期待範囲 `>=22.12.0 || >=20.19.0 <21.0.0` を満たさない警告とRedocly CLI更新通知が出たが、OpenAPI lintとtype生成は成功した。
 
@@ -73,7 +74,7 @@ Codex / Security Engineer / CTO / Backend Architect / Frontend Architect / QA / 
 | Strategy | DM系APIへ限定してPolicy Objectを導入し、既存MVPの破壊範囲を抑える |
 | Tactics | `project_memberships`、`ConversationImportPolicy`、safe 401/403、AuditLog actor、OpenAPI header、Frontend header |
 | Assessment | Broken Access ControlのP0リスクは低下。実認証と横展開は残る |
-| Conclusion | ISSUE-030はCI確認後に完了可能 |
+| Conclusion | ISSUE-030は完了可能。実認証/JWT接続とmembership管理APIは後続課題 |
 | Knowledge | OWASP A01、STRIDE、ISSUE-029/032のデータ保護方針 |
 
 ## STRIDE
@@ -98,9 +99,9 @@ Codex / Security Engineer / CTO / Backend Architect / Frontend Architect / QA / 
 
 ## 次アクション
 
-1. GitHub Issue #30へ実装結果とCI結果を同期してクローズする。
-2. ISSUE-029とISSUE-006へ完了結果を同期する。
-3. 次の推奨順としてProject membership管理APIまたは実認証/JWT接続をIssue化する。
+1. 次の推奨順としてProject membership管理APIまたは実認証/JWT接続をIssue化する。
+2. DM以外のMeeting/Requirement/GitHub連携APIへPolicy Objectを横展開する。
+3. role別UI disable/権限メタデータを設計する。
 
 ## Issue番号
 

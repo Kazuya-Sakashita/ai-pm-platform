@@ -50,7 +50,7 @@ OAuth、認証、権限、監査ログ、秘密情報検出、データ保持の
 
 P0として必須。セキュリティを後から足すとプロダクト価値と信頼を損なう。
 
-2026-07-05にISSUE-030でDiscord DM系APIへproject membership/Policy Objectを導入した。`project_memberships`、`ConversationImportPolicy`、safe 401/403、AuditLog actor接続により、DM閲覧/作成/更新/安全チェック/AI整理/承認/匿名化のBroken Access Controlリスクを下げた。`X-Actor-Id` は暫定actorであり、productionでは認証済みuser idへ置き換える必要がある。
+2026-07-05にISSUE-030でDiscord DM系APIへproject membership/Policy Objectを導入した。`project_memberships`、`ConversationImportPolicy`、safe 401/403、AuditLog actor接続により、DM閲覧/作成/更新/安全チェック/AI整理/承認/匿名化のBroken Access Controlリスクを下げた。GitHub #30はクローズ済み。同期コメント: `https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/6#issuecomment-4885166479`。`X-Actor-Id` は暫定actorであり、productionでは認証済みuser idへ置き換える必要がある。
 
 ## 次アクション
 

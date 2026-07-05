@@ -10,6 +10,10 @@ https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/30
 
 登録日: 2026-07-05
 
+クローズ日: 2026-07-05
+
+クローズ同期コメント: https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/30#issuecomment-4885166480
+
 ## 背景
 
 ISSUE-029でDiscord DM由来テキストの暗号化、保持期限、匿名化API、retention jobは実装された。一方で、現時点のAPIは認証/認可基盤とproject membershipに接続されておらず、誰がDMインポートを閲覧、更新、承認、匿名化できるかがPolicy Objectとして定義されていない。
@@ -77,6 +81,7 @@ ISSUE-029の実装レビューでは、DM本文の暗号化、匿名化、retent
 - `npm run api:verify`: success
 - `npm run display:check`: success
 - `npm run frontend:build`: success
+- GitHub Actions CI `28732661801`: success（commit `80caf2c`）
 
 補足: `npm run api:verify` では Node `v22.7.0` が期待範囲より古い警告とRedocly CLI更新通知が出たが、OpenAPI lint/type生成は成功した。
 
@@ -92,6 +97,6 @@ P0
 
 ## 次アクション
 
-1. GitHub Issue #30へ実装結果とCI結果を同期し、クローズする。
-2. ISSUE-029、ISSUE-006へ完了結果を同期する。
-3. 次の推奨順としてProject membership管理APIまたは実認証/JWT接続をIssue化する。
+1. 次の推奨順としてProject membership管理APIまたは実認証/JWT接続をIssue化する。
+2. DM以外のMeeting/Requirement/GitHub連携APIへPolicy Objectを横展開する。
+3. role別UI disable/権限メタデータを設計する。
