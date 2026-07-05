@@ -10,6 +10,10 @@ https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/38
 
 登録日: 2026-07-05
 
+クローズ日: 2026-07-05
+
+クローズ同期コメント: https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/38#issuecomment-4885242643
+
 ## 背景
 
 ISSUE-022ではDMインポート前後にマスキング入力と安全チェックを行えるようになった。Backend MVPではsecret-like contentと同意不足を中心にブロックしているが、DMには氏名、メールアドレス、電話番号、住所、契約情報、個別事情などPIIが含まれやすい。
@@ -69,6 +73,7 @@ Codex一次レビューでは、現在の安全チェックはMVPとして有効
 - `npm run frontend:build`: success
 - `bundle exec rspec`: 182 examples, 0 failures
 - GitHub Actions CI `28733249235`: success（commit `4962afd`）
+- GitHub Actions CI `28733328816`: success（commit `49320a5`）
 
 補足: `npm run api:verify` では既存のNode `v22.7.0` が期待範囲より古い警告とRedocly CLI更新通知が出たが、OpenAPI lint/type生成は成功した。
 
@@ -84,5 +89,4 @@ P1
 
 ## 次アクション
 
-1. GitHub Issue #38をcloseする。
-2. 次の推奨順としてISSUE-035またはISSUE-039へ進む。
+1. 次の推奨順としてISSUE-035またはISSUE-039へ進む。
