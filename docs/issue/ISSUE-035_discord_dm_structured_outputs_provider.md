@@ -9,6 +9,8 @@ ISSUE-035
 https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/35
 
 登録日: 2026-07-05
+クローズ日: 2026-07-05
+クローズ同期コメント: https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/35#issuecomment-4885325710
 
 ## 背景
 
@@ -76,6 +78,7 @@ Codex一次レビューでは、deterministic providerはMVP開発とCI安定性
 - `bundle exec rspec`: 194 examples, 0 failures
 - `npm run frontend:e2e`: 25 passed
 - GitHub Actions CI `28734063674`: success（commit `5dbe0a5`）
+- GitHub Actions CI `28734135523`: success（commit `1f2b05c`）
 
 補足: 実OpenAI API smokeは未実施。通常CIでは外部OpenAI通信を行わず、manual smoke手順を `docs/ai/20260705_discord_dm_structured_outputs_provider.md` に保存した。
 
@@ -91,5 +94,5 @@ P1
 
 ## 次アクション
 
-1. GitHub Issue #35をcloseする。
+1. GitHub Issue #35はクローズ済み。
 2. 次の推奨順としてISSUE-039またはISSUE-036へ進む。

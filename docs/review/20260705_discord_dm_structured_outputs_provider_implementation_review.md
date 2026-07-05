@@ -62,9 +62,9 @@ Codex as Product Owner / CTO / Tech Lead / AI Architect / Backend Architect / Se
 
 ## 次アクション
 
-1. GitHub Issue #35へ実装結果を同期する。
-2. CI成功後に #35 をcloseする。
-3. 次はproduction blockerを優先するならISSUE-039、UIワークフローを優先するならISSUE-036へ進む。
+1. GitHub Issue #35は実装結果同期とクローズが完了済み。
+2. 次はproduction blockerを優先するならISSUE-039、UIワークフローを優先するならISSUE-036へ進む。
+3. live OpenAI API smokeは通常CIから分離し、手動検証Issueまたはリリース前チェックで扱う。
 
 ## 検証結果
 
@@ -76,6 +76,7 @@ Codex as Product Owner / CTO / Tech Lead / AI Architect / Backend Architect / Se
 - `bundle exec rspec`: 194 examples, 0 failures
 - `npm run frontend:e2e`: 25 passed
 - GitHub Actions CI `28734063674`: success（commit `5dbe0a5`）
+- GitHub Actions CI `28734135523`: success（commit `1f2b05c`）
 
 補足: 最初の `npm run frontend:e2e` はRails API `127.0.0.1:3001` 未起動のため実APIケースが失敗した。Rails APIを起動後、同じE2E全体を再実行し25 passedを確認した。
 
@@ -87,7 +88,7 @@ Codex as Product Owner / CTO / Tech Lead / AI Architect / Backend Architect / Se
 | Strategy | deterministic defaultを維持し、OpenAI経路はENVで明示的に有効化する |
 | Tactics | provider/factory、strict schema、safe error mapping、request_id、spec、manual smoke docs |
 | Assessment | ISSUE-035のstubbed contractとして合格。ただしlive smokeと実データ品質評価は未完了 |
-| Conclusion | #35はCI成功後にclose可能。次は#39または#36へ進む |
+| Conclusion | #35はクローズ済み。次は#39または#36へ進む |
 | Knowledge | AI provider接続は、実API疎通より先に「外部送信条件」「schema」「失敗時監査」を固定すると安全に前進できる |
 
 ## STRIDE / OWASP観点
