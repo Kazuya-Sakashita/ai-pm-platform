@@ -101,3 +101,13 @@ P1
 - live staging dual-verify smokeは、デプロイ済みstaging環境とsecret store injectionが未提供のため未実施。
 - production preflightは実行可能なscriptとして整備済みだが、production deploy workflowへの強制組み込みは環境確定後に実施する。
 - monitoring/alert ruleはrunbook checklistとして定義済みだが、実dashboard/alertの証跡はstaging/production環境で取得する。
+
+## クローズ記録
+
+- GitHub Issue状態: CLOSED
+- GitHub Issue URL: https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/47
+- PR: https://github.com/Kazuya-Sakashita/ai-pm-platform/pull/52
+- Merge commit: `bb42370`
+- main CI: https://github.com/Kazuya-Sakashita/ai-pm-platform/actions/runs/28757260843
+- クローズ確認日時: 2026-07-06 07:39:05 JST
+- クローズ理由: JWT keyring validation gate、CI fixture validation、staging smoke evidence template、production/emergency runbook gate、DevOps/Securityレビュー保存が完了し、GitHub Issue #47がCLOSEDであることを確認したため。
