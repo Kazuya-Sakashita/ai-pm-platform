@@ -10,6 +10,10 @@ https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/32
 
 登録日: 2026-07-05
 
+クローズ日: 2026-07-05
+
+クローズ同期コメント: https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/32#issuecomment-4884385287
+
 ## 背景
 
 ISSUE-029ではDMインポートの `raw_text` / `redacted_text` を暗号化し、summary draftはretention/anonymizationの対象にした。一方で、`conversation_summary_drafts` のJSON本文にはDM由来の整理候補や要約情報が含まれる可能性がある。
@@ -70,6 +74,7 @@ ISSUE-029ではsummary draft JSON本文をretention/anonymizationで保護する
 - `bundle exec rspec spec/models/conversation_summary_draft_spec.rb spec/requests/api/v1/conversation_summary_drafts_spec.rb spec/requests/api/v1/conversation_imports_spec.rb`: 17 examples, 0 failures
 - `bundle exec rspec`: 170 examples, 0 failures
 - `npm run api:verify`: success
+- GitHub Actions CI `28725428860`: success（commit `0546ca6`）
 
 補足: `npm run api:verify` では Node `v22.7.0` が期待範囲より古い警告が出たが、OpenAPI lint/type生成は成功した。
 
@@ -85,6 +90,6 @@ P0
 
 ## 次アクション
 
-1. GitHub Issue #32へ実装結果を同期し、クローズする。
-2. ISSUE-029へsummary draft派生データ保護完了を同期する。
-3. 次の推奨順としてISSUE-030のProject membership/Policy Objectへ進む。
+1. 次の推奨順としてISSUE-030のProject membership/Policy Objectへ進む。
+2. KMS/backup restoreの実運用証跡はISSUE-031系の継続運用で確認する。
+3. summary draft検索要件が出たら、安全な派生index方針を別Issue化する。
