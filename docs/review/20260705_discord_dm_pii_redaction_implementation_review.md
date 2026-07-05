@@ -70,6 +70,7 @@ Codex as Product Owner / CTO / Tech Lead / AI Architect / Backend Architect / Fr
 - `npm run display:check`: success
 - `npm run frontend:build`: success
 - `bundle exec rspec`: 182 examples, 0 failures
+- GitHub Actions CI `28733249235`: success（commit `4962afd`）
 
 補足: `npm run api:verify` では既存のNode `v22.7.0` が期待範囲より古い警告とRedocly CLI更新通知が出たが、OpenAPI lint/type生成は成功した。
 

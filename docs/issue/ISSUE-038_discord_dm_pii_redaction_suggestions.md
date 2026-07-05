@@ -68,6 +68,7 @@ Codex一次レビューでは、現在の安全チェックはMVPとして有効
 - `npm run display:check`: success
 - `npm run frontend:build`: success
 - `bundle exec rspec`: 182 examples, 0 failures
+- GitHub Actions CI `28733249235`: success（commit `4962afd`）
 
 補足: `npm run api:verify` では既存のNode `v22.7.0` が期待範囲より古い警告とRedocly CLI更新通知が出たが、OpenAPI lint/type生成は成功した。
 
@@ -83,6 +84,5 @@ P1
 
 ## 次アクション
 
-1. GitHub Issue #38へ実装結果を同期する。
-2. CI成功後にGitHub Issue #38をcloseする。
-3. 次の推奨順としてISSUE-035またはISSUE-039へ進む。
+1. GitHub Issue #38をcloseする。
+2. 次の推奨順としてISSUE-035またはISSUE-039へ進む。
