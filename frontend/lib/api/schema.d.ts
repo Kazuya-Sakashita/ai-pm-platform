@@ -1495,9 +1495,14 @@ export interface components {
             total_count: number;
             total_pages: number;
         };
+        /**
+         * @description Safe authentication error codes. Clients may use these codes to clear local auth state, prompt re-login, or route administrators to configuration checks. These codes must never expose raw tokens, secrets, signing material, private claims, IP addresses, or User-Agent values.
+         * @enum {string}
+         */
+        AuthErrorCode: "authentication_required" | "authentication_not_configured" | "invalid_token" | "token_expired" | "token_not_yet_valid" | "token_revoked" | "session_not_found" | "session_expired" | "session_revoked" | "session_version_stale" | "signing_key_unknown" | "signing_key_retired" | "signing_key_not_active";
         ErrorResponse: {
             error: {
-                code: string;
+                code: components["schemas"]["AuthErrorCode"] | string;
                 message: string;
                 details?: {
                     [key: string]: unknown;
@@ -1525,7 +1530,7 @@ export interface components {
                 "application/json": components["schemas"]["ErrorResponse"];
             };
         };
-        /** @description Authentication or signature verification failed */
+        /** @description Authentication, token revocation, session validation, or signature verification failed. Error codes must be safe to show and must never include raw tokens, secrets, or private claims. */
         Unauthorized: {
             headers: {
                 [name: string]: unknown;
