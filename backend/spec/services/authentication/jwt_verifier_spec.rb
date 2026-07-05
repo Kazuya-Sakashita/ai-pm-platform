@@ -92,7 +92,7 @@ RSpec.describe Authentication::JwtVerifier do
 
   it "rejects retired signing keys" do
     keyring_json = JSON.generate(keys: [
-      { kid: "retired-key", secret: Authentication::JwtVerifier::DEVELOPMENT_SECRET, status: "retired" }
+      { kid: "retired-key", status: "retired" }
     ])
     token = jwt_token(kid: "retired-key")
 
@@ -106,7 +106,7 @@ RSpec.describe Authentication::JwtVerifier do
 
   it "rejects disabled signing keys" do
     keyring_json = JSON.generate(keys: [
-      { kid: "disabled-key", secret: Authentication::JwtVerifier::DEVELOPMENT_SECRET, status: "disabled" }
+      { kid: "disabled-key", status: "disabled" }
     ])
     token = jwt_token(kid: "disabled-key")
 

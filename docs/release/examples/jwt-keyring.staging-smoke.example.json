@@ -1,0 +1,24 @@
+{
+  "keys": [
+    {
+      "kid": "jwt-2026-07-a",
+      "secret_env": "JWT_STAGING_OLD_SECRET",
+      "algorithm": "HS256",
+      "status": "verify_only",
+      "not_before": "2026-07-06T00:00:00Z",
+      "retire_after": "2026-07-06T01:00:00Z"
+    },
+    {
+      "kid": "jwt-2026-07-b",
+      "secret_env": "JWT_STAGING_NEW_SECRET",
+      "algorithm": "HS256",
+      "status": "active",
+      "not_before": "2026-07-06T00:00:00Z"
+    },
+    {
+      "kid": "jwt-2026-06-compromised",
+      "algorithm": "HS256",
+      "status": "disabled"
+    }
+  ]
+}
