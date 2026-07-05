@@ -1076,6 +1076,133 @@ test.describe("Meeting Workspace", () => {
     await expect(page.getByLabel("DMインポート一覧").getByText("DMインポートなし")).toBeVisible();
   });
 
+  test("shows safe PII redaction suggestions before Discord DM summary generation", async ({ page }) => {
+    const now = new Date().toISOString();
+    const project = {
+      id: "project-discord-dm-pii",
+      name: "DM PII Project",
+      github_repo: "Kazuya-Sakashita/ai-pm-platform",
+      description: "Mocked project for PII redaction UI.",
+      status: "active",
+      created_at: now,
+      updated_at: now,
+    };
+    const conversationImport = {
+      id: "conversation-import-discord-dm-pii",
+      project_id: project.id,
+      source_type: "discord_dm_paste",
+      title: "PIIを含むDM相談",
+      raw_text: "連絡先は customer@example.com と 090-1234-5678 です。",
+      redacted_text: "連絡先は未マスキングです。",
+      participants: [{ display_name: "依頼者", role: "requester" }],
+      consent_confirmed: true,
+      consent_statement_version: "discord-dm-manual-import-v1",
+      status: "draft",
+      safety_flags: [],
+      blocked_reasons: [],
+      raw_text_retention_expires_at: now,
+      retention_expires_at: now,
+      created_at: now,
+      updated_at: now,
+    };
+
+    await page.route("**/api/v1/operations/queue-health", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: {
+            status: "healthy",
+            checked_at: now,
+            heartbeat_stale_after_seconds: 60,
+            oldest_unfinished_threshold_seconds: 300,
+            workers: [],
+            queues: [],
+            failed_executions: { count: 0 },
+            failed_job_samples: [],
+            recurring_tasks: [],
+            product_jobs: { by_status: [], recent_failed_count: 0 },
+            warnings: [],
+          },
+        }),
+      });
+    });
+    await page.route("**/api/v1/projects", async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [project] }) });
+    });
+    await page.route(`**/api/v1/projects/${project.id}/meetings`, async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [] }) });
+    });
+    await page.route(`**/api/v1/projects/${project.id}/integrations`, async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [] }) });
+    });
+    await page.route(`**/api/v1/projects/${project.id}/conversation-imports`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [conversationImport], meta: { total_count: 1 } }),
+      });
+    });
+    await page.route(`**/api/v1/conversation-imports/${conversationImport.id}/scan`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: {
+            valid: false,
+            conversation_import: { ...conversationImport, status: "blocked" },
+            safety_flags: [
+              {
+                type: "personal_data",
+                severity: "high",
+                action: "blocked",
+                location_hint: "メールアドレス",
+                message: "メールアドレスの可能性があります。AI整理前に個人を特定できない表現へ置換してください。",
+              },
+              {
+                type: "personal_data",
+                severity: "high",
+                action: "blocked",
+                location_hint: "電話番号",
+                message: "電話番号の可能性があります。AI整理前に連絡先を伏字化してください。",
+              },
+            ],
+            blocked_reasons: ["personal_data_blocked"],
+            redaction_suggestions: [
+              {
+                location_hint: "メールアドレス",
+                reason: "メールアドレスの可能性があります。AI整理前に個人を特定できない表現へ置換してください。",
+                suggested_replacement: "[EMAIL_REDACTED]",
+              },
+              {
+                location_hint: "電話番号",
+                reason: "電話番号の可能性があります。AI整理前に連絡先を伏字化してください。",
+                suggested_replacement: "[PHONE_REDACTED]",
+              },
+            ],
+            next_action: "edit_and_rescan",
+          },
+        }),
+      });
+    });
+
+    await page.goto("/");
+    await expect(page.getByRole("heading", { name: "DM PII Project" })).toBeVisible();
+    await page.getByLabel("DMインポート一覧").getByText("PIIを含むDM相談").click();
+    await page.locator("#conversation-import").getByRole("button", { name: "安全チェック" }).click();
+    await expect(page.locator("header").getByText("DMの安全チェックで修正が必要です")).toBeVisible();
+
+    const safetyPanel = page.locator("#conversation-import .validation-panel", { hasText: "安全チェック結果" });
+    await expect(safetyPanel).toContainText("個人情報");
+    await expect(safetyPanel).toContainText("メールアドレス");
+    await expect(safetyPanel).toContainText("[EMAIL_REDACTED]");
+    await expect(safetyPanel).toContainText("電話番号");
+    await expect(safetyPanel).toContainText("[PHONE_REDACTED]");
+    await expect(safetyPanel).not.toContainText("customer@example.com");
+    await expect(safetyPanel).not.toContainText("090-1234-5678");
+    await expect(page.locator("#conversation-import").getByRole("button", { name: "整理ドラフト生成" })).toBeDisabled();
+  });
+
   test("does not call DELETE when DM anonymization confirmation is cancelled", async ({ page }) => {
     const scenario = await mockExistingDmImportForAnonymization(page);
 

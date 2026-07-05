@@ -80,6 +80,50 @@ RSpec.describe "API V1 Conversation Imports", type: :request do
       expect(body.dig("data", "blocked_reasons")).to include("consent_missing_blocked", "credential_blocked")
       expect(conversation_import.project.audit_logs.last.metadata.to_s).not_to include("hunter2")
     end
+
+    it "blocks PII, credential, financial, and legal content with safe redaction suggestions" do
+      conversation_import = create(
+        :conversation_import,
+        raw_text: [
+          "連絡先は customer@example.com と 090-1234-5678 です。",
+          "送付先は東京都渋谷区神南1-2-3です。",
+          "確認URLは https://example.com/callback?token=abc1234567890secret です。",
+          "請求書とNDAの確認もお願いします。"
+        ].join("\n")
+      )
+      authorize_project(conversation_import.project)
+
+      post "/api/v1/conversation-imports/#{conversation_import.id}/scan", headers: actor_headers
+
+      expect(response).to have_http_status(:ok)
+      body = JSON.parse(response.body)
+      expect(body.dig("data", "valid")).to eq(false)
+      expect(body.dig("data", "next_action")).to eq("edit_and_rescan")
+      expect(body.dig("data", "conversation_import", "status")).to eq("blocked")
+      expect(body.dig("data", "blocked_reasons")).to include("personal_data_blocked", "credential_blocked", "financial_blocked", "legal_blocked")
+
+      safety_flags = body.dig("data", "safety_flags")
+      expect(safety_flags.map { |flag| flag.fetch("type") }).to include("personal_data", "credential", "financial", "legal")
+      expect(safety_flags.map { |flag| flag.fetch("location_hint") }).to include("メールアドレス", "電話番号", "住所", "URLクエリ", "金融情報", "法務情報")
+      expect(safety_flags.to_s).not_to include("customer@example.com", "090-1234-5678", "abc1234567890secret")
+
+      redaction_suggestions = body.dig("data", "redaction_suggestions")
+      expect(redaction_suggestions.map { |suggestion| suggestion.fetch("suggested_replacement") }).to include(
+        "[EMAIL_REDACTED]",
+        "[PHONE_REDACTED]",
+        "[ADDRESS_REDACTED]",
+        "[URL_WITH_TOKEN_REDACTED]",
+        "[FINANCIAL_INFO_REDACTED]",
+        "[LEGAL_INFO_REDACTED]"
+      )
+      expect(redaction_suggestions.to_s).not_to include("customer@example.com", "090-1234-5678", "abc1234567890secret")
+      expect(conversation_import.project.audit_logs.last.metadata.to_s).not_to include("customer@example.com", "090-1234-5678", "abc1234567890secret")
+
+      post "/api/v1/conversation-imports/#{conversation_import.id}/generate-summary", headers: actor_headers
+
+      expect(response).to have_http_status(422)
+      expect(JSON.parse(response.body).dig("error", "code")).to eq("conversation_import_not_ready_for_ai")
+    end
   end
 
   describe "PATCH /api/v1/conversation-imports/:id" do

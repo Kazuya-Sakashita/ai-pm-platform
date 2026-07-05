@@ -9,7 +9,8 @@ module ConversationImports
 
     def call
       scan_result = SensitiveContentScanner.scan(conversation_import.ai_source_text)
-      safety_flags = consent_flags + scan_result.findings.map { |finding| safety_flag_for(finding) }
+      findings = scan_result.findings
+      safety_flags = consent_flags + findings.map { |finding| safety_flag_for(finding) }
       blocked_reasons = blocked_reasons_for(safety_flags)
       valid = blocked_reasons.empty?
 
@@ -37,7 +38,7 @@ module ConversationImports
         conversation_import: conversation_import,
         safety_flags: safety_flags,
         blocked_reasons: blocked_reasons,
-        redaction_suggestions: redaction_suggestions_for(safety_flags),
+        redaction_suggestions: redaction_suggestions_for(safety_flags, findings),
         next_action: valid ? "generate_summary" : "edit_and_rescan"
       )
     end
@@ -62,32 +63,29 @@ module ConversationImports
 
     def safety_flag_for(finding)
       {
-        type: flag_type_for(finding.type),
-        severity: "high",
-        action: "blocked",
-        location_hint: "本文",
-        message: "秘密情報または認証情報の可能性があります。AI整理前に伏字化してください。"
+        type: finding.category.presence || "unknown",
+        severity: finding.severity.presence || "high",
+        action: finding.action.presence || "blocked",
+        location_hint: finding.location_hint.presence || "本文",
+        message: finding.message.presence || "センシティブ情報の可能性があります。AI整理前に伏字化してください。"
       }
-    end
-
-    def flag_type_for(finding_type)
-      return "credential" if finding_type.match?(/token|key|authorization|password/i)
-
-      "secret"
     end
 
     def blocked_reasons_for(safety_flags)
       safety_flags.map { |flag| "#{flag.fetch(:type)}_blocked" }.uniq
     end
 
-    def redaction_suggestions_for(safety_flags)
+    def redaction_suggestions_for(safety_flags, findings)
+      finding_index = findings.index_by(&:location_hint)
+
       safety_flags.filter_map do |flag|
         next if flag.fetch(:type) == "consent_missing"
 
+        finding = finding_index[flag.fetch(:location_hint)]
         {
           location_hint: flag.fetch(:location_hint),
           reason: flag.fetch(:message),
-          suggested_replacement: "[REDACTED]"
+          suggested_replacement: finding&.suggested_replacement.presence || "[REDACTED]"
         }
       end
     end

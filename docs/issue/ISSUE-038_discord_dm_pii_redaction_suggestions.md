@@ -50,11 +50,26 @@ SensitiveContentScannerとUI表示を強化し、DM由来のPII/credential/legal
 ## 関連レビュー
 
 - `docs/review/20260705_discord_dm_frontend_mvp_review.md`
+- `docs/review/20260705_discord_dm_pii_redaction_design_review.md`
+- `docs/review/20260705_discord_dm_pii_redaction_implementation_review.md`
 - `docs/security/20260702_discord_dm_manual_import_security.md`
 
 ## レビュー結果
 
 Codex一次レビューでは、現在の安全チェックはMVPとして有効。ただしDMの高センシティブ性を考えると、secret検出だけでは不十分であり、PIIと業務機密のマスキング提案を強化しない限りproduction qualityには届かない。
+
+2026-07-05に実装完了。`SensitiveContentScanner` にメールアドレス、電話番号、URL token、API key風文字列、住所風表現、金融/法務文脈の分類付きfindingを追加し、`ConversationImports::ScanService` でsafe safety flagと種別別redaction suggestionへ変換するようにした。Frontend E2Eでは安全チェックpanelに生PIIを出さず、置換候補と日本語説明を表示し、blocked状態では整理ドラフト生成ボタンが無効になることを確認した。
+
+検証結果:
+
+- `bundle exec rspec spec/services/sensitive_content_scanner_spec.rb spec/requests/api/v1/conversation_imports_spec.rb`: 23 examples, 0 failures
+- `npm run frontend:e2e -- --grep "safe PII redaction"`: 1 passed
+- `npm run api:verify`: success
+- `npm run display:check`: success
+- `npm run frontend:build`: success
+- `bundle exec rspec`: 182 examples, 0 failures
+
+補足: `npm run api:verify` では既存のNode `v22.7.0` が期待範囲より古い警告とRedocly CLI更新通知が出たが、OpenAPI lint/type生成は成功した。
 
 ## 優先度
 
@@ -68,7 +83,6 @@ P1
 
 ## 次アクション
 
-1. 現在のSensitiveContentScannerの検出対象を棚卸しする。
-2. PII/credential/legal/financialの代表パターンを追加する。
-3. Backend request specとFrontend E2Eを追加する。
-4. false positiveとUI表示のレビューを保存する。
+1. GitHub Issue #38へ実装結果を同期する。
+2. CI成功後にGitHub Issue #38をcloseする。
+3. 次の推奨順としてISSUE-035またはISSUE-039へ進む。
