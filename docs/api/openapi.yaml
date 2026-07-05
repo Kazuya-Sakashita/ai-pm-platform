@@ -1206,7 +1206,7 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: JWT bearer token. The API derives actor identity from the verified `sub` claim. `X-Actor-Id` is not part of the production API contract.
+      description: JWT bearer token. The API derives actor identity from the verified `sub` claim. Production-grade tokens must also carry `kid`, `sid`, `sv`, and `jti` for key rotation, session validation, and revocation. `X-Actor-Id` is not part of the production API contract.
 
   parameters:
     ProjectId:
@@ -1351,11 +1351,48 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
     Unauthorized:
-      description: Authentication or signature verification failed
+      description: Authentication, token revocation, session validation, or signature verification failed. Error codes must be safe to show and must never include raw tokens, secrets, or private claims.
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            invalid_token:
+              summary: Invalid token
+              value:
+                error:
+                  code: invalid_token
+                  message: Authentication token is invalid.
+                  details:
+                    action: project_read
+                request_id: req_example
+            token_revoked:
+              summary: Revoked token
+              value:
+                error:
+                  code: token_revoked
+                  message: Authentication token has been revoked.
+                  details:
+                    action: project_read
+                request_id: req_example
+            session_revoked:
+              summary: Revoked session
+              value:
+                error:
+                  code: session_revoked
+                  message: Authentication session has been revoked.
+                  details:
+                    action: project_read
+                request_id: req_example
+            signing_key_retired:
+              summary: Retired signing key
+              value:
+                error:
+                  code: signing_key_retired
+                  message: Authentication token key has been retired.
+                  details:
+                    action: project_read
+                request_id: req_example
     Forbidden:
       description: Actor is not allowed to perform this action in the project
       content:
@@ -3254,6 +3291,24 @@ components:
         total_pages:
           type: integer
 
+    AuthErrorCode:
+      type: string
+      description: Safe authentication error codes. Clients may use these codes to clear local auth state, prompt re-login, or route administrators to configuration checks. These codes must never expose raw tokens, secrets, signing material, private claims, IP addresses, or User-Agent values.
+      enum:
+        - authentication_required
+        - authentication_not_configured
+        - invalid_token
+        - token_expired
+        - token_not_yet_valid
+        - token_revoked
+        - session_not_found
+        - session_expired
+        - session_revoked
+        - session_version_stale
+        - signing_key_unknown
+        - signing_key_retired
+        - signing_key_not_active
+
     ErrorResponse:
       type: object
       required: [error, request_id]
@@ -3263,7 +3318,9 @@ components:
           required: [code, message]
           properties:
             code:
-              type: string
+              anyOf:
+                - $ref: "#/components/schemas/AuthErrorCode"
+                - type: string
             message:
               type: string
             details:
