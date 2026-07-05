@@ -37,6 +37,11 @@ module Authentication
     end
 
     def self.key_secret(entry)
+      status = entry.fetch("status", "active").to_s
+      if %w[retired disabled].include?(status)
+        return entry["secret"].presence || ENV[entry["secret_env"].to_s].presence
+      end
+
       secret = entry["secret"].presence || ENV[entry["secret_env"].to_s].presence
       raise KeyError if secret.blank?
 

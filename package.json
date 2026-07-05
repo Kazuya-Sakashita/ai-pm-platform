@@ -19,7 +19,8 @@
     "frontend:dev": "next dev frontend -p 3000",
     "frontend:e2e": "playwright test -c frontend/playwright.config.ts",
     "github:issues:dry-run": "ruby scripts/sync-github-issues.rb --dry-run",
-    "github:issues:sync": "ruby scripts/sync-github-issues.rb --apply"
+    "github:issues:sync": "ruby scripts/sync-github-issues.rb --apply",
+    "jwt:keyring:validate": "ruby scripts/validate-jwt-keyring.rb"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",

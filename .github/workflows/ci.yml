@@ -76,6 +76,12 @@ jobs:
       - name: Verify OpenAPI contract and generated types
         run: npm run api:verify
 
+      - name: Validate JWT keyring release gate fixture
+        env:
+          JWT_STAGING_OLD_SECRET: ci-old-secret-placeholder
+          JWT_STAGING_NEW_SECRET: ci-new-secret-placeholder
+        run: npm run jwt:keyring:validate -- --file docs/release/examples/jwt-keyring.staging-smoke.example.json --environment staging --mode rotation --now 2026-07-06T00:30:00Z
+
       - name: Check Japanese display labels
         run: npm run display:check
 
