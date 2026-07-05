@@ -150,6 +150,7 @@ P1
 - Review CenterとConversation Summary Draft承認を接続する
 - 同意なし、secret検出、stale draft、生成失敗、モバイル表示のFrontend E2Eを追加する
 - GitHub IssueへFrontend MVP完了内容を同期する（完了）
+- 2026-07-05 並行Issue分割: ISSUE-035、ISSUE-036、ISSUE-037、ISSUE-038を作成し、GitHub Issue #22へ同期コメント済み
 
 ## 関連ドキュメント
 
@@ -161,3 +162,8 @@ P1
 - `docs/product/20260702_discord_dm_manual_import_screen_design.md`
 - `docs/ai/20260702_discord_dm_summary_prompt_schema.md`
 - `docs/decisions/ADR-0012_discord_dm_text_encryption_retention.md`
+- `docs/review/20260705_discord_dm_parallel_issue_planning_review.md`
+- `docs/issue/ISSUE-035_discord_dm_structured_outputs_provider.md`
+- `docs/issue/ISSUE-036_discord_dm_summary_draft_edit_ui.md`
+- `docs/issue/ISSUE-037_conversation_summary_review_center_integration.md`
+- `docs/issue/ISSUE-038_discord_dm_pii_redaction_suggestions.md`
