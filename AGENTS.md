@@ -144,6 +144,38 @@ Codexは、必要に応じて以下の専門家ロールの観点で評価する
 - Business Consultant: 価格戦略、営業戦略、事業性
 - Startup Advisor: 資金調達、IPO、組織、スケール
 
+## 専門家サブエージェントレビュー運用
+
+重要Issueでは、専門家レビューを単一の総合コメントで終わらせず、必要に応じて専門家サブエージェントまたはロール分離レビューとして実施する。
+
+運用レベル:
+
+- L1: Codex内のロール分離レビュー
+- L2: Codexサブエージェントによる独立レビュー
+- L3: Codex、Claude、ChatGPTなど外部AIを含む比較レビュー
+
+以下はL2以上を推奨する。
+
+- 認証、認可、監査、個人情報、秘密情報、データ削除に関わる
+- AI provider、prompt、Structured Outputs、Agent設計に関わる
+- OpenAPI、DB設計、API contract、ジョブ基盤に関わる
+- production smoke、リリース、障害対応に関わる
+- P0/P1 Issue、または次工程の判断に強く影響する
+
+専門家サブエージェントレビューでは以下を守る。
+
+- 各Agentは独立した合否、重大リスク、改善案を出す。
+- Security EngineerとQAのP0 blockerは、明示的なリスク受容なしに次工程へ進めない。
+- Review Orchestratorは指摘を採用、保留、却下、追加調査へ分類し、判断理由を残す。
+- schema-invalid、根拠なし、低confidence、対象artifact不明、Issue番号なしのレビューは完了条件を満たさない。
+- 外部AIが利用できない場合は、Codex一次レビューとして保存し、外部AIレビュー待ちであることを明記する。
+- raw chain-of-thought、secret、token、不要なPII、DM原文全文をレビュー記録へ保存してはならない。
+
+詳細は以下に従う。
+
+- `docs/ai/expert_subagents.md`
+- `docs/evaluation/expert_review_schema.md`
+
 ## 使用フレームワーク
 
 レビュー時は課題に合わせて最適なフレームワークを選ぶ。
