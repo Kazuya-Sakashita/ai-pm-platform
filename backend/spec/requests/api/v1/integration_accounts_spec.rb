@@ -15,9 +15,10 @@ RSpec.describe "API V1 Integration Accounts", type: :request do
   describe "GET /api/v1/projects/:project_id/integrations" do
     it "lists project integration accounts" do
       project = create(:project)
+      authorize_project(project, actor_id: "viewer-actor", role: "viewer")
       account = create(:integration_account, project: project)
 
-      get "/api/v1/projects/#{project.id}/integrations"
+      get "/api/v1/projects/#{project.id}/integrations", headers: auth_headers("viewer-actor")
 
       expect(response).to have_http_status(:ok)
       body = JSON.parse(response.body)
@@ -30,10 +31,11 @@ RSpec.describe "API V1 Integration Accounts", type: :request do
   describe "POST /api/v1/projects/:project_id/integrations/github/connect" do
     it "starts a GitHub App installation flow with a signed state" do
       project = create(:project, github_repo: "Kazuya-Sakashita/ai-pm-platform")
+      authorize_project(project, actor_id: "admin-actor", role: "admin")
 
       post "/api/v1/projects/#{project.id}/integrations/github/connect", params: {
         repository: "Kazuya-Sakashita/ai-pm-platform"
-      }
+      }, headers: auth_headers("admin-actor")
 
       expect(response).to have_http_status(:ok)
       body = JSON.parse(response.body)
@@ -46,18 +48,32 @@ RSpec.describe "API V1 Integration Accounts", type: :request do
         "repository" => "Kazuya-Sakashita/ai-pm-platform"
       )
       expect(project.audit_logs.last.action).to eq("github.connect.started")
+      expect(project.audit_logs.last.actor_id).to eq("admin-actor")
     end
 
     it "blocks a repository that does not match the project configuration" do
       project = create(:project, github_repo: "Kazuya-Sakashita/ai-pm-platform")
+      authorize_project(project, actor_id: "admin-actor", role: "admin")
 
       post "/api/v1/projects/#{project.id}/integrations/github/connect", params: {
         repository: "Other/repository"
-      }
+      }, headers: auth_headers("admin-actor")
 
       expect(response).to have_http_status(422)
       body = JSON.parse(response.body)
       expect(body.dig("error", "code")).to eq("github_repository_mismatch")
+    end
+
+    it "rejects GitHub connection starts by viewers" do
+      project = create(:project, github_repo: "Kazuya-Sakashita/ai-pm-platform")
+      authorize_project(project, actor_id: "viewer-actor", role: "viewer")
+
+      post "/api/v1/projects/#{project.id}/integrations/github/connect", params: {
+        repository: "Kazuya-Sakashita/ai-pm-platform"
+      }, headers: auth_headers("viewer-actor")
+
+      expect(response).to have_http_status(:forbidden)
+      expect(JSON.parse(response.body).dig("error", "code")).to eq("project_forbidden")
     end
   end
 
@@ -201,9 +217,10 @@ RSpec.describe "API V1 Integration Accounts", type: :request do
   describe "POST /api/v1/projects/:project_id/integrations/github/disconnect" do
     it "marks the latest GitHub integration as revoked" do
       project = create(:project)
+      authorize_project(project, actor_id: "admin-actor", role: "admin")
       account = create(:integration_account, project: project)
 
-      post "/api/v1/projects/#{project.id}/integrations/github/disconnect"
+      post "/api/v1/projects/#{project.id}/integrations/github/disconnect", headers: auth_headers("admin-actor")
 
       expect(response).to have_http_status(:ok)
       body = JSON.parse(response.body)

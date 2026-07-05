@@ -2,7 +2,10 @@ module Api
   module V1
     class RequirementsController < ApplicationController
       def generate
+        return unless require_actor!(action: "requirement_generate")
+
         minutes = Minute.find(params[:id])
+        return unless authorize_project_role!(project_for(minutes), action: "requirement_generate", allowed_roles: project_write_roles)
         return render_review_required(minutes) unless minutes.status == "approved"
 
         job = project_for(minutes).jobs.create!(
@@ -23,6 +26,7 @@ module Api
           project: project_for(minutes),
           action: "requirement.generated",
           target: requirement,
+          actor_id: current_actor_id,
           metadata: { minutes_id: minutes.id, job_id: job.id }
         )
 
@@ -39,6 +43,7 @@ module Api
           project: project_for(minutes),
           action: "requirement.generation_failed",
           target: job,
+          actor_id: current_actor_id,
           metadata: { minutes_id: minutes.id, provider_error_code: e.code }
         ) if job && minutes
 
@@ -46,27 +51,38 @@ module Api
       end
 
       def show
+        return unless require_actor!(action: "requirement_read")
+        return unless authorize_project_role!(project_for(requirement.minute), action: "requirement_read", allowed_roles: project_read_roles)
+
         render json: { data: requirement.api_json }
       end
 
       def update
+        return unless require_actor!(action: "requirement_update")
+        return unless authorize_project_role!(project_for(requirement.minute), action: "requirement_update", allowed_roles: project_write_roles)
+
         requirement.update!(requirement_params)
         AuditLog.record!(
           project: project_for(requirement.minute),
           action: "requirement.updated",
-          target: requirement
+          target: requirement,
+          actor_id: current_actor_id
         )
         render json: { data: requirement.api_json }
       end
 
       def approve
+        return unless require_actor!(action: "requirement_approve")
+        return unless authorize_project_role!(project_for(requirement.minute), action: "requirement_approve", allowed_roles: project_review_roles)
+
         return render_requirement_review_required(requirement) if requirement.open_questions.any?
 
         requirement.update!(status: "approved")
         AuditLog.record!(
           project: project_for(requirement.minute),
           action: "requirement.approved",
-          target: requirement
+          target: requirement,
+          actor_id: current_actor_id
         )
         render json: { data: requirement.api_json }
       end

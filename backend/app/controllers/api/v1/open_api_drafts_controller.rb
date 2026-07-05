@@ -4,7 +4,10 @@ module Api
   module V1
     class OpenApiDraftsController < ApplicationController
       def generate
+        return unless require_actor!(action: "openapi_draft_generate")
+
         requirement = Requirement.find(params[:id])
+        return unless authorize_project_role!(project_for(requirement), action: "openapi_draft_generate", allowed_roles: project_write_roles)
         return render_review_required(requirement) unless requirement.status == "approved"
 
         job = project_for(requirement).jobs.create!(
@@ -25,6 +28,7 @@ module Api
           project: project_for(requirement),
           action: "openapi_draft.generated",
           target: open_api_draft,
+          actor_id: current_actor_id,
           metadata: { requirement_id: requirement.id, job_id: job.id }
         )
 
@@ -41,6 +45,7 @@ module Api
           project: project_for(requirement),
           action: "openapi_draft.generation_failed",
           target: job,
+          actor_id: current_actor_id,
           metadata: { requirement_id: requirement.id, provider_error_code: e.code }
         ) if job && requirement
 
@@ -48,20 +53,27 @@ module Api
       end
 
       def show
+        return unless authorize_open_api_draft!("openapi_draft_read", project_read_roles)
+
         render json: { data: open_api_draft.api_json }
       end
 
       def update
+        return unless authorize_open_api_draft!("openapi_draft_update", project_write_roles)
+
         open_api_draft.update!(open_api_draft_params)
         AuditLog.record!(
           project: project_for(open_api_draft.requirement),
           action: "openapi_draft.updated",
-          target: open_api_draft
+          target: open_api_draft,
+          actor_id: current_actor_id
         )
         render json: { data: open_api_draft.api_json }
       end
 
       def validate
+        return unless authorize_open_api_draft!("openapi_draft_validate", project_write_roles)
+
         draft = open_api_draft
         project = project_for(draft.requirement)
         previous_status = draft.status
@@ -78,6 +90,7 @@ module Api
           project: project,
           action: "openapi_draft.validation_started",
           target: draft,
+          actor_id: current_actor_id,
           metadata: {
             job_id: job.id,
             validator: "OpenApiDraftValidationService",
@@ -94,6 +107,7 @@ module Api
           project: project,
           action: "openapi_draft.validation_succeeded",
           target: draft,
+          actor_id: current_actor_id,
           metadata: {
             job_id: job.id,
             validator: "OpenApiDraftValidationService",
@@ -121,6 +135,7 @@ module Api
           project: project,
           action: "openapi_draft.validation_failed",
           target: draft || job,
+          actor_id: current_actor_id,
           metadata: {
             job_id: job&.id,
             validator: "OpenApiDraftValidationService",
@@ -136,6 +151,12 @@ module Api
 
       def open_api_draft
         @open_api_draft ||= OpenApiDraft.find(params[:openapi_draft_id] || params[:id])
+      end
+
+      def authorize_open_api_draft!(action, allowed_roles)
+        return false unless require_actor!(action: action)
+
+        authorize_project_role!(project_for(open_api_draft.requirement), action: action, allowed_roles: allowed_roles)
       end
 
       def render_review_required(requirement)

@@ -357,7 +357,6 @@ export default function MeetingWorkspace() {
   useEffect(() => {
     setClientReady(true);
     void loadProjects();
-    void loadQueueHealth({ announce: false });
     void loadAuthSessions();
   }, []);
 
@@ -389,6 +388,7 @@ export default function MeetingWorkspace() {
     void loadIntegrations(selectedProjectId);
     void loadProjectMemberships(selectedProjectId);
     void loadConversationImports(selectedProjectId);
+    void loadQueueHealth({ announce: false });
   }, [selectedProjectId]);
 
   function setApiError(message: string) {
@@ -700,11 +700,18 @@ export default function MeetingWorkspace() {
 
   async function loadQueueHealth(options: { announce?: boolean } = {}) {
     const announce = options.announce !== false;
+    if (!selectedProjectId) {
+      setQueueHealthLoading(false);
+      return;
+    }
+
     setQueueHealthLoading(true);
     if (announce) setError("");
 
     try {
-      const { data, error: apiError } = await apiClient.GET("/operations/queue-health");
+      const { data, error: apiError } = await apiClient.GET("/operations/queue-health", {
+        params: { query: { project_id: selectedProjectId } },
+      });
       if (authLockedRef.current) {
         setQueueHealthLoading(false);
         return;

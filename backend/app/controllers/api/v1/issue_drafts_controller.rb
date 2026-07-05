@@ -2,7 +2,10 @@ module Api
   module V1
     class IssueDraftsController < ApplicationController
       def generate
+        return unless require_actor!(action: "issue_draft_generate")
+
         requirement = Requirement.find(params[:id])
+        return unless authorize_project_role!(project_for(requirement), action: "issue_draft_generate", allowed_roles: project_write_roles)
         return render_review_required(requirement) unless requirement.status == "approved"
 
         job = project_for(requirement).jobs.create!(
@@ -23,6 +26,7 @@ module Api
           project: project_for(requirement),
           action: "issue_draft.generated",
           target: issue_draft,
+          actor_id: current_actor_id,
           metadata: { requirement_id: requirement.id, job_id: job.id }
         )
 
@@ -39,6 +43,7 @@ module Api
           project: project_for(requirement),
           action: "issue_draft.generation_failed",
           target: job,
+          actor_id: current_actor_id,
           metadata: { requirement_id: requirement.id, provider_error_code: e.code }
         ) if job && requirement
 
@@ -46,20 +51,27 @@ module Api
       end
 
       def show
+        return unless authorize_issue_draft!("issue_draft_read", project_read_roles)
+
         render json: { data: issue_draft.api_json }
       end
 
       def update
+        return unless authorize_issue_draft!("issue_draft_update", project_write_roles)
+
         issue_draft.update!(issue_draft_params)
         AuditLog.record!(
           project: project_for(issue_draft.requirement),
           action: "issue_draft.updated",
-          target: issue_draft
+          target: issue_draft,
+          actor_id: current_actor_id
         )
         render json: { data: issue_draft.api_json }
       end
 
       def publish_github
+        return unless authorize_issue_draft!("issue_draft_publish_github", project_admin_roles)
+
         gate = IssueDraftPublishGate.new(issue_draft).call
         return render_publish_blocked(gate) unless gate.allowed
 
@@ -81,6 +93,7 @@ module Api
           project: project_for(issue_draft.requirement),
           action: "issue_draft.github_published",
           target: issue_draft,
+          actor_id: current_actor_id,
           metadata: {
             job_id: job.id,
             attempt_id: result[:attempt_id],
@@ -103,6 +116,7 @@ module Api
           project: project_for(issue_draft.requirement),
           action: "issue_draft.github_publish_failed",
           target: issue_draft,
+          actor_id: current_actor_id,
           metadata: github_provider_error_metadata(e, job_id: job&.id)
         )
 
@@ -110,6 +124,8 @@ module Api
       end
 
       def reconcile_github_publish
+        return unless authorize_issue_draft!("issue_draft_reconcile_github_publish", project_admin_roles)
+
         attempt = latest_reconciliation_attempt
         return render_reconciliation_not_required unless attempt
         return render_reconciliation_cooldown(attempt) if attempt.reconciliation_cooldown_active?
@@ -138,6 +154,7 @@ module Api
           project: project_for(issue_draft.requirement),
           action: "issue_draft.github_publish_reconciliation_failed",
           target: issue_draft,
+          actor_id: current_actor_id,
           metadata: github_provider_error_metadata(e, reconciliation_cooldown_metadata(attempt).merge(job_id: job&.id, attempt_id: attempt&.id))
         )
 
@@ -145,6 +162,8 @@ module Api
       end
 
       def resolve_github_reconciliation
+        return unless authorize_issue_draft!("issue_draft_resolve_github_reconciliation", project_admin_roles)
+
         attempt = reconciliation_attempt_for_manual_resolution
         return render_reconciliation_not_required unless attempt
 
@@ -176,6 +195,7 @@ module Api
           project: project_for(issue_draft.requirement),
           action: "issue_draft.github_publish_manual_reconciliation_failed",
           target: issue_draft,
+          actor_id: current_actor_id,
           metadata: github_provider_error_metadata(e, reconciliation_cooldown_metadata(attempt).merge(job_id: job&.id, attempt_id: attempt&.id))
         )
 
@@ -186,6 +206,12 @@ module Api
 
       def issue_draft
         @issue_draft ||= IssueDraft.find(params[:issue_draft_id] || params[:id])
+      end
+
+      def authorize_issue_draft!(action, allowed_roles)
+        return false unless require_actor!(action: action)
+
+        authorize_project_role!(project_for(issue_draft.requirement), action: action, allowed_roles: allowed_roles)
       end
 
       def reconciliation_attempt_for_manual_resolution

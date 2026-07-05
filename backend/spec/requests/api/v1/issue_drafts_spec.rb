@@ -2,6 +2,14 @@ require "rails_helper"
 require "digest"
 
 RSpec.describe "API V1 Issue Drafts", type: :request do
+  def authorize_requirement_project(requirement, actor_id: "workflow-editor", role: "editor")
+    authorize_project(requirement.minute.meeting.project, actor_id: actor_id, role: role)
+  end
+
+  def authorize_issue_draft_project(issue_draft, actor_id: "workflow-admin", role: "owner")
+    authorize_project(issue_draft.requirement.minute.meeting.project, actor_id: actor_id, role: role)
+  end
+
   describe "POST /api/v1/requirements/:id/generate-issue-draft" do
     it "generates an issue draft from an approved requirement" do
       requirement = create(
@@ -12,8 +20,9 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
         functional_requirements: ["FR-001: Generate issue drafts."],
         acceptance_criteria: ["Given an approved requirement, when generation runs, then an issue draft is stored."]
       )
+      authorize_requirement_project(requirement)
 
-      post "/api/v1/requirements/#{requirement.id}/generate-issue-draft"
+      post "/api/v1/requirements/#{requirement.id}/generate-issue-draft", headers: auth_headers("workflow-editor")
 
       expect(response).to have_http_status(:accepted)
       body = JSON.parse(response.body)
@@ -29,8 +38,9 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
 
     it "requires an approved requirement before generation" do
       requirement = create(:requirement, status: "generated")
+      authorize_requirement_project(requirement)
 
-      post "/api/v1/requirements/#{requirement.id}/generate-issue-draft"
+      post "/api/v1/requirements/#{requirement.id}/generate-issue-draft", headers: auth_headers("workflow-editor")
 
       expect(response).to have_http_status(:conflict)
       body = JSON.parse(response.body)
@@ -38,13 +48,23 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
       expect(body.dig("error", "details", "status")).to eq("generated")
       expect(Job.where(target_type: "issue_draft")).to be_empty
     end
+
+    it "rejects generation by non-members" do
+      requirement = create(:requirement, status: "approved", open_questions: [])
+
+      post "/api/v1/requirements/#{requirement.id}/generate-issue-draft", headers: auth_headers("outsider")
+
+      expect(response).to have_http_status(:forbidden)
+      expect(JSON.parse(response.body).dig("error", "code")).to eq("project_forbidden")
+    end
   end
 
   describe "GET /api/v1/issue-drafts/:id" do
     it "returns an issue draft" do
       issue_draft = create(:issue_draft)
+      authorize_issue_draft_project(issue_draft, actor_id: "workflow-viewer", role: "viewer")
 
-      get "/api/v1/issue-drafts/#{issue_draft.id}"
+      get "/api/v1/issue-drafts/#{issue_draft.id}", headers: auth_headers("workflow-viewer")
 
       expect(response).to have_http_status(:ok)
       expect(JSON.parse(response.body).dig("data", "id")).to eq(issue_draft.id)
@@ -54,6 +74,7 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
     it "returns the latest pending GitHub reconciliation attempt summary" do
       issue_draft = create(:issue_draft, status: "publish_failed", publish_error: "Reconciliation required.")
       project = issue_draft.requirement.minute.meeting.project
+      authorize_project(project, actor_id: "workflow-viewer", role: "viewer")
       create(
         :github_issue_publish_attempt,
         issue_draft: issue_draft,
@@ -74,7 +95,7 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
         completed_at: Time.current
       )
 
-      get "/api/v1/issue-drafts/#{issue_draft.id}"
+      get "/api/v1/issue-drafts/#{issue_draft.id}", headers: auth_headers("workflow-viewer")
 
       expect(response).to have_http_status(:ok)
       reconciliation = JSON.parse(response.body).dig("data", "github_reconciliation")
@@ -102,6 +123,7 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
     it "returns safe reconciliation history with retry approval metadata" do
       issue_draft = create(:issue_draft, status: "approved")
       project = issue_draft.requirement.minute.meeting.project
+      authorize_project(project, actor_id: "workflow-viewer", role: "viewer")
       attempt = create(
         :github_issue_publish_attempt,
         issue_draft: issue_draft,
@@ -123,7 +145,7 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
         }
       )
 
-      get "/api/v1/issue-drafts/#{issue_draft.id}"
+      get "/api/v1/issue-drafts/#{issue_draft.id}", headers: auth_headers("workflow-viewer")
 
       expect(response).to have_http_status(:ok)
       history = JSON.parse(response.body).dig("data", "github_reconciliation_history")
@@ -143,13 +165,14 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
   describe "PATCH /api/v1/issue-drafts/:id" do
     it "updates an editable issue draft" do
       issue_draft = create(:issue_draft)
+      authorize_issue_draft_project(issue_draft, actor_id: "workflow-editor", role: "editor")
 
       patch "/api/v1/issue-drafts/#{issue_draft.id}", params: {
         title: "Updated issue title",
         body: "Updated issue body",
         acceptance_criteria: ["Updated criterion"],
         labels: ["updated", "needs-review"]
-      }
+      }, headers: auth_headers("workflow-editor")
 
       expect(response).to have_http_status(:ok)
       body = JSON.parse(response.body)
@@ -157,11 +180,22 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
       expect(body.dig("data", "labels")).to eq(["updated", "needs-review"])
       expect(issue_draft.requirement.minute.meeting.project.audit_logs.last.action).to eq("issue_draft.updated")
     end
+
+    it "rejects updates by viewers" do
+      issue_draft = create(:issue_draft)
+      authorize_issue_draft_project(issue_draft, actor_id: "workflow-viewer", role: "viewer")
+
+      patch "/api/v1/issue-drafts/#{issue_draft.id}", params: { title: "Viewer update" }, headers: auth_headers("workflow-viewer")
+
+      expect(response).to have_http_status(:forbidden)
+      expect(JSON.parse(response.body).dig("error", "code")).to eq("project_forbidden")
+    end
   end
 
   describe "POST /api/v1/issue-drafts/:id/publish-github" do
     it "publishes an approved issue draft when gates are clear" do
       issue_draft = create(:issue_draft, status: "approved")
+      authorize_issue_draft_project(issue_draft)
       open_api_draft = create(:open_api_draft, requirement: issue_draft.requirement, status: "valid")
       provider = instance_double(
         GithubIssuePublish::DryRunProvider,
@@ -175,7 +209,7 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
       )
       allow(GithubIssuePublish::ProviderFactory).to receive(:build).and_return(provider)
 
-      post "/api/v1/issue-drafts/#{issue_draft.id}/publish-github", headers: { "Idempotency-Key" => "publish-key-1" }
+      post "/api/v1/issue-drafts/#{issue_draft.id}/publish-github", headers: auth_headers("workflow-admin").merge("Idempotency-Key" => "publish-key-1")
 
       expect(response).to have_http_status(:accepted)
       body = JSON.parse(response.body)
@@ -197,9 +231,10 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
 
     it "blocks unapproved issue drafts" do
       issue_draft = create(:issue_draft, status: "draft")
+      authorize_issue_draft_project(issue_draft)
       create(:open_api_draft, requirement: issue_draft.requirement, status: "valid")
 
-      post "/api/v1/issue-drafts/#{issue_draft.id}/publish-github"
+      post "/api/v1/issue-drafts/#{issue_draft.id}/publish-github", headers: auth_headers("workflow-admin")
 
       expect(response).to have_http_status(:conflict)
       body = JSON.parse(response.body)
@@ -209,9 +244,10 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
 
     it "blocks when OpenAPI validation has not passed" do
       issue_draft = create(:issue_draft, status: "approved")
+      authorize_issue_draft_project(issue_draft)
       open_api_draft = create(:open_api_draft, requirement: issue_draft.requirement, status: "invalid")
 
-      post "/api/v1/issue-drafts/#{issue_draft.id}/publish-github"
+      post "/api/v1/issue-drafts/#{issue_draft.id}/publish-github", headers: auth_headers("workflow-admin")
 
       expect(response).to have_http_status(:conflict)
       body = JSON.parse(response.body)
@@ -221,6 +257,7 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
 
     it "blocks when an OpenAPI review blocker is unresolved" do
       issue_draft = create(:issue_draft, status: "approved")
+      authorize_issue_draft_project(issue_draft)
       open_api_draft = create(:open_api_draft, requirement: issue_draft.requirement, status: "valid")
       review = create(
         :review,
@@ -230,7 +267,7 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
         status: "action_required"
       )
 
-      post "/api/v1/issue-drafts/#{issue_draft.id}/publish-github"
+      post "/api/v1/issue-drafts/#{issue_draft.id}/publish-github", headers: auth_headers("workflow-admin")
 
       expect(response).to have_http_status(:conflict)
       body = JSON.parse(response.body)
@@ -240,9 +277,10 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
 
     it "returns integration_not_connected when GitHub provider is disabled" do
       issue_draft = create(:issue_draft, status: "approved")
+      authorize_issue_draft_project(issue_draft)
       create(:open_api_draft, requirement: issue_draft.requirement, status: "valid")
 
-      post "/api/v1/issue-drafts/#{issue_draft.id}/publish-github"
+      post "/api/v1/issue-drafts/#{issue_draft.id}/publish-github", headers: auth_headers("workflow-admin")
 
       expect(response).to have_http_status(:failed_dependency)
       body = JSON.parse(response.body)
@@ -261,6 +299,7 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
     it "reconciles the latest pending publish attempt" do
       issue_draft = create(:issue_draft, status: "publish_failed", publish_error: "Reconciliation required.")
       project = issue_draft.requirement.minute.meeting.project
+      authorize_project(project, actor_id: "workflow-admin", role: "owner")
       attempt = create(
         :github_issue_publish_attempt,
         issue_draft: issue_draft,
@@ -282,7 +321,7 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
       )
       allow(GithubIssuePublish::MarkerSearchClient).to receive(:new).and_return(search_client)
 
-      post "/api/v1/issue-drafts/#{issue_draft.id}/reconcile-github-publish"
+      post "/api/v1/issue-drafts/#{issue_draft.id}/reconcile-github-publish", headers: auth_headers("workflow-admin")
 
       expect(response).to have_http_status(:accepted)
       body = JSON.parse(response.body)
@@ -300,6 +339,7 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
     it "returns a review blocker when reconciliation is ambiguous" do
       issue_draft = create(:issue_draft, status: "publish_failed", publish_error: "Reconciliation required.")
       project = issue_draft.requirement.minute.meeting.project
+      authorize_project(project, actor_id: "workflow-admin", role: "owner")
       attempt = create(
         :github_issue_publish_attempt,
         issue_draft: issue_draft,
@@ -311,7 +351,7 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
         instance_double(GithubIssuePublish::MarkerSearchClient, search: [])
       )
 
-      post "/api/v1/issue-drafts/#{issue_draft.id}/reconcile-github-publish"
+      post "/api/v1/issue-drafts/#{issue_draft.id}/reconcile-github-publish", headers: auth_headers("workflow-admin")
 
       expect(response).to have_http_status(:accepted)
       body = JSON.parse(response.body)
@@ -330,6 +370,7 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
     it "returns candidate matches when marker search finds multiple issues" do
       issue_draft = create(:issue_draft, status: "publish_failed", publish_error: "Reconciliation required.")
       project = issue_draft.requirement.minute.meeting.project
+      authorize_project(project, actor_id: "workflow-admin", role: "owner")
       attempt = create(
         :github_issue_publish_attempt,
         issue_draft: issue_draft,
@@ -373,7 +414,7 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
         )
       )
 
-      post "/api/v1/issue-drafts/#{issue_draft.id}/reconcile-github-publish"
+      post "/api/v1/issue-drafts/#{issue_draft.id}/reconcile-github-publish", headers: auth_headers("workflow-admin")
 
       expect(response).to have_http_status(:accepted)
       body = JSON.parse(response.body)
@@ -414,8 +455,9 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
 
     it "blocks when no reconciliation attempt is pending" do
       issue_draft = create(:issue_draft, status: "approved")
+      authorize_issue_draft_project(issue_draft)
 
-      post "/api/v1/issue-drafts/#{issue_draft.id}/reconcile-github-publish"
+      post "/api/v1/issue-drafts/#{issue_draft.id}/reconcile-github-publish", headers: auth_headers("workflow-admin")
 
       expect(response).to have_http_status(:conflict)
       body = JSON.parse(response.body)
@@ -426,6 +468,7 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
     it "blocks marker search while reconciliation retry is cooling down" do
       issue_draft = create(:issue_draft, status: "publish_failed", publish_error: "Reconciliation required.")
       project = issue_draft.requirement.minute.meeting.project
+      authorize_project(project, actor_id: "workflow-admin", role: "owner")
       attempt = create(
         :github_issue_publish_attempt,
         issue_draft: issue_draft,
@@ -436,7 +479,7 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
         idempotency_digest: Digest::SHA256.hexdigest("publish-key-cooldown")
       )
 
-      post "/api/v1/issue-drafts/#{issue_draft.id}/reconcile-github-publish"
+      post "/api/v1/issue-drafts/#{issue_draft.id}/reconcile-github-publish", headers: auth_headers("workflow-admin")
 
       expect(response).to have_http_status(:conflict)
       body = JSON.parse(response.body)
@@ -453,6 +496,7 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
     it "marks the job failed when GitHub marker search fails" do
       issue_draft = create(:issue_draft, status: "publish_failed", publish_error: "Reconciliation required.")
       project = issue_draft.requirement.minute.meeting.project
+      authorize_project(project, actor_id: "workflow-admin", role: "owner")
       attempt = create(
         :github_issue_publish_attempt,
         issue_draft: issue_draft,
@@ -471,7 +515,7 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
       )
       allow(GithubIssuePublish::MarkerSearchClient).to receive(:new).and_return(search_client)
 
-      post "/api/v1/issue-drafts/#{issue_draft.id}/reconcile-github-publish"
+      post "/api/v1/issue-drafts/#{issue_draft.id}/reconcile-github-publish", headers: auth_headers("workflow-admin")
 
       expect(response).to have_http_status(:bad_gateway)
       body = JSON.parse(response.body)
@@ -487,6 +531,7 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
     it "returns safe GitHub rate limit metadata when marker search is rate limited" do
       issue_draft = create(:issue_draft, status: "publish_failed", publish_error: "Reconciliation required.")
       project = issue_draft.requirement.minute.meeting.project
+      authorize_project(project, actor_id: "workflow-admin", role: "owner")
       attempt = create(
         :github_issue_publish_attempt,
         issue_draft: issue_draft,
@@ -513,7 +558,7 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
       )
       allow(GithubIssuePublish::MarkerSearchClient).to receive(:new).and_return(search_client)
 
-      post "/api/v1/issue-drafts/#{issue_draft.id}/reconcile-github-publish"
+      post "/api/v1/issue-drafts/#{issue_draft.id}/reconcile-github-publish", headers: auth_headers("workflow-admin")
 
       expect(response).to have_http_status(:too_many_requests)
       body = JSON.parse(response.body)
@@ -551,6 +596,7 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
     it "manually links an existing GitHub issue" do
       issue_draft = create(:issue_draft, status: "publish_failed", publish_error: "Reconciliation required.")
       project = issue_draft.requirement.minute.meeting.project
+      authorize_project(project, actor_id: "workflow-admin", role: "owner")
       attempt = create(
         :github_issue_publish_attempt,
         issue_draft: issue_draft,
@@ -574,7 +620,7 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
         github_issue_url: "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/42",
         github_issue_api_id: 420,
         github_issue_node_id: "I_kwMANUAL"
-      }
+      }, headers: auth_headers("workflow-admin")
 
       expect(response).to have_http_status(:accepted)
       body = JSON.parse(response.body)
@@ -593,6 +639,7 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
     it "approves a controlled retry after human review" do
       issue_draft = create(:issue_draft, status: "publish_failed", publish_error: "Reconciliation required.")
       project = issue_draft.requirement.minute.meeting.project
+      authorize_project(project, actor_id: "workflow-admin", role: "owner")
       attempt = create(
         :github_issue_publish_attempt,
         issue_draft: issue_draft,
@@ -614,7 +661,7 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
         resolution_note: "Confirmed no GitHub Issue exists and approved one controlled retry.",
         resolution_approver: "Kazuya Reviewer",
         retry_reason_template: "github_issue_absence_confirmed"
-      }
+      }, headers: auth_headers("workflow-admin")
 
       expect(response).to have_http_status(:accepted)
       body = JSON.parse(response.body)
@@ -633,6 +680,7 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
     it "blocks controlled retry while reconciliation cooldown is active" do
       issue_draft = create(:issue_draft, status: "publish_failed", publish_error: "Reconciliation required.")
       project = issue_draft.requirement.minute.meeting.project
+      authorize_project(project, actor_id: "workflow-admin", role: "owner")
       attempt = create(
         :github_issue_publish_attempt,
         issue_draft: issue_draft,
@@ -649,7 +697,7 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
         resolution_note: "Confirmed no GitHub Issue exists and approved one controlled retry.",
         resolution_approver: "Kazuya Reviewer",
         retry_reason_template: "github_issue_absence_confirmed"
-      }
+      }, headers: auth_headers("workflow-admin")
 
       expect(response).to have_http_status(:conflict)
       body = JSON.parse(response.body)
@@ -667,6 +715,7 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
     it "rejects controlled retry without approver and reason template" do
       issue_draft = create(:issue_draft, status: "publish_failed", publish_error: "Reconciliation required.")
       project = issue_draft.requirement.minute.meeting.project
+      authorize_project(project, actor_id: "workflow-admin", role: "owner")
       attempt = create(
         :github_issue_publish_attempt,
         issue_draft: issue_draft,
@@ -679,7 +728,7 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
         attempt_id: attempt.id,
         resolution_action: "approve_retry",
         resolution_note: "Confirmed no GitHub Issue exists and approved one controlled retry."
-      }
+      }, headers: auth_headers("workflow-admin")
 
       expect(response).to have_http_status(422)
       body = JSON.parse(response.body)
@@ -693,7 +742,7 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
         resolution_action: "approve_retry",
         resolution_note: "Confirmed no GitHub Issue exists and approved one controlled retry.",
         resolution_approver: "Kazuya Reviewer"
-      }
+      }, headers: auth_headers("workflow-admin")
 
       expect(response).to have_http_status(422)
       body = JSON.parse(response.body)
@@ -704,6 +753,7 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
     it "rejects manual links outside the project repository" do
       issue_draft = create(:issue_draft, status: "publish_failed", publish_error: "Reconciliation required.")
       project = issue_draft.requirement.minute.meeting.project
+      authorize_project(project, actor_id: "workflow-admin", role: "owner")
       attempt = create(
         :github_issue_publish_attempt,
         issue_draft: issue_draft,
@@ -718,7 +768,7 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
         resolution_note: "This should fail.",
         github_issue_number: 42,
         github_issue_url: "https://github.com/Other/repo/issues/42"
-      }
+      }, headers: auth_headers("workflow-admin")
 
       expect(response).to have_http_status(422)
       body = JSON.parse(response.body)
@@ -731,6 +781,7 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
     it "rejects manual links when the URL issue number differs from the submitted number" do
       issue_draft = create(:issue_draft, status: "publish_failed", publish_error: "Reconciliation required.")
       project = issue_draft.requirement.minute.meeting.project
+      authorize_project(project, actor_id: "workflow-admin", role: "owner")
       attempt = create(
         :github_issue_publish_attempt,
         issue_draft: issue_draft,
@@ -745,7 +796,7 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
         resolution_note: "This should fail because the URL points to a different issue.",
         github_issue_number: 42,
         github_issue_url: "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/43"
-      }
+      }, headers: auth_headers("workflow-admin")
 
       expect(response).to have_http_status(422)
       body = JSON.parse(response.body)
@@ -756,13 +807,14 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
 
     it "blocks when no reconciliation attempt is pending" do
       issue_draft = create(:issue_draft, status: "approved")
+      authorize_issue_draft_project(issue_draft)
 
       post "/api/v1/issue-drafts/#{issue_draft.id}/resolve-github-reconciliation", params: {
         resolution_action: "approve_retry",
         resolution_note: "No pending attempt.",
         resolution_approver: "Kazuya Reviewer",
         retry_reason_template: "github_issue_absence_confirmed"
-      }
+      }, headers: auth_headers("workflow-admin")
 
       expect(response).to have_http_status(:conflict)
       body = JSON.parse(response.body)

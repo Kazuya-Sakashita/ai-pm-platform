@@ -10,8 +10,9 @@ RSpec.describe "API V1 OpenAPI Drafts", type: :request do
         goal: "Expose reviewed requirements as implementation-ready API contracts.",
         functional_requirements: ["FR-001: Generate OpenAPI draft after requirement approval."]
       )
+      authorize_project(requirement.minute.meeting.project)
 
-      post "/api/v1/requirements/#{requirement.id}/generate-openapi-draft"
+      post "/api/v1/requirements/#{requirement.id}/generate-openapi-draft", headers: auth_headers("dm-editor")
 
       expect(response).to have_http_status(:accepted)
       body = JSON.parse(response.body)
@@ -28,8 +29,9 @@ RSpec.describe "API V1 OpenAPI Drafts", type: :request do
 
     it "requires approved requirements before OpenAPI draft generation" do
       requirement = create(:requirement, status: "generated")
+      authorize_project(requirement.minute.meeting.project)
 
-      post "/api/v1/requirements/#{requirement.id}/generate-openapi-draft"
+      post "/api/v1/requirements/#{requirement.id}/generate-openapi-draft", headers: auth_headers("dm-editor")
 
       expect(response).to have_http_status(:conflict)
       body = JSON.parse(response.body)
@@ -42,8 +44,9 @@ RSpec.describe "API V1 OpenAPI Drafts", type: :request do
   describe "GET /api/v1/openapi-drafts/:id" do
     it "returns an OpenAPI draft" do
       open_api_draft = create(:open_api_draft)
+      authorize_project(open_api_draft.requirement.minute.meeting.project, actor_id: "viewer-actor", role: "viewer")
 
-      get "/api/v1/openapi-drafts/#{open_api_draft.id}"
+      get "/api/v1/openapi-drafts/#{open_api_draft.id}", headers: auth_headers("viewer-actor")
 
       expect(response).to have_http_status(:ok)
       body = JSON.parse(response.body)
@@ -56,12 +59,13 @@ RSpec.describe "API V1 OpenAPI Drafts", type: :request do
   describe "PATCH /api/v1/openapi-drafts/:id" do
     it "updates an editable OpenAPI draft" do
       open_api_draft = create(:open_api_draft)
+      authorize_project(open_api_draft.requirement.minute.meeting.project)
 
       patch "/api/v1/openapi-drafts/#{open_api_draft.id}", params: {
         title: "Updated OpenAPI draft",
         content: "openapi: 3.1.0\ninfo:\n  title: Updated\n  version: 0.1.0\npaths: {}\n",
         status: "valid"
-      }
+      }, headers: auth_headers("dm-editor")
 
       expect(response).to have_http_status(:ok)
       body = JSON.parse(response.body)
@@ -69,13 +73,24 @@ RSpec.describe "API V1 OpenAPI Drafts", type: :request do
       expect(body.dig("data", "status")).to eq("valid")
       expect(open_api_draft.requirement.minute.meeting.project.audit_logs.last.action).to eq("openapi_draft.updated")
     end
+
+    it "rejects OpenAPI draft updates by viewers" do
+      open_api_draft = create(:open_api_draft)
+      authorize_project(open_api_draft.requirement.minute.meeting.project, actor_id: "viewer-actor", role: "viewer")
+
+      patch "/api/v1/openapi-drafts/#{open_api_draft.id}", params: { title: "Viewer update" }, headers: auth_headers("viewer-actor")
+
+      expect(response).to have_http_status(:forbidden)
+      expect(JSON.parse(response.body).dig("error", "code")).to eq("project_forbidden")
+    end
   end
 
   describe "POST /api/v1/openapi-drafts/:id/validate" do
     it "validates an OpenAPI draft and stores the result" do
       open_api_draft = create(:open_api_draft, status: "draft", validation_errors: ["stale error"])
+      authorize_project(open_api_draft.requirement.minute.meeting.project)
 
-      post "/api/v1/openapi-drafts/#{open_api_draft.id}/validate"
+      post "/api/v1/openapi-drafts/#{open_api_draft.id}/validate", headers: auth_headers("dm-editor")
 
       expect(response).to have_http_status(:ok)
       body = JSON.parse(response.body)
@@ -102,8 +117,9 @@ RSpec.describe "API V1 OpenAPI Drafts", type: :request do
           paths: {}
         YAML
       )
+      authorize_project(open_api_draft.requirement.minute.meeting.project)
 
-      post "/api/v1/openapi-drafts/#{open_api_draft.id}/validate"
+      post "/api/v1/openapi-drafts/#{open_api_draft.id}/validate", headers: auth_headers("dm-editor")
 
       expect(response).to have_http_status(:ok)
       body = JSON.parse(response.body)
@@ -130,8 +146,9 @@ RSpec.describe "API V1 OpenAPI Drafts", type: :request do
         status: "action_required"
       )
       open_api_draft.update!(content: create(:open_api_draft).content)
+      authorize_project(open_api_draft.requirement.minute.meeting.project)
 
-      post "/api/v1/openapi-drafts/#{open_api_draft.id}/validate"
+      post "/api/v1/openapi-drafts/#{open_api_draft.id}/validate", headers: auth_headers("dm-editor")
 
       expect(response).to have_http_status(:ok)
       expect(JSON.parse(response.body).dig("data", "valid")).to be(true)

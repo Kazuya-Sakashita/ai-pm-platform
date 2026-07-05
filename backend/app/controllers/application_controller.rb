@@ -1,4 +1,9 @@
 class ApplicationController < ActionController::API
+  PROJECT_READ_ROLES = ProjectMembership::ROLES.freeze
+  PROJECT_WRITE_ROLES = %w[owner admin editor].freeze
+  PROJECT_REVIEW_ROLES = %w[owner admin reviewer].freeze
+  PROJECT_ADMIN_ROLES = %w[owner admin].freeze
+
   rescue_from ActiveRecord::RecordNotFound, with: :render_not_found
   rescue_from ActiveRecord::RecordInvalid, with: :render_validation_error
 
@@ -81,23 +86,43 @@ class ApplicationController < ActionController::API
   end
 
   def authorize_project!(project, action)
-    return false unless require_actor!(action: "project_#{action}")
-
     allowed_roles = {
-      read: ProjectMembership::ROLES,
-      update: %w[owner admin],
-      archive: %w[owner admin]
+      read: PROJECT_READ_ROLES,
+      update: PROJECT_ADMIN_ROLES,
+      archive: PROJECT_ADMIN_ROLES
     }.fetch(action)
-    membership = project.project_memberships.find_by(actor_id: current_actor_id)
+    authorize_project_role!(project, action: "project_#{action}", allowed_roles: allowed_roles)
+  end
+
+  def authorize_project_role!(project, action:, allowed_roles:)
+    return false unless require_actor!(action: action)
+
+    membership = project.project_memberships.active.find_by(actor_id: current_actor_id)
     return true if membership&.active? && allowed_roles.include?(membership.role)
 
     render_error(
       "project_forbidden",
       "Project access is forbidden.",
       :forbidden,
-      { action: action }
+      { action: action, required_roles: allowed_roles }
     )
     false
+  end
+
+  def project_read_roles
+    PROJECT_READ_ROLES
+  end
+
+  def project_write_roles
+    PROJECT_WRITE_ROLES
+  end
+
+  def project_review_roles
+    PROJECT_REVIEW_ROLES
+  end
+
+  def project_admin_roles
+    PROJECT_ADMIN_ROLES
   end
 
   def authorize_project_membership_management!(action, membership: nil)
