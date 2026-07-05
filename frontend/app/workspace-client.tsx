@@ -18,7 +18,10 @@ import {
   RefreshCw,
   Save,
   Send,
+  ShieldCheck,
   Trash2,
+  UserMinus,
+  UserPlus,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { apiClient } from "@/lib/api/client";
@@ -42,6 +45,8 @@ type ConversationSummaryDraft = components["schemas"]["ConversationSummaryDraft"
 type ConversationParticipant = components["schemas"]["ConversationParticipant"];
 type ConversationSafetyFlag = components["schemas"]["ConversationSafetyFlag"];
 type ConversationRedactionSuggestion = components["schemas"]["ConversationRedactionSuggestion"];
+type ProjectMembership = components["schemas"]["ProjectMembership"];
+type ProjectMembershipRole = components["schemas"]["ProjectMembershipRole"];
 type GitHubReconciliationAction = components["schemas"]["ResolveGitHubReconciliationRequest"]["resolution_action"];
 type GitHubReconciliationMatch = components["schemas"]["GitHubReconciliationMatch"];
 type GitHubReconciliationHistoryItem = NonNullable<components["schemas"]["IssueDraft"]["github_reconciliation_history"]>[number];
@@ -76,6 +81,8 @@ const retryReasonTemplates: { value: RetryReasonTemplate; label: string }[] = [
   { value: "github_search_complete_no_match", label: "GitHub Search完了後も該当Issueなし" },
   { value: "provider_transient_failure_confirmed", label: "外部APIの一時失敗を確認" },
 ];
+
+const projectMembershipRoles: ProjectMembershipRole[] = ["owner", "admin", "editor", "reviewer", "viewer", "auditor"];
 
 function today() {
   return new Date().toISOString().slice(0, 10);
@@ -179,6 +186,7 @@ function isFutureDateTime(value?: string) {
 
 function statusTone(status?: string) {
   if (
+    status === "active" ||
     status === "approved" ||
     status === "connected" ||
     status === "succeeded" ||
@@ -243,6 +251,7 @@ export default function MeetingWorkspace() {
   const [lastReview, setLastReview] = useState<Review | null>(null);
   const [openApiReview, setOpenApiReview] = useState<Review | null>(null);
   const [integrationAccounts, setIntegrationAccounts] = useState<IntegrationAccount[]>([]);
+  const [projectMemberships, setProjectMemberships] = useState<ProjectMembership[]>([]);
   const [statusMessage, setStatusMessage] = useState("API接続待機中");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -250,6 +259,8 @@ export default function MeetingWorkspace() {
 
   const [projectName, setProjectName] = useState("AI議事録プラットフォーム");
   const [projectRepo, setProjectRepo] = useState("Kazuya-Sakashita/ai-pm-platform");
+  const [newMemberActorId, setNewMemberActorId] = useState("");
+  const [newMemberRole, setNewMemberRole] = useState<ProjectMembershipRole>("viewer");
   const [meetingTitle, setMeetingTitle] = useState("Discordプロダクト同期");
   const [meetingDate, setMeetingDate] = useState(today());
   const [sourceType, setSourceType] = useState<MeetingSourceType>("discord_log");
@@ -313,6 +324,7 @@ export default function MeetingWorkspace() {
   useEffect(() => {
     if (!selectedProjectId) return;
     setIntegrationAccounts([]);
+    setProjectMemberships([]);
     setGithubInstallationUrl("");
     setConversationImports([]);
     setSelectedConversationImport(null);
@@ -321,6 +333,7 @@ export default function MeetingWorkspace() {
     setConversationRedactionSuggestions([]);
     void loadMeetings(selectedProjectId);
     void loadIntegrations(selectedProjectId);
+    void loadProjectMemberships(selectedProjectId);
     void loadConversationImports(selectedProjectId);
   }, [selectedProjectId]);
 
@@ -367,6 +380,98 @@ export default function MeetingWorkspace() {
     });
 
     setIntegrationAccounts(data?.data ?? []);
+  }
+
+  async function loadProjectMemberships(projectId: string) {
+    const { data, error: apiError } = await apiClient.GET("/projects/{project_id}/memberships", {
+      params: {
+        path: { project_id: projectId },
+        query: { status: "all" },
+      },
+    });
+
+    if (apiError) {
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    setProjectMemberships(data.data);
+  }
+
+  async function createProjectMembership() {
+    if (!selectedProjectId) {
+      setApiError("プロジェクトを先に作成または選択してください。");
+      return;
+    }
+
+    const actorId = newMemberActorId.trim();
+    if (!actorId) {
+      setApiError("メンバーIDを入力してください。");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    const { data, error: apiError } = await apiClient.POST("/projects/{project_id}/memberships", {
+      params: { path: { project_id: selectedProjectId } },
+      body: {
+        actor_id: actorId,
+        role: newMemberRole,
+      },
+    });
+    setLoading(false);
+
+    if (apiError) {
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    setProjectMemberships((current) => [data.data, ...current.filter((membership) => membership.id !== data.data.id)]);
+    setNewMemberActorId("");
+    setNewMemberRole("viewer");
+    setStatusMessage("メンバーを追加しました");
+  }
+
+  async function updateProjectMembershipRole(membership: ProjectMembership, role: ProjectMembershipRole) {
+    if (!selectedProjectId) return;
+
+    setLoading(true);
+    setError("");
+    const { data, error: apiError } = await apiClient.PATCH("/projects/{project_id}/memberships/{membership_id}", {
+      params: { path: { project_id: selectedProjectId, membership_id: membership.id } },
+      body: { role },
+    });
+    setLoading(false);
+
+    if (apiError) {
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    setProjectMemberships((current) => current.map((item) => (item.id === data.data.id ? data.data : item)));
+    setStatusMessage("メンバー権限を変更しました");
+  }
+
+  async function revokeProjectMembership(membership: ProjectMembership) {
+    if (!selectedProjectId) return;
+    if (!window.confirm(`${membership.actor_id} のプロジェクト権限を失効します。`)) return;
+
+    setLoading(true);
+    setError("");
+    const { error: apiError } = await apiClient.DELETE("/projects/{project_id}/memberships/{membership_id}", {
+      params: { path: { project_id: selectedProjectId, membership_id: membership.id } },
+    });
+    setLoading(false);
+
+    if (apiError) {
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    setProjectMemberships((current) =>
+      current.map((item) => (item.id === membership.id ? { ...item, status: "revoked" as const, updated_at: new Date().toISOString() } : item)),
+    );
+    setStatusMessage("メンバー権限を失効しました");
   }
 
   async function loadConversationImports(projectId: string) {
@@ -1625,6 +1730,10 @@ export default function MeetingWorkspace() {
             <MessageSquareText size={16} />
             DM整理
           </a>
+          <a className="nav-item" href="#memberships">
+            <ShieldCheck size={16} />
+            メンバー
+          </a>
           <a className="nav-item" href="#requirements">
             <ListChecks size={16} />
             要件定義
@@ -1763,6 +1872,70 @@ export default function MeetingWorkspace() {
                     </option>
                   ))}
                 </select>
+              </section>
+
+              <section className="tool-panel" id="memberships" aria-label="メンバー管理">
+                <div className="panel-header">
+                  <h3>メンバー管理</h3>
+                  <span className="chip neutral">{projectMemberships.length}</span>
+                </div>
+                <div className="membership-create">
+                  <label>
+                    メンバーID
+                    <input value={newMemberActorId} onChange={(event) => setNewMemberActorId(event.target.value)} />
+                  </label>
+                  <label>
+                    権限
+                    <select
+                      value={newMemberRole}
+                      onChange={(event) => setNewMemberRole(event.target.value as ProjectMembershipRole)}
+                    >
+                      {projectMembershipRoles.map((role) => (
+                        <option key={role} value={role}>
+                          {statusLabel(role)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button className="button full-width" type="button" onClick={createProjectMembership} disabled={loading || !selectedProjectId}>
+                    <UserPlus size={16} />
+                    メンバー追加
+                  </button>
+                </div>
+                <div className="membership-list" aria-label="プロジェクトメンバー一覧">
+                  {projectMemberships.map((membership) => (
+                    <div className="membership-row" key={membership.id}>
+                      <div>
+                        <strong>{membership.actor_id}</strong>
+                        <span className={`chip ${statusTone(membership.status)}`}>{statusLabel(membership.status)}</span>
+                      </div>
+                      <label>
+                        権限
+                        <select
+                          value={membership.role}
+                          disabled={loading || membership.status !== "active"}
+                          onChange={(event) => updateProjectMembershipRole(membership, event.target.value as ProjectMembershipRole)}
+                        >
+                          {projectMembershipRoles.map((role) => (
+                            <option key={role} value={role}>
+                              {statusLabel(role)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <button
+                        className="button secondary full-width"
+                        type="button"
+                        onClick={() => revokeProjectMembership(membership)}
+                        disabled={loading || membership.status !== "active"}
+                      >
+                        <UserMinus size={16} />
+                        失効
+                      </button>
+                    </div>
+                  ))}
+                  {projectMemberships.length === 0 ? <p className="empty">メンバーはまだ読み込まれていません。</p> : null}
+                </div>
               </section>
 
               <section className="tool-panel" aria-label="GitHub連携">

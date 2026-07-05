@@ -58,6 +58,42 @@ export interface paths {
         patch: operations["updateProject"];
         trace?: never;
     };
+    "/projects/{project_id}/memberships": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List project memberships */
+        get: operations["listProjectMemberships"];
+        put?: never;
+        /** Create project membership */
+        post: operations["createProjectMembership"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/memberships/{membership_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke project membership */
+        delete: operations["revokeProjectMembership"];
+        options?: never;
+        head?: never;
+        /** Update project membership role */
+        patch: operations["updateProjectMembership"];
+        trace?: never;
+    };
     "/projects/{project_id}/meetings": {
         parameters: {
             query?: never;
@@ -667,6 +703,37 @@ export interface components {
             description?: string;
             /** @enum {string} */
             status?: "active" | "archived";
+        };
+        /** @enum {string} */
+        ProjectMembershipRole: "owner" | "admin" | "editor" | "reviewer" | "viewer" | "auditor";
+        /** @enum {string} */
+        ProjectMembershipStatus: "active" | "revoked";
+        ProjectMembership: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            project_id: string;
+            actor_id: string;
+            role: components["schemas"]["ProjectMembershipRole"];
+            status: components["schemas"]["ProjectMembershipStatus"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ProjectMembershipResponse: {
+            data: components["schemas"]["ProjectMembership"];
+        };
+        ProjectMembershipListResponse: {
+            data: components["schemas"]["ProjectMembership"][];
+            meta: components["schemas"]["PaginationMeta"];
+        };
+        CreateProjectMembershipRequest: {
+            actor_id: string;
+            role: components["schemas"]["ProjectMembershipRole"];
+        };
+        UpdateProjectMembershipRequest: {
+            role: components["schemas"]["ProjectMembershipRole"];
             github_repo?: string;
         };
         /** @enum {string} */
@@ -1476,6 +1543,15 @@ export interface components {
                 "application/json": components["schemas"]["ErrorResponse"];
             };
         };
+        /** @description Request conflicts with current project state */
+        Conflict: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
         /** @description Review or approval is required before this action */
         ReviewRequired: {
             headers: {
@@ -1515,6 +1591,7 @@ export interface components {
     };
     parameters: {
         ProjectId: string;
+        MembershipId: string;
         MeetingId: string;
         ConversationImportId: string;
         ConversationSummaryDraftId: string;
@@ -1526,6 +1603,7 @@ export interface components {
         JobId: string;
         Page: number;
         PerPage: number;
+        MembershipStatusFilter: "active" | "revoked" | "all";
         IdempotencyKey: string;
         GitHubEvent: string;
         GitHubDelivery: string;
@@ -1683,6 +1761,122 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    listProjectMemberships: {
+        parameters: {
+            query?: {
+                status?: components["parameters"]["MembershipStatusFilter"];
+                page?: components["parameters"]["Page"];
+                per_page?: components["parameters"]["PerPage"];
+            };
+            header?: never;
+            path: {
+                project_id: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Project memberships */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectMembershipListResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createProjectMembership: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateProjectMembershipRequest"];
+            };
+        };
+        responses: {
+            /** @description Project membership created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectMembershipResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    revokeProjectMembership: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: components["parameters"]["ProjectId"];
+                membership_id: components["parameters"]["MembershipId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Project membership revoked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    updateProjectMembership: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: components["parameters"]["ProjectId"];
+                membership_id: components["parameters"]["MembershipId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProjectMembershipRequest"];
+            };
+        };
+        responses: {
+            /** @description Project membership updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectMembershipResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
             422: components["responses"]["ValidationError"];
         };
     };
@@ -2817,6 +3011,8 @@ export interface operations {
                     "application/json": components["schemas"]["AuditLogListResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
     };

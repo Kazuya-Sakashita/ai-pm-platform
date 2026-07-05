@@ -5,6 +5,7 @@ Rails.application.routes.draw do
 
       resources :projects, only: %i[index show create update destroy] do
         resources :meetings, only: %i[index create]
+        resources :project_memberships, only: %i[index create update destroy], path: "memberships", param: :membership_id
         resources :conversation_imports, only: %i[index create], path: "conversation-imports"
         resources :audit_logs, only: %i[index], path: "audit-logs"
         resources :integration_accounts, only: %i[index], path: "integrations"

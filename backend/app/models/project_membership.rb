@@ -13,4 +13,16 @@ class ProjectMembership < ApplicationRecord
   def active?
     status == "active"
   end
+
+  def api_json
+    {
+      id: id,
+      project_id: project_id,
+      actor_id: actor_id,
+      role: role,
+      status: status,
+      created_at: iso_time(created_at),
+      updated_at: iso_time(updated_at)
+    }
+  end
 end
