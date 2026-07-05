@@ -1526,8 +1526,6 @@ export interface components {
         JobId: string;
         Page: number;
         PerPage: number;
-        /** @description Temporary actor identity for MVP project membership checks. Production must derive this from authenticated user context. */
-        ActorId: string;
         IdempotencyKey: string;
         GitHubEvent: string;
         GitHubDelivery: string;
@@ -1606,6 +1604,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProjectResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
             422: components["responses"]["ValidationError"];
         };
     };
@@ -1629,6 +1628,8 @@ export interface operations {
                     "application/json": components["schemas"]["ProjectResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -1650,6 +1651,8 @@ export interface operations {
                 };
                 content?: never;
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -1677,6 +1680,8 @@ export interface operations {
                     "application/json": components["schemas"]["ProjectResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             422: components["responses"]["ValidationError"];
         };
@@ -1740,10 +1745,7 @@ export interface operations {
                 page?: components["parameters"]["Page"];
                 per_page?: components["parameters"]["PerPage"];
             };
-            header: {
-                /** @description Temporary actor identity for MVP project membership checks. Production must derive this from authenticated user context. */
-                "X-Actor-Id": components["parameters"]["ActorId"];
-            };
+            header?: never;
             path: {
                 project_id: components["parameters"]["ProjectId"];
             };
@@ -1768,10 +1770,7 @@ export interface operations {
     createConversationImport: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Temporary actor identity for MVP project membership checks. Production must derive this from authenticated user context. */
-                "X-Actor-Id": components["parameters"]["ActorId"];
-            };
+            header?: never;
             path: {
                 project_id: components["parameters"]["ProjectId"];
             };
@@ -1801,10 +1800,7 @@ export interface operations {
     getConversationImport: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Temporary actor identity for MVP project membership checks. Production must derive this from authenticated user context. */
-                "X-Actor-Id": components["parameters"]["ActorId"];
-            };
+            header?: never;
             path: {
                 conversation_import_id: components["parameters"]["ConversationImportId"];
             };
@@ -1829,10 +1825,7 @@ export interface operations {
     anonymizeConversationImport: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Temporary actor identity for MVP project membership checks. Production must derive this from authenticated user context. */
-                "X-Actor-Id": components["parameters"]["ActorId"];
-            };
+            header?: never;
             path: {
                 conversation_import_id: components["parameters"]["ConversationImportId"];
             };
@@ -1855,10 +1848,7 @@ export interface operations {
     updateConversationImport: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Temporary actor identity for MVP project membership checks. Production must derive this from authenticated user context. */
-                "X-Actor-Id": components["parameters"]["ActorId"];
-            };
+            header?: never;
             path: {
                 conversation_import_id: components["parameters"]["ConversationImportId"];
             };
@@ -1888,9 +1878,7 @@ export interface operations {
     scanConversationImport: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Temporary actor identity for MVP project membership checks. Production must derive this from authenticated user context. */
-                "X-Actor-Id": components["parameters"]["ActorId"];
+            header?: {
                 "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
             };
             path: {
@@ -1919,9 +1907,7 @@ export interface operations {
     generateConversationSummary: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Temporary actor identity for MVP project membership checks. Production must derive this from authenticated user context. */
-                "X-Actor-Id": components["parameters"]["ActorId"];
+            header?: {
                 "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
             };
             path: {
@@ -1952,10 +1938,7 @@ export interface operations {
     getConversationSummaryDraft: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Temporary actor identity for MVP project membership checks. Production must derive this from authenticated user context. */
-                "X-Actor-Id": components["parameters"]["ActorId"];
-            };
+            header?: never;
             path: {
                 conversation_summary_draft_id: components["parameters"]["ConversationSummaryDraftId"];
             };
@@ -1980,10 +1963,7 @@ export interface operations {
     updateConversationSummaryDraft: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Temporary actor identity for MVP project membership checks. Production must derive this from authenticated user context. */
-                "X-Actor-Id": components["parameters"]["ActorId"];
-            };
+            header?: never;
             path: {
                 conversation_summary_draft_id: components["parameters"]["ConversationSummaryDraftId"];
             };
@@ -2013,9 +1993,7 @@ export interface operations {
     approveConversationSummaryDraft: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Temporary actor identity for MVP project membership checks. Production must derive this from authenticated user context. */
-                "X-Actor-Id": components["parameters"]["ActorId"];
+            header?: {
                 "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
             };
             path: {

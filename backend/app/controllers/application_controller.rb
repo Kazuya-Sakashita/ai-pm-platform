@@ -38,19 +38,25 @@ class ApplicationController < ActionController::API
   end
 
   def current_actor_id
-    @current_actor_id ||= request.headers["X-Actor-Id"].presence
+    return @current_actor_id if defined?(@current_actor_id)
+
+    @current_actor_id = actor_id_from_authorization_header || legacy_actor_id
+  end
+
+  def require_actor!(action:)
+    return true if current_actor_id.present?
+
+    if authentication_error
+      render_error(authentication_error.code, authentication_error.safe_detail, authentication_error.http_status, { action: action })
+    else
+      render_error("authentication_required", "Authentication is required.", :unauthorized, { action: action })
+    end
+
+    false
   end
 
   def authorize_conversation_import!(project, action)
-    unless current_actor_id
-      render_error(
-        "conversation_import_actor_required",
-        "Conversation import actor is required.",
-        :unauthorized,
-        { action: action }
-      )
-      return false
-    end
+    return false unless require_actor!(action: action)
 
     policy = ConversationImportPolicy.new(project: project, actor_id: current_actor_id)
     return true if policy.allowed?(action)
@@ -62,5 +68,61 @@ class ApplicationController < ActionController::API
       { action: action }
     )
     false
+  end
+
+  def authorize_project!(project, action)
+    return false unless require_actor!(action: "project_#{action}")
+
+    allowed_roles = {
+      read: ProjectMembership::ROLES,
+      update: %w[owner admin],
+      archive: %w[owner admin]
+    }.fetch(action)
+    membership = project.project_memberships.find_by(actor_id: current_actor_id)
+    return true if membership&.active? && allowed_roles.include?(membership.role)
+
+    render_error(
+      "project_forbidden",
+      "Project access is forbidden.",
+      :forbidden,
+      { action: action }
+    )
+    false
+  end
+
+  def authentication_error
+    current_actor_id unless defined?(@current_actor_id)
+    @authentication_error
+  end
+
+  def actor_id_from_authorization_header
+    authorization = request.authorization.to_s
+    return nil if authorization.blank?
+
+    token = authorization[/\ABearer\s+(.+)\z/i, 1]
+    unless token
+      @authentication_error = Authentication::JwtVerifier::Error.new(
+        code: "invalid_token",
+        safe_detail: "Authentication token is invalid."
+      )
+      return nil
+    end
+
+    Authentication::JwtVerifier.new.verify!(token).actor_id
+  rescue Authentication::JwtVerifier::Error => e
+    @authentication_error = e
+    nil
+  end
+
+  def legacy_actor_id
+    return nil unless legacy_actor_header_allowed?
+
+    request.headers["X-Actor-Id"].presence
+  end
+
+  def legacy_actor_header_allowed?
+    return false if Rails.env.production?
+
+    ActiveModel::Type::Boolean.new.cast(ENV.fetch("AUTH_ALLOW_LEGACY_ACTOR_HEADER", "true"))
   end
 end

@@ -93,6 +93,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ProjectResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "422":
           $ref: "#/components/responses/ValidationError"
 
@@ -110,6 +112,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ProjectResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
     patch:
@@ -131,6 +137,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ProjectResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "422":
@@ -144,6 +154,10 @@ paths:
       responses:
         "204":
           description: Project archived
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -194,7 +208,6 @@ paths:
       operationId: listProjectConversationImports
       parameters:
         - $ref: "#/components/parameters/ProjectId"
-        - $ref: "#/components/parameters/ActorId"
         - $ref: "#/components/parameters/Page"
         - $ref: "#/components/parameters/PerPage"
       responses:
@@ -216,7 +229,6 @@ paths:
       operationId: createConversationImport
       parameters:
         - $ref: "#/components/parameters/ProjectId"
-        - $ref: "#/components/parameters/ActorId"
       requestBody:
         required: true
         content:
@@ -246,7 +258,6 @@ paths:
       operationId: getConversationImport
       parameters:
         - $ref: "#/components/parameters/ConversationImportId"
-        - $ref: "#/components/parameters/ActorId"
       responses:
         "200":
           description: Conversation import
@@ -266,7 +277,6 @@ paths:
       operationId: updateConversationImport
       parameters:
         - $ref: "#/components/parameters/ConversationImportId"
-        - $ref: "#/components/parameters/ActorId"
       requestBody:
         required: true
         content:
@@ -294,7 +304,6 @@ paths:
       operationId: anonymizeConversationImport
       parameters:
         - $ref: "#/components/parameters/ConversationImportId"
-        - $ref: "#/components/parameters/ActorId"
       responses:
         "204":
           description: Conversation import anonymized
@@ -312,7 +321,6 @@ paths:
       operationId: scanConversationImport
       parameters:
         - $ref: "#/components/parameters/ConversationImportId"
-        - $ref: "#/components/parameters/ActorId"
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
         "200":
@@ -339,7 +347,6 @@ paths:
       operationId: generateConversationSummary
       parameters:
         - $ref: "#/components/parameters/ConversationImportId"
-        - $ref: "#/components/parameters/ActorId"
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
         "202":
@@ -370,7 +377,6 @@ paths:
       operationId: getConversationSummaryDraft
       parameters:
         - $ref: "#/components/parameters/ConversationSummaryDraftId"
-        - $ref: "#/components/parameters/ActorId"
       responses:
         "200":
           description: Conversation summary draft
@@ -390,7 +396,6 @@ paths:
       operationId: updateConversationSummaryDraft
       parameters:
         - $ref: "#/components/parameters/ConversationSummaryDraftId"
-        - $ref: "#/components/parameters/ActorId"
       requestBody:
         required: true
         content:
@@ -420,7 +425,6 @@ paths:
       operationId: approveConversationSummaryDraft
       parameters:
         - $ref: "#/components/parameters/ConversationSummaryDraftId"
-        - $ref: "#/components/parameters/ActorId"
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
         required: true
@@ -1095,6 +1099,7 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+      description: JWT bearer token. The API derives actor identity from the verified `sub` claim. `X-Actor-Id` is not part of the production API contract.
 
   parameters:
     ProjectId:
@@ -1184,15 +1189,6 @@ components:
         minimum: 1
         maximum: 100
         default: 25
-    ActorId:
-      name: X-Actor-Id
-      in: header
-      required: true
-      description: Temporary actor identity for MVP project membership checks. Production must derive this from authenticated user context.
-      schema:
-        type: string
-        minLength: 1
-        maxLength: 120
     IdempotencyKey:
       name: Idempotency-Key
       in: header

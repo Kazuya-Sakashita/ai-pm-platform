@@ -142,8 +142,8 @@ RSpec.describe "API V1 Conversation Summary Drafts", type: :request do
     SQL
   end
 
-  def actor_headers(actor_id = "dm-editor")
-    { "X-Actor-Id" => actor_id }
+  def actor_headers(actor_id = "dm-editor", **options)
+    auth_headers(actor_id, **options)
   end
 
   def authorize_project(project, actor_id: "dm-editor", role: "editor")
