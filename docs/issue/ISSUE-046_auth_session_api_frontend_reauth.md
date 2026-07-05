@@ -49,6 +49,8 @@ Auth session APIsとFrontend再ログイン導線を実装し、失効/期限切
 ## 関連レビュー
 
 - `docs/review/20260706_jwt_revocation_session_key_rotation_design_review.md`
+- `docs/review/20260706_auth_session_api_frontend_reauth_design_review.md`
+- `docs/review/20260706_auth_session_api_frontend_reauth_implementation_review.md`
 
 ## 関連ADR
 
@@ -70,6 +72,39 @@ P1
 
 ## 次アクション
 
-1. ISSUE-045完了後にOpenAPI設計レビューを行う。
-2. Auth session APIsとFrontend導線を実装する。
-3. revoked/expired/stale状態のE2Eを追加する。
+1. PRを作成し、CI成功後にマージする。
+2. GitHub Issue #46をクローズする。
+3. 次はISSUE-047でJWT key rotation staging smoke / production runbook gateを進める。
+
+## 実装結果
+
+実装日: 2026-07-06
+
+- OpenAPIへAuth session contractを追加した。
+- `GET /auth/sessions` でcurrent actorのsafe session listを返すようにした。
+- `DELETE /auth/sessions/current` でcurrent session logoutを実装した。
+- `DELETE /auth/sessions/{auth_session_id}` で本人所有sessionのdevice revokeを実装した。
+- `POST /auth/logout-everywhere` で本人scopeのactive sessions revokeとsession version incrementを実装した。
+- Auth session APIsはsession-backed JWT必須とし、legacy `X-Actor-Id` やsession claimsなしJWTでは `invalid_token` で拒否する。
+- `security_events` にsession revoke / logout everywhereをsafe metadataで記録する。
+- Frontend API client middlewareでauth terminal error codeを検知し、local auth state clearと再ログインイベントを発火する。
+- Frontendはauth lock時にserver由来/入力中stateをclearし、通常ワークスペースを描画しない。
+- Playwrightで初回401、background401、session list、other session revoke、current logout、mobile overflowを検証した。
+
+## 検証結果
+
+- `bundle exec rspec spec/requests/api/v1/auth_sessions_spec.rb spec/requests/api/v1/authentication_session_spec.rb`: 8 examples, 0 failures
+- `bundle exec rspec spec/requests/api/v1/auth_sessions_spec.rb spec/requests/api/v1/authentication_session_spec.rb spec/services/authentication/jwt_verifier_spec.rb spec/models/authentication_foundation_spec.rb`: 27 examples, 0 failures
+- `bundle exec rspec`: 244 examples, 0 failures
+- `bundle exec ruby bin/rails zeitwerk:check`: success
+- `npm run api:verify`: success
+- `npm run display:check`: success
+- `npm run frontend:build`: success
+- `npm run frontend:e2e -- e2e/auth-session.spec.ts`: 3 passed
+- `npm run frontend:e2e`: 29 passed
+
+## 未完了・後続
+
+- admin forced revokeはglobal admin/organization role modelがないため、ISSUE-046ではpublic API化しない。
+- refresh token / external IdP login画面は非スコープであり、後続Issueで扱う。
+- device labelは未実装。raw User-Agentを保存せずに粗いdevice labelを扱う設計が必要である。
