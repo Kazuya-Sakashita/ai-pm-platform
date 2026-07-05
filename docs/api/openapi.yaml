@@ -194,6 +194,7 @@ paths:
       operationId: listProjectConversationImports
       parameters:
         - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/ActorId"
         - $ref: "#/components/parameters/Page"
         - $ref: "#/components/parameters/PerPage"
       responses:
@@ -203,6 +204,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ConversationImportListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
     post:
@@ -211,6 +216,7 @@ paths:
       operationId: createConversationImport
       parameters:
         - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/ActorId"
       requestBody:
         required: true
         content:
@@ -224,6 +230,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ConversationImportResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "422":
@@ -236,6 +246,7 @@ paths:
       operationId: getConversationImport
       parameters:
         - $ref: "#/components/parameters/ConversationImportId"
+        - $ref: "#/components/parameters/ActorId"
       responses:
         "200":
           description: Conversation import
@@ -243,6 +254,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ConversationImportResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
     patch:
@@ -251,6 +266,7 @@ paths:
       operationId: updateConversationImport
       parameters:
         - $ref: "#/components/parameters/ConversationImportId"
+        - $ref: "#/components/parameters/ActorId"
       requestBody:
         required: true
         content:
@@ -264,6 +280,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ConversationImportResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "422":
@@ -274,9 +294,14 @@ paths:
       operationId: anonymizeConversationImport
       parameters:
         - $ref: "#/components/parameters/ConversationImportId"
+        - $ref: "#/components/parameters/ActorId"
       responses:
         "204":
           description: Conversation import anonymized
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -287,6 +312,7 @@ paths:
       operationId: scanConversationImport
       parameters:
         - $ref: "#/components/parameters/ConversationImportId"
+        - $ref: "#/components/parameters/ActorId"
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
         "200":
@@ -295,6 +321,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ConversationImportScanResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "422":
@@ -309,6 +339,7 @@ paths:
       operationId: generateConversationSummary
       parameters:
         - $ref: "#/components/parameters/ConversationImportId"
+        - $ref: "#/components/parameters/ActorId"
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
         "202":
@@ -317,6 +348,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ConversationSummaryGenerationResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "422":
@@ -335,6 +370,7 @@ paths:
       operationId: getConversationSummaryDraft
       parameters:
         - $ref: "#/components/parameters/ConversationSummaryDraftId"
+        - $ref: "#/components/parameters/ActorId"
       responses:
         "200":
           description: Conversation summary draft
@@ -342,6 +378,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ConversationSummaryDraftResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
     patch:
@@ -350,6 +390,7 @@ paths:
       operationId: updateConversationSummaryDraft
       parameters:
         - $ref: "#/components/parameters/ConversationSummaryDraftId"
+        - $ref: "#/components/parameters/ActorId"
       requestBody:
         required: true
         content:
@@ -363,6 +404,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ConversationSummaryDraftResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "422":
@@ -375,6 +420,7 @@ paths:
       operationId: approveConversationSummaryDraft
       parameters:
         - $ref: "#/components/parameters/ConversationSummaryDraftId"
+        - $ref: "#/components/parameters/ActorId"
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
         required: true
@@ -389,6 +435,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ConversationSummaryDraftResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "422":
@@ -1134,6 +1184,15 @@ components:
         minimum: 1
         maximum: 100
         default: 25
+    ActorId:
+      name: X-Actor-Id
+      in: header
+      required: true
+      description: Temporary actor identity for MVP project membership checks. Production must derive this from authenticated user context.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 120
     IdempotencyKey:
       name: Idempotency-Key
       in: header
@@ -1175,6 +1234,12 @@ components:
             $ref: "#/components/schemas/ErrorResponse"
     Unauthorized:
       description: Authentication or signature verification failed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Forbidden:
+      description: Actor is not allowed to perform this action in the project
       content:
         application/json:
           schema:

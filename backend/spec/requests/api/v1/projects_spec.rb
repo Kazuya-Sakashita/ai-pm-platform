@@ -20,12 +20,14 @@ RSpec.describe "API V1 Projects", type: :request do
         name: "AI PM",
         description: "Automated project manager",
         github_repo: "Kazuya-Sakashita/ai-pm-platform"
-      }
+      }, headers: { "X-Actor-Id" => "project-owner" }
 
       expect(response).to have_http_status(:created)
       body = JSON.parse(response.body)
       project = Project.find(body.dig("data", "id"))
       expect(project.audit_logs.last.action).to eq("project.created")
+      expect(project.audit_logs.last.actor_id).to eq("project-owner")
+      expect(project.project_memberships.find_by(actor_id: "project-owner").role).to eq("owner")
     end
   end
 

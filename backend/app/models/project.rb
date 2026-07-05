@@ -8,6 +8,7 @@ class Project < ApplicationRecord
   has_many :github_connection_states, dependent: :destroy
   has_many :github_issue_publish_attempts, dependent: :destroy
   has_many :conversation_imports, dependent: :destroy
+  has_many :project_memberships, dependent: :destroy
 
   validates :name, presence: true, length: { maximum: 120 }
   validates :status, inclusion: { in: STATUSES }

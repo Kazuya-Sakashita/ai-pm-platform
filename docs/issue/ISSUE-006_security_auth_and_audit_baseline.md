@@ -50,9 +50,12 @@ OAuth、認証、権限、監査ログ、秘密情報検出、データ保持の
 
 P0として必須。セキュリティを後から足すとプロダクト価値と信頼を損なう。
 
+2026-07-05にISSUE-030でDiscord DM系APIへproject membership/Policy Objectを導入した。`project_memberships`、`ConversationImportPolicy`、safe 401/403、AuditLog actor接続により、DM閲覧/作成/更新/安全チェック/AI整理/承認/匿名化のBroken Access Controlリスクを下げた。`X-Actor-Id` は暫定actorであり、productionでは認証済みuser idへ置き換える必要がある。
+
 ## 次アクション
 
 - GitHub OAuth/App比較ADRを作成する
 - Discord Bot権限表を作る
 - AuditLog ERD初稿は `docs/architecture/20260630_db_design.md` に作成済み
 - ISSUE-008としてsecret_scan_results、暗号化方針、integration APIを詳細化する
+- ISSUE-030の後続として、実認証/JWT接続とProject membership管理APIを設計する

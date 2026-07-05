@@ -2,16 +2,21 @@ module Api
   module V1
     class ConversationImportsController < ApplicationController
       def index
+        return unless authorize_conversation_import!(project, :read)
+
         imports = project.conversation_imports.order(created_at: :desc)
         render json: { data: imports.map(&:api_json), meta: pagination_meta(imports) }
       end
 
       def create
+        return unless authorize_conversation_import!(project, :create)
+
         conversation_import = project.conversation_imports.create!(conversation_import_params)
         AuditLog.record!(
           project: project,
           action: "conversation_import.created",
           target: conversation_import,
+          actor_id: current_actor_id,
           metadata: { source_type: conversation_import.source_type, consent_confirmed: conversation_import.consent_confirmed }
         )
 
@@ -19,10 +24,13 @@ module Api
       end
 
       def show
+        return unless authorize_conversation_import!(conversation_import.project, :read)
+
         render json: { data: conversation_import.api_json }
       end
 
       def update
+        return unless authorize_conversation_import!(conversation_import.project, :update)
         return render_anonymized_error if conversation_import.anonymized_at?
 
         raw_text_changed = update_changes_summary_draft?
@@ -32,6 +40,7 @@ module Api
           project: conversation_import.project,
           action: "conversation_import.updated",
           target: conversation_import,
+          actor_id: current_actor_id,
           metadata: { stale_summary_drafts: raw_text_changed }
         )
 
@@ -39,18 +48,21 @@ module Api
       end
 
       def destroy
+        return unless authorize_conversation_import!(conversation_import.project, :anonymize)
+
         ConversationImports::RetentionService.new.anonymize!(
           conversation_import,
           reason: "manual_delete",
-          actor_id: "system"
+          actor_id: current_actor_id
         )
         head :no_content
       end
 
       def scan
+        return unless authorize_conversation_import!(conversation_import.project, :scan)
         return render_anonymized_error if conversation_import.anonymized_at?
 
-        result = ConversationImports::ScanService.new(conversation_import).call
+        result = ConversationImports::ScanService.new(conversation_import, actor_id: current_actor_id).call
         render json: {
           data: {
             valid: result.valid,
@@ -64,6 +76,7 @@ module Api
       end
 
       def generate_summary
+        return unless authorize_conversation_import!(conversation_import.project, :generate_summary)
         return render_anonymized_error if conversation_import.anonymized_at?
 
         job = conversation_import.project.jobs.create!(
@@ -79,6 +92,7 @@ module Api
           project: conversation_import.project,
           action: "conversation_summary_draft.generated",
           target: draft,
+          actor_id: current_actor_id,
           metadata: { conversation_import_id: conversation_import.id, job_id: job.id }
         )
 
@@ -95,6 +109,7 @@ module Api
           project: conversation_import.project,
           action: "conversation_summary_draft.generation_failed",
           target: job,
+          actor_id: current_actor_id || "system",
           metadata: { conversation_import_id: conversation_import.id, provider_error_code: e.code }
         ) if job
 

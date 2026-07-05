@@ -4,8 +4,9 @@ RSpec.describe "API V1 Conversation Summary Drafts", type: :request do
   describe "GET /api/v1/conversation-summary-drafts/:id" do
     it "returns a conversation summary draft" do
       draft = create(:conversation_summary_draft)
+      authorize_project(draft.conversation_import.project, role: "viewer")
 
-      get "/api/v1/conversation-summary-drafts/#{draft.id}"
+      get "/api/v1/conversation-summary-drafts/#{draft.id}", headers: actor_headers
 
       expect(response).to have_http_status(:ok)
       expect(JSON.parse(response.body).dig("data", "id")).to eq(draft.id)
@@ -19,8 +20,9 @@ RSpec.describe "API V1 Conversation Summary Drafts", type: :request do
         decisions: [{ text: sensitive_text, confidence: 0.8 }],
         source_quotes: [{ id: "q1", quote: sensitive_text }]
       )
+      authorize_project(draft.conversation_import.project, role: "viewer")
 
-      get "/api/v1/conversation-summary-drafts/#{draft.id}"
+      get "/api/v1/conversation-summary-drafts/#{draft.id}", headers: actor_headers
 
       expect(response).to have_http_status(:ok)
       expect(response.body).to include(sensitive_text)
@@ -40,9 +42,10 @@ RSpec.describe "API V1 Conversation Summary Drafts", type: :request do
         open_questions: [sensitive_text],
         source_quotes: [{ id: "q1", quote: sensitive_text }]
       )
+      authorize_project(draft.conversation_import.project, role: "viewer")
 
       draft.anonymize!
-      get "/api/v1/conversation-summary-drafts/#{draft.id}"
+      get "/api/v1/conversation-summary-drafts/#{draft.id}", headers: actor_headers
 
       expect(response).to have_http_status(:ok)
       expect(response.body).not_to include(sensitive_text)
@@ -57,17 +60,19 @@ RSpec.describe "API V1 Conversation Summary Drafts", type: :request do
   describe "PATCH /api/v1/conversation-summary-drafts/:id" do
     it "updates a draft after human review" do
       draft = create(:conversation_summary_draft)
+      authorize_project(draft.conversation_import.project, role: "reviewer")
 
       patch "/api/v1/conversation-summary-drafts/#{draft.id}", params: {
         summary: "レビュー後のDM整理サマリー",
         open_questions: ["保持期間を決める"]
-      }
+      }, headers: actor_headers
 
       expect(response).to have_http_status(:ok)
       body = JSON.parse(response.body)
       expect(body.dig("data", "summary")).to eq("レビュー後のDM整理サマリー")
       expect(body.dig("data", "open_questions")).to eq(["保持期間を決める"])
       expect(draft.conversation_import.project.audit_logs.last.action).to eq("conversation_summary_draft.updated")
+      expect(draft.conversation_import.project.audit_logs.last.actor_id).to eq("dm-editor")
       expect(stored_summary_draft_row(draft).values.compact.join(" ")).not_to include("レビュー後のDM整理サマリー")
     end
   end
@@ -75,11 +80,12 @@ RSpec.describe "API V1 Conversation Summary Drafts", type: :request do
   describe "POST /api/v1/conversation-summary-drafts/:id/approve" do
     it "approves a draft and its import" do
       draft = create(:conversation_summary_draft)
+      authorize_project(draft.conversation_import.project, role: "reviewer")
 
       post "/api/v1/conversation-summary-drafts/#{draft.id}/approve", params: {
         approval_note: "Issue候補化してよい",
         generate_downstream_candidates: true
-      }
+      }, headers: actor_headers
 
       expect(response).to have_http_status(:ok)
       body = JSON.parse(response.body)
@@ -87,18 +93,33 @@ RSpec.describe "API V1 Conversation Summary Drafts", type: :request do
       expect(draft.reload.status).to eq("approved")
       expect(draft.conversation_import.reload.status).to eq("approved")
       expect(draft.conversation_import.project.audit_logs.last.action).to eq("conversation_summary_draft.approved")
+      expect(draft.conversation_import.project.audit_logs.last.actor_id).to eq("dm-editor")
     end
 
     it "requires an approval note" do
       draft = create(:conversation_summary_draft)
+      authorize_project(draft.conversation_import.project, role: "reviewer")
 
-      post "/api/v1/conversation-summary-drafts/#{draft.id}/approve", params: {}
+      post "/api/v1/conversation-summary-drafts/#{draft.id}/approve", params: {}, headers: actor_headers
 
       expect(response).to have_http_status(422)
       body = JSON.parse(response.body)
       expect(body.dig("error", "code")).to eq("approval_note_required")
       expect(draft.reload.status).to eq("draft")
       expect(draft.conversation_import.reload.status).to eq("draft")
+    end
+
+    it "rejects an editor without approval permission" do
+      draft = create(:conversation_summary_draft)
+      authorize_project(draft.conversation_import.project, role: "editor")
+
+      post "/api/v1/conversation-summary-drafts/#{draft.id}/approve", params: {
+        approval_note: "editorでは承認しない"
+      }, headers: actor_headers
+
+      expect(response).to have_http_status(:forbidden)
+      expect(JSON.parse(response.body).dig("error", "code")).to eq("conversation_import_forbidden")
+      expect(draft.reload.status).to eq("draft")
     end
   end
 
@@ -119,5 +140,13 @@ RSpec.describe "API V1 Conversation Summary Drafts", type: :request do
       FROM conversation_summary_drafts
       WHERE id = #{ConversationSummaryDraft.connection.quote(draft.id)}
     SQL
+  end
+
+  def actor_headers(actor_id = "dm-editor")
+    { "X-Actor-Id" => actor_id }
+  end
+
+  def authorize_project(project, actor_id: "dm-editor", role: "editor")
+    create(:project_membership, project: project, actor_id: actor_id, role: role)
   end
 end

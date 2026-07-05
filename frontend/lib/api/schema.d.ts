@@ -1467,6 +1467,15 @@ export interface components {
                 "application/json": components["schemas"]["ErrorResponse"];
             };
         };
+        /** @description Actor is not allowed to perform this action in the project */
+        Forbidden: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
         /** @description Review or approval is required before this action */
         ReviewRequired: {
             headers: {
@@ -1517,6 +1526,8 @@ export interface components {
         JobId: string;
         Page: number;
         PerPage: number;
+        /** @description Temporary actor identity for MVP project membership checks. Production must derive this from authenticated user context. */
+        ActorId: string;
         IdempotencyKey: string;
         GitHubEvent: string;
         GitHubDelivery: string;
@@ -1729,7 +1740,10 @@ export interface operations {
                 page?: components["parameters"]["Page"];
                 per_page?: components["parameters"]["PerPage"];
             };
-            header?: never;
+            header: {
+                /** @description Temporary actor identity for MVP project membership checks. Production must derive this from authenticated user context. */
+                "X-Actor-Id": components["parameters"]["ActorId"];
+            };
             path: {
                 project_id: components["parameters"]["ProjectId"];
             };
@@ -1746,13 +1760,18 @@ export interface operations {
                     "application/json": components["schemas"]["ConversationImportListResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
     };
     createConversationImport: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                /** @description Temporary actor identity for MVP project membership checks. Production must derive this from authenticated user context. */
+                "X-Actor-Id": components["parameters"]["ActorId"];
+            };
             path: {
                 project_id: components["parameters"]["ProjectId"];
             };
@@ -1773,6 +1792,8 @@ export interface operations {
                     "application/json": components["schemas"]["ConversationImportResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             422: components["responses"]["ValidationError"];
         };
@@ -1780,7 +1801,10 @@ export interface operations {
     getConversationImport: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                /** @description Temporary actor identity for MVP project membership checks. Production must derive this from authenticated user context. */
+                "X-Actor-Id": components["parameters"]["ActorId"];
+            };
             path: {
                 conversation_import_id: components["parameters"]["ConversationImportId"];
             };
@@ -1797,13 +1821,18 @@ export interface operations {
                     "application/json": components["schemas"]["ConversationImportResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
     };
     anonymizeConversationImport: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                /** @description Temporary actor identity for MVP project membership checks. Production must derive this from authenticated user context. */
+                "X-Actor-Id": components["parameters"]["ActorId"];
+            };
             path: {
                 conversation_import_id: components["parameters"]["ConversationImportId"];
             };
@@ -1818,13 +1847,18 @@ export interface operations {
                 };
                 content?: never;
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
     };
     updateConversationImport: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                /** @description Temporary actor identity for MVP project membership checks. Production must derive this from authenticated user context. */
+                "X-Actor-Id": components["parameters"]["ActorId"];
+            };
             path: {
                 conversation_import_id: components["parameters"]["ConversationImportId"];
             };
@@ -1845,6 +1879,8 @@ export interface operations {
                     "application/json": components["schemas"]["ConversationImportResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             422: components["responses"]["ValidationError"];
         };
@@ -1852,7 +1888,9 @@ export interface operations {
     scanConversationImport: {
         parameters: {
             query?: never;
-            header?: {
+            header: {
+                /** @description Temporary actor identity for MVP project membership checks. Production must derive this from authenticated user context. */
+                "X-Actor-Id": components["parameters"]["ActorId"];
                 "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
             };
             path: {
@@ -1871,6 +1909,8 @@ export interface operations {
                     "application/json": components["schemas"]["ConversationImportScanResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             422: components["responses"]["ValidationError"];
             429: components["responses"]["RateLimited"];
@@ -1879,7 +1919,9 @@ export interface operations {
     generateConversationSummary: {
         parameters: {
             query?: never;
-            header?: {
+            header: {
+                /** @description Temporary actor identity for MVP project membership checks. Production must derive this from authenticated user context. */
+                "X-Actor-Id": components["parameters"]["ActorId"];
                 "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
             };
             path: {
@@ -1898,6 +1940,8 @@ export interface operations {
                     "application/json": components["schemas"]["ConversationSummaryGenerationResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             422: components["responses"]["ValidationError"];
             424: components["responses"]["IntegrationNotConnected"];
@@ -1908,7 +1952,10 @@ export interface operations {
     getConversationSummaryDraft: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                /** @description Temporary actor identity for MVP project membership checks. Production must derive this from authenticated user context. */
+                "X-Actor-Id": components["parameters"]["ActorId"];
+            };
             path: {
                 conversation_summary_draft_id: components["parameters"]["ConversationSummaryDraftId"];
             };
@@ -1925,13 +1972,18 @@ export interface operations {
                     "application/json": components["schemas"]["ConversationSummaryDraftResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
     };
     updateConversationSummaryDraft: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                /** @description Temporary actor identity for MVP project membership checks. Production must derive this from authenticated user context. */
+                "X-Actor-Id": components["parameters"]["ActorId"];
+            };
             path: {
                 conversation_summary_draft_id: components["parameters"]["ConversationSummaryDraftId"];
             };
@@ -1952,6 +2004,8 @@ export interface operations {
                     "application/json": components["schemas"]["ConversationSummaryDraftResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             422: components["responses"]["ValidationError"];
         };
@@ -1959,7 +2013,9 @@ export interface operations {
     approveConversationSummaryDraft: {
         parameters: {
             query?: never;
-            header?: {
+            header: {
+                /** @description Temporary actor identity for MVP project membership checks. Production must derive this from authenticated user context. */
+                "X-Actor-Id": components["parameters"]["ActorId"];
                 "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
             };
             path: {
@@ -1982,6 +2038,8 @@ export interface operations {
                     "application/json": components["schemas"]["ConversationSummaryDraftResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             422: components["responses"]["ValidationError"];
         };

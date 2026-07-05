@@ -4,6 +4,7 @@ RSpec.describe "API V1 Conversation Imports", type: :request do
   describe "POST /api/v1/projects/:project_id/conversation-imports" do
     it "creates a manual Discord DM conversation import" do
       project = create(:project)
+      authorize_project(project)
 
       post "/api/v1/projects/#{project.id}/conversation-imports", params: {
         source_type: "discord_dm_paste",
@@ -12,7 +13,7 @@ RSpec.describe "API V1 Conversation Imports", type: :request do
         consent_confirmed: true,
         consent_statement_version: "dm-consent-v1",
         participants: [{ display_name: "Kazuya", role: "requester" }]
-      }
+      }, headers: actor_headers
 
       expect(response).to have_http_status(:created)
       body = JSON.parse(response.body)
@@ -21,6 +22,7 @@ RSpec.describe "API V1 Conversation Imports", type: :request do
       expect(body.dig("data", "raw_text_retention_expires_at")).to be_present
       expect(body.dig("data", "retention_expires_at")).to be_present
       expect(project.audit_logs.last.action).to eq("conversation_import.created")
+      expect(project.audit_logs.last.actor_id).to eq("dm-editor")
 
       conversation_import = ConversationImport.find(body.dig("data", "id"))
       stored_raw_text = ConversationImport.connection.select_value(
@@ -34,9 +36,10 @@ RSpec.describe "API V1 Conversation Imports", type: :request do
   describe "GET /api/v1/projects/:project_id/conversation-imports" do
     it "lists project conversation imports" do
       project = create(:project)
+      authorize_project(project, role: "viewer")
       create(:conversation_import, project: project, title: "DM A")
 
-      get "/api/v1/projects/#{project.id}/conversation-imports"
+      get "/api/v1/projects/#{project.id}/conversation-imports", headers: actor_headers
 
       expect(response).to have_http_status(:ok)
       body = JSON.parse(response.body)
@@ -48,14 +51,16 @@ RSpec.describe "API V1 Conversation Imports", type: :request do
   describe "POST /api/v1/conversation-imports/:id/scan" do
     it "marks a consented and redacted import as ready for AI" do
       conversation_import = create(:conversation_import, redacted_text: "決定: 手動貼り付けで進める。")
+      authorize_project(conversation_import.project)
 
-      post "/api/v1/conversation-imports/#{conversation_import.id}/scan"
+      post "/api/v1/conversation-imports/#{conversation_import.id}/scan", headers: actor_headers
 
       expect(response).to have_http_status(:ok)
       body = JSON.parse(response.body)
       expect(body.dig("data", "valid")).to eq(true)
       expect(body.dig("data", "next_action")).to eq("generate_summary")
       expect(body.dig("data", "conversation_import", "status")).to eq("ready_for_ai")
+      expect(conversation_import.project.audit_logs.last.actor_id).to eq("dm-editor")
     end
 
     it "blocks missing consent and secret-like content before AI processing" do
@@ -64,8 +69,9 @@ RSpec.describe "API V1 Conversation Imports", type: :request do
         consent_confirmed: false,
         raw_text: "password=hunter2 を使ってください。"
       )
+      authorize_project(conversation_import.project)
 
-      post "/api/v1/conversation-imports/#{conversation_import.id}/scan"
+      post "/api/v1/conversation-imports/#{conversation_import.id}/scan", headers: actor_headers
 
       expect(response).to have_http_status(:ok)
       body = JSON.parse(response.body)
@@ -80,10 +86,11 @@ RSpec.describe "API V1 Conversation Imports", type: :request do
     it "stales existing summary drafts and requires a rescan after text changes" do
       conversation_import = create(:conversation_import, status: "summary_draft", redacted_text: "決定: 旧方針で進める。")
       draft = create(:conversation_summary_draft, conversation_import: conversation_import, status: "draft")
+      authorize_project(conversation_import.project)
 
       patch "/api/v1/conversation-imports/#{conversation_import.id}", params: {
         redacted_text: "決定: 新方針で進める。"
-      }
+      }, headers: actor_headers
 
       expect(response).to have_http_status(:ok)
       body = JSON.parse(response.body)
@@ -92,7 +99,7 @@ RSpec.describe "API V1 Conversation Imports", type: :request do
       expect(conversation_import.last_scanned_at).to be_nil
       expect(draft.reload.status).to eq("stale")
 
-      post "/api/v1/conversation-imports/#{conversation_import.id}/generate-summary"
+      post "/api/v1/conversation-imports/#{conversation_import.id}/generate-summary", headers: actor_headers
 
       expect(response).to have_http_status(422)
       expect(JSON.parse(response.body).dig("error", "code")).to eq("conversation_import_not_ready_for_ai")
@@ -113,8 +120,9 @@ RSpec.describe "API V1 Conversation Imports", type: :request do
         decisions: [{ text: "password=hunter2 を使う", confidence: 0.9 }],
         source_quotes: [{ id: "q1", quote: "password=hunter2" }]
       )
+      authorize_project(conversation_import.project, role: "admin")
 
-      delete "/api/v1/conversation-imports/#{conversation_import.id}"
+      delete "/api/v1/conversation-imports/#{conversation_import.id}", headers: actor_headers
 
       expect(response).to have_http_status(:no_content)
       expect(response.body).to be_blank
@@ -135,6 +143,7 @@ RSpec.describe "API V1 Conversation Imports", type: :request do
 
       audit_log = conversation_import.project.audit_logs.last
       expect(audit_log.action).to eq("conversation_import.anonymized")
+      expect(audit_log.actor_id).to eq("dm-editor")
       expect(audit_log.metadata.to_s).not_to include("hunter2")
 
       stored_raw_text = ConversationImport.connection.select_value(
@@ -142,7 +151,7 @@ RSpec.describe "API V1 Conversation Imports", type: :request do
       )
       expect(stored_raw_text).not_to include("hunter2")
 
-      post "/api/v1/conversation-imports/#{conversation_import.id}/scan"
+      post "/api/v1/conversation-imports/#{conversation_import.id}/scan", headers: actor_headers
       expect(response).to have_http_status(422)
       expect(JSON.parse(response.body).dig("error", "code")).to eq("conversation_import_anonymized")
     end
@@ -182,8 +191,9 @@ RSpec.describe "API V1 Conversation Imports", type: :request do
   describe "POST /api/v1/conversation-imports/:id/generate-summary" do
     it "generates a conversation summary draft after scan" do
       conversation_import = create(:conversation_import, status: "ready_for_ai")
+      authorize_project(conversation_import.project)
 
-      post "/api/v1/conversation-imports/#{conversation_import.id}/generate-summary"
+      post "/api/v1/conversation-imports/#{conversation_import.id}/generate-summary", headers: actor_headers
 
       expect(response).to have_http_status(:accepted)
       body = JSON.parse(response.body)
@@ -191,6 +201,7 @@ RSpec.describe "API V1 Conversation Imports", type: :request do
       expect(body.dig("data", "conversation_summary_draft", "summary")).to include("DM整理は手動貼り付け")
       expect(conversation_import.reload.status).to eq("summary_draft")
       expect(conversation_import.project.audit_logs.last.action).to eq("conversation_summary_draft.generated")
+      expect(conversation_import.project.audit_logs.last.actor_id).to eq("dm-editor")
     end
 
     it "uses redacted text for summary generation" do
@@ -200,8 +211,9 @@ RSpec.describe "API V1 Conversation Imports", type: :request do
         raw_text: "password=hunter2 を使ってください。",
         redacted_text: "認証情報は伏字化済みです。決定: 手動貼り付けで進める。"
       )
+      authorize_project(conversation_import.project)
 
-      post "/api/v1/conversation-imports/#{conversation_import.id}/generate-summary"
+      post "/api/v1/conversation-imports/#{conversation_import.id}/generate-summary", headers: actor_headers
 
       expect(response).to have_http_status(:accepted)
       expect(response.body).not_to include("hunter2")
@@ -211,13 +223,66 @@ RSpec.describe "API V1 Conversation Imports", type: :request do
 
     it "requires scan before summary generation" do
       conversation_import = create(:conversation_import, status: "draft")
+      authorize_project(conversation_import.project)
 
-      post "/api/v1/conversation-imports/#{conversation_import.id}/generate-summary"
+      post "/api/v1/conversation-imports/#{conversation_import.id}/generate-summary", headers: actor_headers
 
       expect(response).to have_http_status(422)
       body = JSON.parse(response.body)
       expect(body.dig("error", "code")).to eq("conversation_import_not_ready_for_ai")
       expect(Job.last.status).to eq("failed")
     end
+  end
+
+  describe "project membership policy" do
+    it "requires an actor header for DM access" do
+      conversation_import = create(:conversation_import)
+
+      get "/api/v1/conversation-imports/#{conversation_import.id}"
+
+      expect(response).to have_http_status(:unauthorized)
+      expect(JSON.parse(response.body).dig("error", "code")).to eq("conversation_import_actor_required")
+      expect(response.body).not_to include(conversation_import.raw_text)
+    end
+
+    it "rejects a non-member without exposing DM body" do
+      conversation_import = create(:conversation_import, raw_text: "非memberには見せないDM本文")
+
+      get "/api/v1/conversation-imports/#{conversation_import.id}", headers: actor_headers("outsider")
+
+      expect(response).to have_http_status(:forbidden)
+      expect(JSON.parse(response.body).dig("error", "code")).to eq("conversation_import_forbidden")
+      expect(response.body).not_to include("非memberには見せないDM本文")
+    end
+
+    it "rejects a member of another project" do
+      conversation_import = create(:conversation_import)
+      authorize_project(create(:project), actor_id: "cross-project-admin", role: "admin")
+
+      post "/api/v1/conversation-imports/#{conversation_import.id}/scan", headers: actor_headers("cross-project-admin")
+
+      expect(response).to have_http_status(:forbidden)
+      expect(JSON.parse(response.body).dig("error", "code")).to eq("conversation_import_forbidden")
+    end
+
+    it "rejects a readonly member for DM mutations" do
+      conversation_import = create(:conversation_import)
+      authorize_project(conversation_import.project, actor_id: "readonly-user", role: "viewer")
+
+      patch "/api/v1/conversation-imports/#{conversation_import.id}", params: {
+        title: "viewer should not edit"
+      }, headers: actor_headers("readonly-user")
+
+      expect(response).to have_http_status(:forbidden)
+      expect(JSON.parse(response.body).dig("error", "code")).to eq("conversation_import_forbidden")
+    end
+  end
+
+  def actor_headers(actor_id = "dm-editor")
+    { "X-Actor-Id" => actor_id }
+  end
+
+  def authorize_project(project, actor_id: "dm-editor", role: "editor")
+    create(:project_membership, project: project, actor_id: actor_id, role: role)
   end
 end

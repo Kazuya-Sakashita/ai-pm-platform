@@ -36,4 +36,31 @@ class ApplicationController < ActionController::API
       total_pages: 1
     }
   end
+
+  def current_actor_id
+    @current_actor_id ||= request.headers["X-Actor-Id"].presence
+  end
+
+  def authorize_conversation_import!(project, action)
+    unless current_actor_id
+      render_error(
+        "conversation_import_actor_required",
+        "Conversation import actor is required.",
+        :unauthorized,
+        { action: action }
+      )
+      return false
+    end
+
+    policy = ConversationImportPolicy.new(project: project, actor_id: current_actor_id)
+    return true if policy.allowed?(action)
+
+    render_error(
+      "conversation_import_forbidden",
+      "Conversation import access is forbidden.",
+      :forbidden,
+      { action: action }
+    )
+    false
+  end
 end

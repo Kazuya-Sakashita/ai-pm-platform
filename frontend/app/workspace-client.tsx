@@ -21,7 +21,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { apiClient } from "@/lib/api/client";
+import { actorHeader, apiClient } from "@/lib/api/client";
 import { displayMessage, statusLabel, targetLabel, yesNoLabel } from "@/lib/display-labels";
 import type { components } from "@/lib/api/schema";
 
@@ -371,7 +371,7 @@ export default function MeetingWorkspace() {
 
   async function loadConversationImports(projectId: string) {
     const { data, error: apiError } = await apiClient.GET("/projects/{project_id}/conversation-imports", {
-      params: { path: { project_id: projectId } },
+      params: { path: { project_id: projectId }, header: actorHeader() },
     });
 
     if (apiError) {
@@ -388,7 +388,7 @@ export default function MeetingWorkspace() {
 
   async function refreshConversationImport(conversationImportId: string) {
     const { data, error: apiError } = await apiClient.GET("/conversation-imports/{conversation_import_id}", {
-      params: { path: { conversation_import_id: conversationImportId } },
+      params: { path: { conversation_import_id: conversationImportId }, header: actorHeader() },
     });
 
     if (apiError) {
@@ -462,7 +462,7 @@ export default function MeetingWorkspace() {
 
     if (selectedConversationImport) {
       const { data, error: apiError } = await apiClient.PATCH("/conversation-imports/{conversation_import_id}", {
-        params: { path: { conversation_import_id: selectedConversationImport.id } },
+        params: { path: { conversation_import_id: selectedConversationImport.id }, header: actorHeader() },
         body: {
           title: conversationTitle,
           raw_text: conversationRawText,
@@ -487,7 +487,7 @@ export default function MeetingWorkspace() {
     }
 
     const { data, error: apiError } = await apiClient.POST("/projects/{project_id}/conversation-imports", {
-      params: { path: { project_id: selectedProjectId } },
+      params: { path: { project_id: selectedProjectId }, header: actorHeader() },
       body: {
         source_type: "discord_dm_paste",
         title: conversationTitle,
@@ -520,7 +520,7 @@ export default function MeetingWorkspace() {
     setLoading(true);
     setError("");
     const { data, error: apiError } = await apiClient.POST("/conversation-imports/{conversation_import_id}/scan", {
-      params: { path: { conversation_import_id: selectedConversationImport.id } },
+      params: { path: { conversation_import_id: selectedConversationImport.id }, header: actorHeader() },
     });
     setLoading(false);
 
@@ -545,7 +545,7 @@ export default function MeetingWorkspace() {
     setError("");
     setStatusMessage("DM整理ドラフトを生成中");
     const { data, error: apiError } = await apiClient.POST("/conversation-imports/{conversation_import_id}/generate-summary", {
-      params: { path: { conversation_import_id: selectedConversationImport.id } },
+      params: { path: { conversation_import_id: selectedConversationImport.id }, header: actorHeader() },
     });
 
     if (apiError) {
@@ -576,7 +576,7 @@ export default function MeetingWorkspace() {
     setLoading(true);
     setError("");
     const { data, error: apiError } = await apiClient.POST("/conversation-summary-drafts/{conversation_summary_draft_id}/approve", {
-      params: { path: { conversation_summary_draft_id: conversationSummaryDraft.id } },
+      params: { path: { conversation_summary_draft_id: conversationSummaryDraft.id }, header: actorHeader() },
       body: {
         approval_note: conversationApprovalNote.trim(),
         generate_downstream_candidates: true,
@@ -605,7 +605,7 @@ export default function MeetingWorkspace() {
     setLoading(true);
     setError("");
     const { error: apiError } = await apiClient.DELETE("/conversation-imports/{conversation_import_id}", {
-      params: { path: { conversation_import_id: selectedConversationImport.id } },
+      params: { path: { conversation_import_id: selectedConversationImport.id }, header: actorHeader() },
     });
     setLoading(false);
 

@@ -2,8 +2,9 @@ module ConversationImports
   class ScanService
     Result = Struct.new(:valid, :conversation_import, :safety_flags, :blocked_reasons, :redaction_suggestions, :next_action, keyword_init: true)
 
-    def initialize(conversation_import)
+    def initialize(conversation_import, actor_id: "system")
       @conversation_import = conversation_import
+      @actor_id = actor_id
     end
 
     def call
@@ -23,6 +24,7 @@ module ConversationImports
         project: conversation_import.project,
         action: "conversation_import.scanned",
         target: conversation_import,
+        actor_id: actor_id,
         metadata: {
           valid: valid,
           safety_flag_count: safety_flags.size,
@@ -42,7 +44,7 @@ module ConversationImports
 
     private
 
-    attr_reader :conversation_import
+    attr_reader :conversation_import, :actor_id
 
     def consent_flags
       return [] if conversation_import.consent_confirmed?

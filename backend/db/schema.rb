@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_07_05_103000) do
+ActiveRecord::Schema[7.1].define(version: 2026_07_05_110000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pgcrypto"
   enable_extension "plpgsql"
@@ -249,6 +249,19 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_05_103000) do
     t.index ["status"], name: "index_open_api_drafts_on_status"
   end
 
+  create_table "project_memberships", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "project_id", null: false
+    t.string "actor_id", null: false
+    t.string "role", null: false
+    t.string "status", default: "active", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["actor_id", "status"], name: "index_project_memberships_on_actor_id_and_status"
+    t.index ["project_id", "actor_id"], name: "index_project_memberships_on_project_id_and_actor_id", unique: true
+    t.index ["project_id", "role"], name: "index_project_memberships_on_project_id_and_role"
+    t.index ["project_id"], name: "index_project_memberships_on_project_id"
+  end
+
   create_table "projects", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "name", null: false
     t.text "description"
@@ -310,5 +323,6 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_05_103000) do
   add_foreign_key "meetings", "projects"
   add_foreign_key "minutes", "meetings"
   add_foreign_key "open_api_drafts", "requirements"
+  add_foreign_key "project_memberships", "projects"
   add_foreign_key "requirements", "minutes", column: "minutes_id"
 end
