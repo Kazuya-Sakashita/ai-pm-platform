@@ -14,15 +14,21 @@ module AuthenticationSpecHelpers
   def jwt_token(
     actor_id: "dm-editor",
     secret: Authentication::JwtVerifier::DEVELOPMENT_SECRET,
+    kid: nil,
+    sid: nil,
+    session_version: nil,
+    jti: nil,
     issuer: Authentication::JwtVerifier::DEFAULT_ISSUER,
     audience: Authentication::JwtVerifier::DEFAULT_AUDIENCE,
-    expires_at: 1.hour.from_now,
+    expires_at: 10.minutes.from_now,
     issued_at: Time.current,
     not_before: nil,
     algorithm: "HS256",
+    header_claims: {},
     extra_claims: {}
   )
-    header = { alg: algorithm, typ: "JWT" }
+    header = { alg: algorithm, typ: "JWT" }.merge(header_claims)
+    header[:kid] = kid if kid
     payload = {
       sub: actor_id,
       iss: issuer,
@@ -31,12 +37,42 @@ module AuthenticationSpecHelpers
       iat: issued_at.to_i
     }.merge(extra_claims)
     payload[:nbf] = not_before.to_i if not_before
+    payload[:sid] = sid if sid
+    payload[:sv] = session_version if session_version
+    payload[:jti] = jti if jti
 
     signing_input = [base64_json(header), base64_json(payload)].join(".")
     return "#{signing_input}." if algorithm == "none"
 
     signature = OpenSSL::HMAC.digest("SHA256", secret, signing_input)
     [signing_input, base64_url(signature)].join(".")
+  end
+
+  def session_auth_headers(actor_id: "dm-editor", kid: "test-active", secret: Authentication::JwtVerifier::DEVELOPMENT_SECRET, jti: "token-1", issued_at: Time.current, expires_at: 10.minutes.from_now)
+    auth_actor = AuthActor.find_or_create_by!(subject: actor_id) do |actor|
+      actor.status = "active"
+      actor.session_version = 1
+    end
+    auth_session = create(
+      :auth_session,
+      auth_actor: auth_actor,
+      actor_subject: actor_id,
+      session_version: auth_actor.session_version,
+      issued_at: issued_at,
+      expires_at: expires_at
+    )
+    token = jwt_token(
+      actor_id: actor_id,
+      secret: secret,
+      kid: kid,
+      sid: auth_session.sid,
+      session_version: auth_actor.session_version,
+      jti: jti,
+      issued_at: issued_at,
+      expires_at: expires_at
+    )
+
+    [{ "Authorization" => "Bearer #{token}" }, auth_actor, auth_session, jti]
   end
 
   def with_env(values)

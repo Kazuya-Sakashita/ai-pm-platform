@@ -40,7 +40,17 @@ class ApplicationController < ActionController::API
   def current_actor_id
     return @current_actor_id if defined?(@current_actor_id)
 
-    @current_actor_id = actor_id_from_authorization_header || legacy_actor_id
+    @current_actor_id = if request.authorization.present?
+      current_auth_context&.actor_id
+    else
+      legacy_actor_id
+    end
+  end
+
+  def current_auth_context
+    return @current_auth_context if defined?(@current_auth_context)
+
+    @current_auth_context = auth_context_from_authorization_header
   end
 
   def require_actor!(action:)
@@ -111,7 +121,7 @@ class ApplicationController < ActionController::API
     @authentication_error
   end
 
-  def actor_id_from_authorization_header
+  def auth_context_from_authorization_header
     authorization = request.authorization.to_s
     return nil if authorization.blank?
 
@@ -124,7 +134,7 @@ class ApplicationController < ActionController::API
       return nil
     end
 
-    Authentication::JwtVerifier.new.verify!(token).actor_id
+    Authentication::JwtVerifier.new.verify!(token)
   rescue Authentication::JwtVerifier::Error => e
     @authentication_error = e
     nil

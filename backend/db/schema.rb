@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_07_05_110000) do
+ActiveRecord::Schema[7.1].define(version: 2026_07_06_000100) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pgcrypto"
   enable_extension "plpgsql"
@@ -28,6 +28,55 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_05_110000) do
     t.index ["project_id", "created_at"], name: "index_audit_logs_on_project_id_and_created_at"
     t.index ["project_id"], name: "index_audit_logs_on_project_id"
     t.index ["target_type", "target_id"], name: "index_audit_logs_on_target_type_and_target_id"
+  end
+
+  create_table "auth_actors", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "subject", null: false
+    t.string "status", default: "active", null: false
+    t.integer "session_version", default: 1, null: false
+    t.datetime "sessions_revoked_at"
+    t.string "display_name"
+    t.string "email_digest"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["status"], name: "index_auth_actors_on_status"
+    t.index ["subject"], name: "index_auth_actors_on_subject", unique: true
+  end
+
+  create_table "auth_sessions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "sid", null: false
+    t.string "actor_subject", null: false
+    t.string "status", default: "active", null: false
+    t.integer "session_version", default: 1, null: false
+    t.datetime "issued_at", null: false
+    t.datetime "expires_at", null: false
+    t.datetime "last_seen_at"
+    t.datetime "revoked_at"
+    t.string "revoked_by_actor_id"
+    t.string "revocation_reason"
+    t.string "ip_hash"
+    t.string "user_agent_hash"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["actor_subject", "status"], name: "index_auth_sessions_on_actor_subject_and_status"
+    t.index ["expires_at"], name: "index_auth_sessions_on_expires_at"
+    t.index ["revoked_at"], name: "index_auth_sessions_on_revoked_at"
+    t.index ["sid"], name: "index_auth_sessions_on_sid", unique: true
+  end
+
+  create_table "auth_token_revocations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "jti_digest", null: false
+    t.string "sid"
+    t.string "actor_subject"
+    t.datetime "expires_at", null: false
+    t.string "reason", default: "incident", null: false
+    t.string "created_by_actor_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["actor_subject", "expires_at"], name: "index_auth_token_revocations_on_actor_subject_and_expires_at"
+    t.index ["expires_at"], name: "index_auth_token_revocations_on_expires_at"
+    t.index ["jti_digest"], name: "index_auth_token_revocations_on_jti_digest", unique: true
+    t.index ["sid", "expires_at"], name: "index_auth_token_revocations_on_sid_and_expires_at"
   end
 
   create_table "conversation_imports", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -311,7 +360,27 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_05_110000) do
     t.index ["target_type", "target_id"], name: "index_reviews_on_target_type_and_target_id"
   end
 
+  create_table "security_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "project_id"
+    t.string "actor_id", default: "system", null: false
+    t.string "action", null: false
+    t.string "target_type", null: false
+    t.string "target_id", null: false
+    t.string "severity", default: "info", null: false
+    t.string "summary"
+    t.jsonb "metadata", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["action", "created_at"], name: "index_security_events_on_action_and_created_at"
+    t.index ["actor_id", "created_at"], name: "index_security_events_on_actor_id_and_created_at"
+    t.index ["project_id", "created_at"], name: "index_security_events_on_project_id_and_created_at"
+    t.index ["project_id"], name: "index_security_events_on_project_id"
+    t.index ["severity"], name: "index_security_events_on_severity"
+    t.index ["target_type", "target_id"], name: "index_security_events_on_target_type_and_target_id"
+  end
+
   add_foreign_key "audit_logs", "projects"
+  add_foreign_key "auth_sessions", "auth_actors", column: "actor_subject", primary_key: "subject"
   add_foreign_key "conversation_imports", "projects"
   add_foreign_key "conversation_summary_drafts", "conversation_imports"
   add_foreign_key "github_connection_states", "projects"
@@ -325,4 +394,5 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_05_110000) do
   add_foreign_key "open_api_drafts", "requirements"
   add_foreign_key "project_memberships", "projects"
   add_foreign_key "requirements", "minutes", column: "minutes_id"
+  add_foreign_key "security_events", "projects"
 end

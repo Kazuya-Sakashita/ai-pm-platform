@@ -7,9 +7,10 @@ module Authentication
     DEFAULT_ISSUER = "ai-pm-platform".freeze
     DEFAULT_AUDIENCE = "ai-pm-platform-api".freeze
     DEFAULT_CLOCK_SKEW_SECONDS = 30
+    DEFAULT_MAX_ACCESS_TOKEN_TTL_SECONDS = 900
     DEVELOPMENT_SECRET = "local-dev-auth-secret".freeze
 
-    Result = Struct.new(:actor_id, :claims, keyword_init: true)
+    Result = Struct.new(:actor_id, :claims, :auth_session, :jti_digest, :kid, keyword_init: true)
 
     class Error < StandardError
       attr_reader :code, :safe_detail, :http_status
@@ -26,12 +27,18 @@ module Authentication
       secret: self.class.secret,
       issuer: ENV.fetch("AUTH_JWT_ISSUER", DEFAULT_ISSUER),
       audience: ENV.fetch("AUTH_JWT_AUDIENCE", DEFAULT_AUDIENCE),
-      clock_skew_seconds: ENV.fetch("AUTH_JWT_CLOCK_SKEW_SECONDS", DEFAULT_CLOCK_SKEW_SECONDS).to_i
+      clock_skew_seconds: ENV.fetch("AUTH_JWT_CLOCK_SKEW_SECONDS", DEFAULT_CLOCK_SKEW_SECONDS).to_i,
+      max_access_token_ttl_seconds: ENV.fetch("AUTH_JWT_MAX_ACCESS_TOKEN_TTL_SECONDS", DEFAULT_MAX_ACCESS_TOKEN_TTL_SECONDS).to_i,
+      keyring: nil,
+      session_authenticator: nil
     )
       @secret = secret
       @issuer = issuer
       @audience = audience
       @clock_skew_seconds = clock_skew_seconds
+      @max_access_token_ttl_seconds = max_access_token_ttl_seconds
+      @keyring = keyring || Authentication::Keyring.from_env(legacy_secret: secret)
+      @session_authenticator = session_authenticator || Authentication::SessionAuthenticator.new
     end
 
     def self.secret
@@ -49,24 +56,32 @@ module Authentication
       payload = decode_json(payload_segment)
 
       validate_header!(header)
-      validate_signature!(header_segment, payload_segment, signature_segment)
+      verification_secret = keyring.verification_secret_for!(header, now: now)
+      validate_signature!(header_segment, payload_segment, signature_segment, verification_secret)
       validate_claims!(payload, now)
+      session_result = session_authenticator.authenticate!(payload, header: header, now: now)
 
-      Result.new(actor_id: payload.fetch("sub"), claims: payload)
+      Result.new(
+        actor_id: payload.fetch("sub"),
+        claims: payload,
+        auth_session: session_result&.auth_session,
+        jti_digest: session_result&.jti_digest,
+        kid: header["kid"]
+      )
     end
 
     private
 
-    attr_reader :secret, :issuer, :audience, :clock_skew_seconds
+    attr_reader :secret, :issuer, :audience, :clock_skew_seconds, :max_access_token_ttl_seconds, :keyring, :session_authenticator
 
     def validate_header!(header)
       raise_error("invalid_token", "Authentication token is invalid.") unless header["alg"] == "HS256"
       raise_error("invalid_token", "Authentication token is invalid.") if header["typ"].present? && header["typ"] != "JWT"
     end
 
-    def validate_signature!(header_segment, payload_segment, signature_segment)
+    def validate_signature!(header_segment, payload_segment, signature_segment, verification_secret)
       signing_input = [header_segment, payload_segment].join(".")
-      expected = OpenSSL::HMAC.digest("SHA256", secret, signing_input)
+      expected = OpenSSL::HMAC.digest("SHA256", verification_secret, signing_input)
       actual = decode_segment(signature_segment)
 
       valid = actual.bytesize == expected.bytesize &&
@@ -89,6 +104,7 @@ module Authentication
 
       iat = integer_claim(payload, "iat")
       raise_error("invalid_token", "Authentication token is invalid.") if iat && Time.at(iat) > now + clock_skew_seconds
+      raise_error("invalid_token", "Authentication token is invalid.") if iat && max_access_token_ttl_seconds.positive? && (exp - iat) > max_access_token_ttl_seconds
     end
 
     def audience_matches?(claim)
