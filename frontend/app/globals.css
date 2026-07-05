@@ -519,6 +519,34 @@ textarea {
   overflow-wrap: anywhere;
 }
 
+.membership-create,
+.membership-list {
+  display: grid;
+  gap: 8px;
+}
+
+.membership-row {
+  display: grid;
+  gap: 8px;
+  padding: 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-alt);
+}
+
+.membership-row > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.membership-row strong {
+  overflow-wrap: anywhere;
+  font-size: 13px;
+}
+
 .operation-summary {
   display: grid;
   grid-template-columns: 82px minmax(0, 1fr);

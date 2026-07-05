@@ -90,6 +90,22 @@ class ApplicationController < ActionController::API
     false
   end
 
+  def authorize_project_membership_management!(action, membership: nil)
+    return false unless require_actor!(action: "project_membership_#{action}")
+
+    actor_membership = project.project_memberships.active.find_by(actor_id: current_actor_id)
+    allowed_roles = %w[owner admin]
+    return true if actor_membership && allowed_roles.include?(actor_membership.role)
+
+    render_error(
+      "project_membership_forbidden",
+      "Project membership access is forbidden.",
+      :forbidden,
+      { action: action, membership_id: membership&.id }.compact
+    )
+    false
+  end
+
   def authentication_error
     current_actor_id unless defined?(@current_actor_id)
     @authentication_error

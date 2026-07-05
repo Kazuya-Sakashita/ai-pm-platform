@@ -99,7 +99,7 @@ test.describe("Meeting Workspace", () => {
     await page.locator("#meeting").getByLabel("タイトル").fill(meetingTitle);
     await page.getByLabel("原文ログ").fill(rawText);
     await page.getByRole("button", { name: "会議を保存" }).click();
-    await expect(page.getByRole("button", { name: new RegExp(meetingTitle) })).toBeVisible();
+    await expect(page.locator("header").getByText("会議を保存しました")).toBeVisible();
   }
 
   async function mockExistingDmImportForAnonymization(
@@ -171,6 +171,26 @@ test.describe("Meeting Workspace", () => {
     });
     await page.route(`**/api/v1/projects/${project.id}/integrations`, async (route) => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [] }) });
+    });
+    await page.route(`**/api/v1/projects/${project.id}/memberships**`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [
+            {
+              id: "membership-local-demo-owner",
+              project_id: project.id,
+              actor_id: "local-demo-owner",
+              role: "owner",
+              status: "active",
+              created_at: now,
+              updated_at: now,
+            },
+          ],
+          meta: { total_count: 1 },
+        }),
+      });
     });
     await page.route(`**/api/v1/projects/${project.id}/conversation-imports`, async (route) => {
       await route.fulfill({
@@ -491,6 +511,26 @@ test.describe("Meeting Workspace", () => {
               updated_at: now,
             },
           ],
+        }),
+      });
+    });
+    await page.route(`**/api/v1/projects/${project.id}/memberships**`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [
+            {
+              id: "membership-local-demo-owner",
+              project_id: project.id,
+              actor_id: "local-demo-owner",
+              role: "owner",
+              status: "active",
+              created_at: now,
+              updated_at: now,
+            },
+          ],
+          meta: { total_count: 1 },
         }),
       });
     });
@@ -844,6 +884,124 @@ test.describe("Meeting Workspace", () => {
     await expect(page.locator("header").getByText("APIエラー")).toBeVisible();
   });
 
+  test("manages project memberships from the workspace", async ({ page }) => {
+    const now = new Date().toISOString();
+    const project = {
+      id: "project-membership-ui",
+      name: "Membership UI Project",
+      github_repo: "Kazuya-Sakashita/ai-pm-platform",
+      description: "Mocked project for membership UI.",
+      status: "active",
+      created_at: now,
+      updated_at: now,
+    };
+    const memberships = [
+      {
+        id: "membership-owner",
+        project_id: project.id,
+        actor_id: "local-demo-owner",
+        role: "owner",
+        status: "active",
+        created_at: now,
+        updated_at: now,
+      },
+    ];
+
+    await page.route("**/api/v1/operations/queue-health", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: {
+            status: "healthy",
+            checked_at: now,
+            heartbeat_stale_after_seconds: 60,
+            oldest_unfinished_threshold_seconds: 300,
+            workers: [],
+            queues: [],
+            failed_executions: { count: 0 },
+            failed_job_samples: [],
+            recurring_tasks: [],
+            product_jobs: { by_status: [], recent_failed_count: 0 },
+            warnings: [],
+          },
+        }),
+      });
+    });
+    await page.route("**/api/v1/projects", async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [project] }) });
+    });
+    await page.route(`**/api/v1/projects/${project.id}/meetings`, async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [] }) });
+    });
+    await page.route(`**/api/v1/projects/${project.id}/integrations`, async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [] }) });
+    });
+    await page.route(`**/api/v1/projects/${project.id}/conversation-imports`, async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [], meta: { total_count: 0 } }) });
+    });
+    await page.route(`**/api/v1/projects/${project.id}/memberships**`, async (route) => {
+      const method = route.request().method();
+      if (method === "POST") {
+        const requestBody = route.request().postDataJSON();
+        const membership = {
+          id: "membership-new-reviewer",
+          project_id: project.id,
+          actor_id: requestBody.actor_id,
+          role: requestBody.role,
+          status: "active",
+          created_at: now,
+          updated_at: now,
+        };
+        memberships.unshift(membership);
+        await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ data: membership }) });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: memberships, meta: { total_count: memberships.length } }),
+      });
+    });
+    await page.route(`**/api/v1/projects/${project.id}/memberships/*`, async (route) => {
+      const membershipId = route.request().url().split("/").pop() ?? "";
+      const membership = memberships.find((item) => item.id === membershipId);
+      if (!membership) {
+        await route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ error: { code: "not_found" } }) });
+        return;
+      }
+
+      if (route.request().method() === "PATCH") {
+        const requestBody = route.request().postDataJSON();
+        membership.role = requestBody.role;
+        membership.updated_at = now;
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: membership }) });
+        return;
+      }
+
+      membership.status = "revoked";
+      membership.updated_at = now;
+      await route.fulfill({ status: 204 });
+    });
+
+    page.on("dialog", (dialog) => dialog.accept());
+    await page.goto("/");
+
+    const panel = page.getByLabel("メンバー管理");
+    await expect(panel.getByText("local-demo-owner")).toBeVisible();
+    await panel.getByLabel("メンバーID").fill("new-reviewer");
+    await panel.getByLabel("権限").first().selectOption("viewer");
+    await panel.getByRole("button", { name: "メンバー追加" }).click();
+
+    const memberRow = panel.locator(".membership-row").filter({ hasText: "new-reviewer" });
+    await expect(memberRow).toBeVisible();
+    await memberRow.getByLabel("権限").selectOption("reviewer");
+    await expect(memberRow.getByLabel("権限")).toHaveValue("reviewer");
+    await memberRow.getByRole("button", { name: "失効" }).click();
+    await expect(memberRow.getByText("解除済み")).toBeVisible();
+  });
+
   test("imports, scans, summarizes, and approves a Discord DM paste", async ({ page }) => {
     const now = new Date().toISOString();
     const project = {
@@ -942,6 +1100,26 @@ test.describe("Meeting Workspace", () => {
     });
     await page.route(`**/api/v1/projects/${project.id}/integrations`, async (route) => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [] }) });
+    });
+    await page.route(`**/api/v1/projects/${project.id}/memberships**`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [
+            {
+              id: "membership-local-demo-owner",
+              project_id: project.id,
+              actor_id: "local-demo-owner",
+              role: "owner",
+              status: "active",
+              created_at: now,
+              updated_at: now,
+            },
+          ],
+          meta: { total_count: 1 },
+        }),
+      });
     });
     await page.route(`**/api/v1/projects/${project.id}/conversation-imports`, async (route) => {
       if (route.request().method() === "POST") {
@@ -1135,6 +1313,26 @@ test.describe("Meeting Workspace", () => {
     });
     await page.route(`**/api/v1/projects/${project.id}/integrations`, async (route) => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [] }) });
+    });
+    await page.route(`**/api/v1/projects/${project.id}/memberships**`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [
+            {
+              id: "membership-local-demo-owner",
+              project_id: project.id,
+              actor_id: "local-demo-owner",
+              role: "owner",
+              status: "active",
+              created_at: now,
+              updated_at: now,
+            },
+          ],
+          meta: { total_count: 1 },
+        }),
+      });
     });
     await page.route(`**/api/v1/projects/${project.id}/conversation-imports`, async (route) => {
       await route.fulfill({

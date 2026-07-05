@@ -36,19 +36,29 @@ const messageLabels: Record<string, string> = {
   "Authentication token is not active yet.": "ログイン情報がまだ有効ではありません。時間を確認して再ログインしてください。",
   "Authentication is not configured.": "認証設定が未完了です。管理者に確認してください。",
   "Project access is forbidden.": "このプロジェクトを操作する権限がありません。",
+  "Project membership access is forbidden.": "プロジェクトメンバーを管理する権限がありません。",
+  "Project membership owner permission is required.": "所有者権限が必要です。",
+  "At least one active project owner is required.": "有効な所有者を最低1人残す必要があります。",
+  "Project membership already exists.": "このメンバーはすでに登録されています。",
+  "Project membership role is invalid.": "メンバー権限が不正です。",
+  "Project membership is not active.": "このメンバーは有効ではありません。",
   "Validation failed": "入力内容の検証に失敗しました。",
 };
 
 const statusLabels: Record<string, string> = {
   accepted_risk: "リスク承認済み",
   action_required: "対応が必要",
+  active: "有効",
+  admin: "管理者",
   approved: "承認済み",
   archived: "アーカイブ済み",
+  auditor: "監査担当",
   blocked: "ブロック中",
   cancelled: "キャンセル済み",
   clear: "通過",
   connected: "接続済み",
   draft: "下書き",
+  editor: "編集者",
   error: "エラー",
   failed: "失敗",
   generated: "生成済み",
@@ -64,6 +74,7 @@ const statusLabels: Record<string, string> = {
   needs_revision: "修正が必要",
   not_connected: "未接続",
   open: "未対応",
+  owner: "所有者",
   pending: "未対応",
   publish_failed: "GitHub公開失敗",
   published: "公開済み",
@@ -75,6 +86,7 @@ const statusLabels: Record<string, string> = {
   rejected: "却下済み",
   resolved: "解決済み",
   review_required: "レビューが必要",
+  reviewer: "レビュー担当",
   retry_approved: "再試行承認済み",
   revoked: "解除済み",
   running: "実行中",
@@ -86,6 +98,7 @@ const statusLabels: Record<string, string> = {
   succeeded: "完了",
   unavailable: "利用不可",
   valid: "検証済み",
+  viewer: "閲覧者",
 };
 
 const targetLabels: Record<string, string> = {

@@ -18,6 +18,8 @@ tags:
     description: Service health and availability checks.
   - name: Projects
     description: Project workspaces that group meetings, artifacts, integrations, and audit logs.
+  - name: ProjectMemberships
+    description: Project membership, role, and revocation management.
   - name: Meetings
     description: Meeting logs and source material used to generate downstream artifacts.
   - name: ConversationImports
@@ -160,6 +162,107 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+
+  /projects/{project_id}/memberships:
+    get:
+      tags: [ProjectMemberships]
+      summary: List project memberships
+      operationId: listProjectMemberships
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/MembershipStatusFilter"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+      responses:
+        "200":
+          description: Project memberships
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectMembershipListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [ProjectMemberships]
+      summary: Create project membership
+      operationId: createProjectMembership
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectMembershipRequest"
+      responses:
+        "201":
+          description: Project membership created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectMembershipResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /projects/{project_id}/memberships/{membership_id}:
+    patch:
+      tags: [ProjectMemberships]
+      summary: Update project membership role
+      operationId: updateProjectMembership
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/MembershipId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProjectMembershipRequest"
+      responses:
+        "200":
+          description: Project membership updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectMembershipResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    delete:
+      tags: [ProjectMemberships]
+      summary: Revoke project membership
+      operationId: revokeProjectMembership
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/MembershipId"
+      responses:
+        "204":
+          description: Project membership revoked
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
 
   /projects/{project_id}/meetings:
     get:
@@ -1090,6 +1193,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuditLogListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -1104,6 +1211,13 @@ components:
   parameters:
     ProjectId:
       name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    MembershipId:
+      name: membership_id
       in: path
       required: true
       schema:
@@ -1189,6 +1303,14 @@ components:
         minimum: 1
         maximum: 100
         default: 25
+    MembershipStatusFilter:
+      name: status
+      in: query
+      required: false
+      schema:
+        type: string
+        enum: [active, revoked, all]
+        default: active
     IdempotencyKey:
       name: Idempotency-Key
       in: header
@@ -1236,6 +1358,12 @@ components:
             $ref: "#/components/schemas/ErrorResponse"
     Forbidden:
       description: Actor is not allowed to perform this action in the project
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Conflict:
+      description: Request conflicts with current project state
       content:
         application/json:
           schema:
@@ -1343,6 +1471,75 @@ components:
         status:
           type: string
           enum: [active, archived]
+
+    ProjectMembershipRole:
+      type: string
+      enum: [owner, admin, editor, reviewer, viewer, auditor]
+
+    ProjectMembershipStatus:
+      type: string
+      enum: [active, revoked]
+
+    ProjectMembership:
+      type: object
+      required: [id, project_id, actor_id, role, status, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        actor_id:
+          type: string
+          minLength: 1
+          maxLength: 120
+        role:
+          $ref: "#/components/schemas/ProjectMembershipRole"
+        status:
+          $ref: "#/components/schemas/ProjectMembershipStatus"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ProjectMembershipResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/ProjectMembership"
+
+    ProjectMembershipListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProjectMembership"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+
+    CreateProjectMembershipRequest:
+      type: object
+      required: [actor_id, role]
+      properties:
+        actor_id:
+          type: string
+          minLength: 1
+          maxLength: 120
+        role:
+          $ref: "#/components/schemas/ProjectMembershipRole"
+
+    UpdateProjectMembershipRequest:
+      type: object
+      required: [role]
+      properties:
+        role:
+          $ref: "#/components/schemas/ProjectMembershipRole"
         github_repo:
           type: string
           maxLength: 255
