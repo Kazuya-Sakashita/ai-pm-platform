@@ -28,4 +28,19 @@ class AuthSession < ApplicationRecord
   def revoked?
     status == "revoked"
   end
+
+  def api_json(current_session_id: nil)
+    {
+      id: id,
+      status: status,
+      current: id == current_session_id,
+      issued_at: issued_at,
+      expires_at: expires_at,
+      last_seen_at: last_seen_at,
+      revoked_at: revoked_at,
+      revocation_reason: revocation_reason,
+      created_at: created_at,
+      updated_at: updated_at
+    }
+  end
 end

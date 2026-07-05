@@ -2,6 +2,10 @@ Rails.application.routes.draw do
   namespace :api do
     namespace :v1 do
       get "health", to: "health#show"
+      get "auth/sessions", to: "auth_sessions#index"
+      delete "auth/sessions/current", to: "auth_sessions#destroy_current"
+      delete "auth/sessions/:auth_session_id", to: "auth_sessions#destroy"
+      post "auth/logout-everywhere", to: "auth_sessions#logout_everywhere"
 
       resources :projects, only: %i[index show create update destroy] do
         resources :meetings, only: %i[index create]

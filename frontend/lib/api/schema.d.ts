@@ -21,6 +21,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List current actor auth sessions */
+        get: operations["listAuthSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/sessions/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke the current auth session */
+        delete: operations["revokeCurrentAuthSession"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/sessions/{auth_session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke one of the current actor auth sessions */
+        delete: operations["revokeAuthSession"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/logout-everywhere": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revoke all current actor auth sessions */
+        post: operations["logoutEverywhere"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects": {
         parameters: {
             query?: never;
@@ -703,6 +771,51 @@ export interface components {
             description?: string;
             /** @enum {string} */
             status?: "active" | "archived";
+        };
+        /** @enum {string} */
+        AuthSessionStatus: "active" | "revoked" | "expired";
+        /** @description Safe auth session view. It never exposes raw JWTs, raw jti, sid, actor subject, IP hash, User-Agent hash, or signing metadata. */
+        AuthSession: {
+            /** Format: uuid */
+            id: string;
+            status: components["schemas"]["AuthSessionStatus"];
+            current: boolean;
+            /** Format: date-time */
+            issued_at: string;
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: date-time */
+            last_seen_at?: string;
+            /** Format: date-time */
+            revoked_at?: string;
+            /** @enum {string} */
+            revocation_reason?: "logout" | "logout_everywhere" | "admin_forced" | "incident" | "replay_suspected" | "key_compromise";
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        AuthSessionResponse: {
+            data: components["schemas"]["AuthSession"];
+        };
+        AuthSessionListMeta: {
+            /** Format: uuid */
+            current_session_id: string;
+            active_count: number;
+            total_count: number;
+        };
+        AuthSessionListResponse: {
+            data: components["schemas"]["AuthSession"][];
+            meta: components["schemas"]["AuthSessionListMeta"];
+        };
+        AuthLogoutEverywhere: {
+            revoked_session_count: number;
+            session_version: number;
+            /** Format: date-time */
+            sessions_revoked_at: string;
+        };
+        AuthLogoutEverywhereResponse: {
+            data: components["schemas"]["AuthLogoutEverywhere"];
         };
         /** @enum {string} */
         ProjectMembershipRole: "owner" | "admin" | "editor" | "reviewer" | "viewer" | "auditor";
@@ -1596,6 +1709,7 @@ export interface components {
     };
     parameters: {
         ProjectId: string;
+        AuthSessionId: string;
         MembershipId: string;
         MeetingId: string;
         ConversationImportId: string;
@@ -1639,6 +1753,94 @@ export interface operations {
                 };
             };
             429: components["responses"]["RateLimited"];
+        };
+    };
+    listAuthSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Auth sessions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthSessionListResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    revokeCurrentAuthSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current auth session revoked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthSessionResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    revokeAuthSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                auth_session_id: components["parameters"]["AuthSessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Auth session revoked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthSessionResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    logoutEverywhere: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All current actor auth sessions revoked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthLogoutEverywhereResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
         };
     };
     listProjects: {

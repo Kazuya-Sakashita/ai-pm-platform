@@ -96,7 +96,7 @@ const statusLabels: Record<string, string> = {
   review_required: "レビューが必要",
   reviewer: "レビュー担当",
   retry_approved: "再試行承認済み",
-  revoked: "解除済み",
+  revoked: "失効済み",
   running: "実行中",
   saved: "保存済み",
   started: "開始済み",

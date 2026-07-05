@@ -999,7 +999,7 @@ test.describe("Meeting Workspace", () => {
     await memberRow.getByLabel("権限").selectOption("reviewer");
     await expect(memberRow.getByLabel("権限")).toHaveValue("reviewer");
     await memberRow.getByRole("button", { name: "失効" }).click();
-    await expect(memberRow.getByText("解除済み")).toBeVisible();
+    await expect(memberRow.getByText("失効済み")).toBeVisible();
   });
 
   test("imports, scans, summarizes, and approves a Discord DM paste", async ({ page }) => {

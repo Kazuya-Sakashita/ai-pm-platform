@@ -23,11 +23,20 @@ import {
   UserMinus,
   UserPlus,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import { apiClient } from "@/lib/api/client";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  apiClient,
+  authRequiredEventName,
+  clearAuthState,
+  hasBearerAuth,
+  restoreAuthState,
+  type AuthRequiredEventDetail,
+} from "@/lib/api/client";
 import { displayMessage, statusLabel, targetLabel, yesNoLabel } from "@/lib/display-labels";
 import type { components } from "@/lib/api/schema";
 
+type AuthSession = components["schemas"]["AuthSession"];
+type AuthSessionListMeta = components["schemas"]["AuthSessionListMeta"];
 type Project = components["schemas"]["Project"];
 type Meeting = components["schemas"]["Meeting"];
 type Minutes = components["schemas"]["Minutes"];
@@ -134,6 +143,27 @@ function errorJobId(error: unknown) {
   const payload = error as ApiErrorPayload;
   const value = payload.error?.details?.job_id;
   return typeof value === "string" ? value : undefined;
+}
+
+const authRecoveryMessages: Record<string, string> = {
+  authentication_required: "ログインが必要です。再ログインしてください。",
+  authentication_not_configured: "認証設定が未完了です。管理者に確認してください。",
+  invalid_token: "ログイン情報が無効です。再ログインしてください。",
+  token_expired: "ログインの有効期限が切れました。再ログインしてください。",
+  token_not_yet_valid: "ログイン情報がまだ有効ではありません。時間を確認して再ログインしてください。",
+  token_revoked: "ログイン情報は失効しています。再ログインしてください。",
+  session_not_found: "ログインセッションを確認できませんでした。再ログインしてください。",
+  session_expired: "ログインセッションの有効期限が切れました。再ログインしてください。",
+  session_revoked: "ログインセッションは失効しています。再ログインしてください。",
+  session_version_stale: "他の端末または管理者操作によりログイン状態が更新されました。再ログインしてください。",
+  signing_key_unknown: "ログイン情報を確認できませんでした。再ログインしてください。",
+  signing_key_retired: "ログイン情報の署名鍵が更新されています。再ログインしてください。",
+  signing_key_not_active: "ログイン情報を確認できませんでした。再ログインしてください。",
+};
+
+function authRecoveryMessage(detail?: Partial<AuthRequiredEventDetail>) {
+  if (detail?.code && authRecoveryMessages[detail.code]) return authRecoveryMessages[detail.code];
+  return displayMessage(detail?.message) || "ログイン状態を確認できませんでした。再ログインしてください。";
 }
 
 function githubIssueUrlValidationError(value: string, issueNumber: number, githubRepo?: string) {
@@ -252,10 +282,18 @@ export default function MeetingWorkspace() {
   const [openApiReview, setOpenApiReview] = useState<Review | null>(null);
   const [integrationAccounts, setIntegrationAccounts] = useState<IntegrationAccount[]>([]);
   const [projectMemberships, setProjectMemberships] = useState<ProjectMembership[]>([]);
+  const [authSessions, setAuthSessions] = useState<AuthSession[]>([]);
+  const [authSessionMeta, setAuthSessionMeta] = useState<AuthSessionListMeta | null>(null);
   const [statusMessage, setStatusMessage] = useState("API接続待機中");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [clientReady, setClientReady] = useState(false);
+  const [authLocked, setAuthLocked] = useState(false);
+  const [authLockCode, setAuthLockCode] = useState("");
+  const [authLockMessage, setAuthLockMessage] = useState("");
   const [githubInstallationUrl, setGithubInstallationUrl] = useState("");
+  const authLockHeadingRef = useRef<HTMLHeadingElement>(null);
+  const authLockedRef = useRef(false);
 
   const [projectName, setProjectName] = useState("AI議事録プラットフォーム");
   const [projectRepo, setProjectRepo] = useState("Kazuya-Sakashita/ai-pm-platform");
@@ -317,9 +355,25 @@ export default function MeetingWorkspace() {
   );
 
   useEffect(() => {
+    setClientReady(true);
     void loadProjects();
     void loadQueueHealth({ announce: false });
+    void loadAuthSessions();
   }, []);
+
+  useEffect(() => {
+    function handleAuthRequired(event: Event) {
+      const detail = (event as CustomEvent<AuthRequiredEventDetail>).detail;
+      lockForReauth(detail);
+    }
+
+    window.addEventListener(authRequiredEventName, handleAuthRequired);
+    return () => window.removeEventListener(authRequiredEventName, handleAuthRequired);
+  }, []);
+
+  useEffect(() => {
+    if (authLocked) authLockHeadingRef.current?.focus();
+  }, [authLocked]);
 
   useEffect(() => {
     if (!selectedProjectId) return;
@@ -342,10 +396,149 @@ export default function MeetingWorkspace() {
     setStatusMessage("APIエラー");
   }
 
+  function clearSensitiveWorkspaceState() {
+    setProjects([]);
+    setSelectedProjectId("");
+    setMeetings([]);
+    setSelectedMeeting(null);
+    setMinutes(null);
+    setRequirement(null);
+    setIssueDraft(null);
+    setOpenApiDraft(null);
+    setOpenApiValidation(null);
+    setLastJob(null);
+    setLastReview(null);
+    setOpenApiReview(null);
+    setIntegrationAccounts([]);
+    setProjectMemberships([]);
+    setAuthSessions([]);
+    setAuthSessionMeta(null);
+    setGithubInstallationUrl("");
+    setConversationImports([]);
+    setSelectedConversationImport(null);
+    setConversationSummaryDraft(null);
+    setConversationSafetyFlags([]);
+    setConversationRedactionSuggestions([]);
+    setRawText("");
+    setConversationRawText("");
+    setConversationRedactedText("");
+    setConversationConsentConfirmed(false);
+    clearMinutesDrafts();
+    clearRequirementDrafts();
+    clearIssueDrafts();
+    clearOpenApiDrafts();
+  }
+
+  function lockForReauth(detail?: Partial<AuthRequiredEventDetail>) {
+    authLockedRef.current = true;
+    clearSensitiveWorkspaceState();
+    setAuthLocked(true);
+    setAuthLockCode(detail?.code ?? "authentication_required");
+    setAuthLockMessage(authRecoveryMessage(detail));
+    setError("");
+    setLoading(false);
+    setStatusMessage("再ログインが必要です");
+  }
+
+  function retryAuth() {
+    restoreAuthState();
+    authLockedRef.current = false;
+    setAuthLocked(false);
+    setAuthLockCode("");
+    setAuthLockMessage("");
+    setStatusMessage("認証状態を再確認中");
+    void loadProjects();
+    void loadQueueHealth({ announce: false });
+    void loadAuthSessions();
+  }
+
+  async function loadAuthSessions() {
+    if (!hasBearerAuth()) {
+      setAuthSessions([]);
+      setAuthSessionMeta(null);
+      return;
+    }
+
+    const { data, error: apiError } = await apiClient.GET("/auth/sessions");
+    if (authLockedRef.current) return;
+    if (apiError) {
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    setAuthSessions(data.data);
+    setAuthSessionMeta(data.meta);
+  }
+
+  async function logoutCurrentSession() {
+    if (!window.confirm("この端末からログアウトします。")) return;
+
+    setLoading(true);
+    setError("");
+    const { data, error: apiError } = await apiClient.DELETE("/auth/sessions/current");
+    setLoading(false);
+
+    if (apiError) {
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    if (data?.data) {
+      setAuthSessions((current) => current.map((session) => (session.id === data.data.id ? data.data : session)));
+    }
+    clearAuthState();
+    lockForReauth({ code: "session_revoked", message: "Authentication session has been revoked.", status: 200 });
+  }
+
+  async function revokeAuthSession(authSession: AuthSession) {
+    if (authSession.current) {
+      await logoutCurrentSession();
+      return;
+    }
+
+    if (!window.confirm("選択したログインセッションを失効します。")) return;
+
+    setLoading(true);
+    setError("");
+    const { data, error: apiError } = await apiClient.DELETE("/auth/sessions/{auth_session_id}", {
+      params: { path: { auth_session_id: authSession.id } },
+    });
+    setLoading(false);
+
+    if (apiError) {
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    setAuthSessions((current) => current.map((session) => (session.id === data.data.id ? data.data : session)));
+    setStatusMessage("他のセッションを失効しました");
+  }
+
+  async function logoutEverywhere() {
+    if (!window.confirm("すべての端末からログアウトします。")) return;
+
+    setLoading(true);
+    setError("");
+    const { error: apiError } = await apiClient.POST("/auth/logout-everywhere");
+    setLoading(false);
+
+    if (apiError) {
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    clearAuthState();
+    lockForReauth({ code: "session_version_stale", message: "Authentication session is no longer current.", status: 200 });
+  }
+
   async function loadProjects() {
     setLoading(true);
     setError("");
     const { data, error: apiError } = await apiClient.GET("/projects");
+    if (authLockedRef.current) {
+      setLoading(false);
+      return;
+    }
     setLoading(false);
 
     if (apiError) {
@@ -512,6 +705,10 @@ export default function MeetingWorkspace() {
 
     try {
       const { data, error: apiError } = await apiClient.GET("/operations/queue-health");
+      if (authLockedRef.current) {
+        setQueueHealthLoading(false);
+        return;
+      }
       setQueueHealthLoading(false);
 
       if (apiError) {
@@ -1709,6 +1906,9 @@ export default function MeetingWorkspace() {
   const queueRows = queueHealth?.queues.slice(0, 4) ?? [];
   const failedJobRows = queueHealth?.failed_job_samples.slice(0, 3) ?? [];
   const warningRows = queueHealth?.warnings.slice(0, 3) ?? [];
+  const bearerAuthAvailable = clientReady && hasBearerAuth();
+  const currentAuthSession = authSessions.find((authSession) => authSession.current) ?? null;
+  const otherAuthSessions = authSessions.filter((authSession) => !authSession.current);
 
   return (
     <div className="app-shell">
@@ -1838,13 +2038,35 @@ export default function MeetingWorkspace() {
             </div>
           </section>
 
-          {error ? (
+          {error && !authLocked ? (
             <section className="alert danger" role="alert">
               <AlertTriangle size={18} />
               <span>{error}</span>
             </section>
           ) : null}
 
+          {authLocked ? (
+            <section className="auth-lock-panel" role="alert" aria-live="assertive" aria-label="再ログインが必要です">
+              <div className="auth-lock-copy">
+                <AlertTriangle size={22} />
+                <div>
+                  <p className="eyebrow">ログインセッション</p>
+                  <h2 ref={authLockHeadingRef} tabIndex={-1}>
+                    再ログインが必要です
+                  </h2>
+                  <p>{authLockMessage}</p>
+                </div>
+              </div>
+              <div className="auth-lock-actions">
+                {authLockCode ? <span className="chip danger">{authLockCode}</span> : null}
+                <button className="button primary" type="button" onClick={retryAuth}>
+                  <RefreshCw size={16} />
+                  再ログイン
+                </button>
+              </div>
+            </section>
+          ) : (
+            <>
           <section className="workspace-grid">
             <div className="left-rail">
               <section className="tool-panel">
@@ -1872,6 +2094,62 @@ export default function MeetingWorkspace() {
                     </option>
                   ))}
                 </select>
+              </section>
+
+              <section className="tool-panel" id="auth-sessions" aria-label="ログインセッション">
+                <div className="panel-header">
+                  <h3>ログインセッション</h3>
+                  <span className={`chip ${bearerAuthAvailable ? "success" : "neutral"}`}>
+                    {bearerAuthAvailable ? `${authSessionMeta?.active_count ?? 0}件有効` : "未接続"}
+                  </span>
+                </div>
+                {bearerAuthAvailable ? (
+                  <>
+                    <div className="session-summary">
+                      <strong>この端末</strong>
+                      <span>{currentAuthSession ? statusLabel(currentAuthSession.status) : "-"}</span>
+                      <strong>期限</strong>
+                      <span>{formatDateTime(currentAuthSession?.expires_at)}</span>
+                      <strong>他の端末</strong>
+                      <span>{otherAuthSessions.length}件</span>
+                    </div>
+                    <div className="session-actions">
+                      <button className="button secondary full-width" type="button" onClick={loadAuthSessions} disabled={loading}>
+                        <RefreshCw size={16} />
+                        セッション更新
+                      </button>
+                      <button className="button secondary full-width" type="button" onClick={logoutCurrentSession} disabled={loading || !currentAuthSession}>
+                        <UserMinus size={16} />
+                        この端末からログアウト
+                      </button>
+                      <button className="button full-width" type="button" onClick={logoutEverywhere} disabled={loading || !currentAuthSession}>
+                        <AlertTriangle size={16} />
+                        すべての端末からログアウト
+                      </button>
+                    </div>
+                    <div className="session-list" aria-label="ログインセッション一覧">
+                      {authSessions.map((authSession) => (
+                        <div className="session-row" key={authSession.id}>
+                          <div>
+                            <strong>{authSession.current ? "この端末" : "他の端末"}</strong>
+                            <span className={`chip ${statusTone(authSession.status)}`}>{statusLabel(authSession.status)}</span>
+                          </div>
+                          <span>期限 {formatDateTime(authSession.expires_at)}</span>
+                          {authSession.revoked_at ? <span>失効 {formatDateTime(authSession.revoked_at)}</span> : null}
+                          {!authSession.current && authSession.status === "active" ? (
+                            <button className="button secondary full-width" type="button" onClick={() => revokeAuthSession(authSession)} disabled={loading}>
+                              <UserMinus size={16} />
+                              このセッションを失効
+                            </button>
+                          ) : null}
+                        </div>
+                      ))}
+                      {authSessions.length === 0 ? <p className="empty">ログインセッションはまだ取得できません。</p> : null}
+                    </div>
+                  </>
+                ) : (
+                  <p className="empty">ログインセッションはまだ取得できません。</p>
+                )}
               </section>
 
               <section className="tool-panel" id="memberships" aria-label="メンバー管理">
@@ -2828,6 +3106,8 @@ export default function MeetingWorkspace() {
               </div>
             ) : null}
           </section>
+            </>
+          )}
         </div>
       </main>
     </div>
