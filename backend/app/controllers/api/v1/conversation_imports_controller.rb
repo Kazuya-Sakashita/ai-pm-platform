@@ -110,10 +110,10 @@ module Api
           action: "conversation_summary_draft.generation_failed",
           target: job,
           actor_id: current_actor_id || "system",
-          metadata: { conversation_import_id: conversation_import.id, provider_error_code: e.code }
+          metadata: { conversation_import_id: conversation_import.id, provider_error_code: e.code, request_id: e.request_id }.compact
         ) if job
 
-        render_error(e.code, e.safe_detail, e.http_status, { job_id: job&.id }.compact)
+        render_error(e.code, e.safe_detail, e.http_status, { job_id: job&.id, request_id: e.request_id }.compact)
       end
 
       private

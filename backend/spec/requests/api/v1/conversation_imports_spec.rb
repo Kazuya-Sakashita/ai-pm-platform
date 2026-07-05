@@ -248,6 +248,106 @@ RSpec.describe "API V1 Conversation Imports", type: :request do
       expect(conversation_import.project.audit_logs.last.actor_id).to eq("dm-editor")
     end
 
+    it "generates a conversation summary draft through the OpenAI provider when configured" do
+      conversation_import = create(:conversation_import, status: "ready_for_ai")
+      authorize_project(conversation_import.project)
+      provider = instance_double(
+        ConversationSummaryGeneration::OpenaiProvider,
+        generate: {
+          provider: "openai",
+          model: "gpt-test",
+          status: "draft",
+          summary: "OpenAI generated DM summary.",
+          decisions: [{ text: "Use Structured Outputs.", confidence: 0.9, source_quote_ids: ["q1"] }],
+          open_questions: [],
+          action_items: [{ text: "Wire provider specs.", status: "open", confidence: 0.82, source_quote_ids: ["q1"] }],
+          issue_candidates: [],
+          requirement_candidates: [],
+          risks: [],
+          participants: conversation_import.participants,
+          source_quotes: [{ id: "q1", quote: "Decision: use Structured Outputs." }],
+          confidence: 0.88
+        }
+      )
+      allow(ConversationSummaryGeneration::OpenaiProvider).to receive(:new).and_return(provider)
+
+      with_env("CONVERSATION_SUMMARY_GENERATION_PROVIDER" => "openai", "OPENAI_API_KEY" => "test-openai-key") do
+        post "/api/v1/conversation-imports/#{conversation_import.id}/generate-summary", headers: actor_headers
+      end
+
+      expect(response).to have_http_status(:accepted)
+      body = JSON.parse(response.body)
+      draft = ConversationSummaryDraft.find(body.dig("data", "conversation_summary_draft", "id"))
+      expect(body.dig("data", "job", "status")).to eq("succeeded")
+      expect(draft.provider).to eq("openai")
+      expect(draft.model).to eq("gpt-test")
+      expect(draft.summary).to eq("OpenAI generated DM summary.")
+    end
+
+    it "stores a failed job when OpenAI conversation summary provider is forced but not connected" do
+      conversation_import = create(:conversation_import, status: "ready_for_ai")
+      authorize_project(conversation_import.project)
+
+      with_env("CONVERSATION_SUMMARY_GENERATION_PROVIDER" => "openai", "OPENAI_API_KEY" => nil) do
+        post "/api/v1/conversation-imports/#{conversation_import.id}/generate-summary", headers: actor_headers
+      end
+
+      expect(response).to have_http_status(:failed_dependency)
+      body = JSON.parse(response.body)
+      job = Job.find(body.dig("error", "details", "job_id"))
+      expect(job.status).to eq("failed")
+      expect(job.error_code).to eq("integration_not_connected")
+      expect(job.safe_error_detail).to eq("OpenAI API key is not configured.")
+      expect(conversation_import.project.audit_logs.last.action).to eq("conversation_summary_draft.generation_failed")
+      expect(conversation_import.reload.status).to eq("ready_for_ai")
+    end
+
+    it "stores a failed job with request metadata when the OpenAI provider fails" do
+      conversation_import = create(:conversation_import, status: "ready_for_ai")
+      authorize_project(conversation_import.project)
+      provider = instance_double(ConversationSummaryGeneration::OpenaiProvider)
+      allow(provider).to receive(:generate).and_raise(
+        ConversationSummaryGeneration::ProviderError.new(
+          code: "rate_limit_exceeded",
+          message: "OpenAI request failed with HTTP 429",
+          safe_detail: "OpenAI request was rate limited. Retry after the provider limit resets.",
+          http_status: :too_many_requests,
+          request_id: "req_dm_rate"
+        )
+      )
+      allow(ConversationSummaryGeneration::OpenaiProvider).to receive(:new).and_return(provider)
+
+      with_env("CONVERSATION_SUMMARY_GENERATION_PROVIDER" => "openai", "OPENAI_API_KEY" => "test-openai-key") do
+        post "/api/v1/conversation-imports/#{conversation_import.id}/generate-summary", headers: actor_headers
+      end
+
+      expect(response).to have_http_status(:too_many_requests)
+      body = JSON.parse(response.body)
+      job = Job.find(body.dig("error", "details", "job_id"))
+      audit_log = conversation_import.project.audit_logs.last
+      expect(job.status).to eq("failed")
+      expect(job.error_code).to eq("rate_limit_exceeded")
+      expect(job.safe_error_detail).to eq("OpenAI request was rate limited. Retry after the provider limit resets.")
+      expect(body.dig("error", "details", "request_id")).to eq("req_dm_rate")
+      expect(audit_log.metadata).to include("request_id" => "req_dm_rate", "provider_error_code" => "rate_limit_exceeded")
+      expect(conversation_import.reload.status).to eq("ready_for_ai")
+    end
+
+    it "does not call the OpenAI provider for blocked conversation imports" do
+      conversation_import = create(:conversation_import, status: "blocked", blocked_reasons: ["personal_data_blocked"])
+      authorize_project(conversation_import.project)
+
+      with_env("CONVERSATION_SUMMARY_GENERATION_PROVIDER" => "openai", "OPENAI_API_KEY" => "test-openai-key") do
+        expect(ConversationSummaryGeneration::OpenaiProvider).not_to receive(:new)
+
+        post "/api/v1/conversation-imports/#{conversation_import.id}/generate-summary", headers: actor_headers
+      end
+
+      expect(response).to have_http_status(422)
+      expect(JSON.parse(response.body).dig("error", "code")).to eq("conversation_import_not_ready_for_ai")
+      expect(Job.last.status).to eq("failed")
+    end
+
     it "uses redacted text for summary generation" do
       conversation_import = create(
         :conversation_import,
@@ -328,5 +428,13 @@ RSpec.describe "API V1 Conversation Imports", type: :request do
 
   def authorize_project(project, actor_id: "dm-editor", role: "editor")
     create(:project_membership, project: project, actor_id: actor_id, role: role)
+  end
+
+  def with_env(values)
+    originals = values.keys.to_h { |key| [key, ENV[key]] }
+    values.each { |key, value| value.nil? ? ENV.delete(key) : ENV[key] = value }
+    yield
+  ensure
+    originals.each { |key, value| value.nil? ? ENV.delete(key) : ENV[key] = value }
   end
 end

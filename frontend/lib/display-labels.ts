@@ -1,4 +1,5 @@
 const messageLabels: Record<string, string> = {
+  "AI response did not match the expected DM summary schema.": "AI応答が想定されたDM整理形式に一致しませんでした。",
   "AI response did not match the expected minutes schema.": "AI応答が想定された議事録形式に一致しませんでした。",
   "GitHub integration is not connected.": "GitHub連携が未接続です。",
   "GitHub connection state already used.": "GitHub接続リンクは使用済みです。ワークスペースから接続をやり直してください。",
