@@ -9,6 +9,10 @@ ISSUE-042
 https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/42
 
 登録日: 2026-07-05
+クローズ日: 2026-07-05 21:43:47 UTC / 2026-07-06 06:43:47 JST
+クローズPR: https://github.com/Kazuya-Sakashita/ai-pm-platform/pull/49
+マージコミット: `a3e240992b5fcc83f1ae45ddeb6b802c697fd26f`
+最終状態: CLOSED
 
 ## 背景
 
@@ -105,3 +109,10 @@ P1
 2. ISSUE-046でsession APIsとFrontend再ログイン導線を実装する。
 3. ISSUE-047でJWT key rotation staging smokeとproduction runbook gateを整備する。
 4. ISSUE-048でworkflow endpointsのauth coverage gapを解消する。
+
+## クローズ確認
+
+- GitHub Issue: CLOSED
+- PR: #49 merged
+- CI: `verify` success
+- 確認日時: 2026-07-06 06:44:06 JST
