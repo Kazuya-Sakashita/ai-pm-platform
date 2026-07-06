@@ -9,6 +9,8 @@ ISSUE-036
 https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/36
 
 登録日: 2026-07-05
+状態: CLOSED
+クローズ日時: 2026-07-06 11:47:17 JST
 
 ## 背景
 
