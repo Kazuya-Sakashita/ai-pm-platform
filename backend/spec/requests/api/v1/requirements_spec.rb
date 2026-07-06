@@ -122,6 +122,21 @@ RSpec.describe "API V1 Requirements", type: :request do
       expect(requirement.reload.status).to eq("generated")
     end
 
+    it "Requirementレビューが未解決の場合は承認をブロックする" do
+      requirement = create(:requirement, open_questions: [])
+      review = create(:review, target_type: "requirement", target_id: requirement.id, status: "action_required")
+      authorize_project(requirement.minute.meeting.project, actor_id: "reviewer-actor", role: "reviewer")
+
+      post "/api/v1/requirements/#{requirement.id}/approve", headers: auth_headers("reviewer-actor")
+
+      expect(response).to have_http_status(:conflict)
+      body = JSON.parse(response.body)
+      expect(body.dig("error", "code")).to eq("review_required")
+      expect(body.dig("error", "details", "review_ids")).to eq([review.id])
+      expect(body.dig("error", "details", "review_statuses")).to include(review.id => "action_required")
+      expect(requirement.reload.status).to eq("generated")
+    end
+
     it "rejects approval from cross-project admins" do
       requirement = create(:requirement, open_questions: [])
       authorize_project(create(:project), actor_id: "other-admin", role: "admin")

@@ -46,6 +46,7 @@ AI議事録ツールとの差別化には、会議内容を実装可能な要件
 - `docs/review/20260630_requirement_approval_gate_review.md`
 - `docs/review/20260706_requirement_generation_quality_baseline_review.md`
 - `docs/review/20260706_requirement_generation_provider_rules_review.md`
+- `docs/review/20260706_requirement_approval_review_center_gate_review.md`
 
 ## レビュー結果
 
@@ -109,15 +110,30 @@ AI議事録ツールとの差別化には、会議内容を実装可能な要件
 - 改善後baseline結果: 平均100.0点、ケース別最低100.0点、Critical failure 0件、P0基準未達0件
 - 判定: deterministic providerのfixture上の品質改善は完了。ただしIssue #3は次工程接続が残るため継続
 
+2026-07-06 20:52 JST追加:
+
+- `RequirementApprovalGate` を追加し、Requirement承認条件をService Objectへ分離
+- Requirement対象のReviewに `open` または `action_required` が残る場合、Requirement承認を409 `review_required` でブロック
+- `resolved` と `accepted_risk` のReviewは承認可能状態として扱う
+- Requirement Workspaceに `要件レビュー対応済み` 導線を追加し、Review Centerの対象レビューをresolvedへ更新できるようにした
+- Playwright happy pathを、要件レビュー依頼、要件レビュー解決、Requirement承認の順番に更新
+- Issue/OpenAPI生成条件は既存実装で `requirement.status == "approved"` を要求していることを確認
+- `PATH=/Users/kazuya/.rbenv/versions/3.2.2/bin:$PATH bundle exec rspec spec/services/requirement_approval_gate_spec.rb spec/requests/api/v1/requirements_spec.rb spec/requests/api/v1/issue_drafts_spec.rb spec/requests/api/v1/open_api_drafts_spec.rb`: 48 examples, 0 failures
+- `npm run frontend:build`: success
+- `npm run display:check`: success
+- 判定: Review Center resolved状態とRequirement承認条件の接続は完了。ただし承認メタデータとrisk acceptance期限管理が残るためIssue #3は継続
+
 未完了:
 
 - OpenAI providerによるRequirement生成
-- Issue/OpenAPI生成条件とのapproved Requirement接続
 - Requirement Workspaceの差分、未決事項、リスク強調UX
+- Requirement Workspaceで未解決Review件数と承認blocker詳細を表示する
 - 承認者、承認日時、再編集時の状態戻し
+- accepted_riskの期限切れをRequirement承認blockerにする
 
 ## 次アクション
 
-- Issue #4に進む前にRequirement approved状態をIssue/OpenAPI生成条件へ接続する
-- Review Centerのresolved状態とRequirement承認条件を接続する
+- Requirement承認者、承認日時、承認コメントをDB/APIへ追加する
+- accepted_riskの期限切れをRequirement承認blockerにする
+- Requirement Workspaceで未解決Review件数と承認blocker詳細を表示する
 - OpenAI providerを導入する場合は、同じfixtureでdeterministic providerと比較する
