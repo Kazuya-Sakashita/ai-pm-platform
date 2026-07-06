@@ -828,6 +828,12 @@ paths:
       operationId: approveRequirement
       parameters:
         - $ref: "#/components/parameters/RequirementId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApproveRequirementRequest"
       responses:
         "200":
           description: Requirement approved
@@ -843,6 +849,8 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/ReviewRequired"
+        "422":
+          $ref: "#/components/responses/ValidationError"
 
   /requirements/{requirement_id}/generate-issue-draft:
     post:
@@ -2633,6 +2641,16 @@ components:
             type: string
         generated_by_model:
           type: string
+        approved_at:
+          type: string
+          format: date-time
+          description: Requirementが承認されたサーバー時刻。
+        approved_by:
+          type: string
+          description: Requirementを承認した認証済みactor ID。
+        approval_note:
+          type: string
+          description: 監査のために保存する人間の承認コメント。
         created_at:
           type: string
           format: date-time
@@ -2684,6 +2702,15 @@ components:
             type: string
         status:
           $ref: "#/components/schemas/ArtifactStatus"
+
+    ApproveRequirementRequest:
+      type: object
+      required: [approval_note]
+      properties:
+        approval_note:
+          type: string
+          minLength: 1
+          description: 人間の承認コメント。承認者はrequest bodyではなく認証済みactorから導出する。
 
     IssueDraftStatus:
       type: string

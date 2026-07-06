@@ -26,6 +26,9 @@ class Requirement < ApplicationRecord
       open_questions: open_questions,
       risks: risks,
       generated_by_model: generated_by_model,
+      approved_at: iso_time(approved_at),
+      approved_by: approved_by,
+      approval_note: approval_note,
       created_at: iso_time(created_at),
       updated_at: iso_time(updated_at)
     }.compact

@@ -99,6 +99,7 @@ PM: 未決: 相手方同意とマスキング確認をどこで記録する？
 依頼者: 対応: 同意確認後にIssue候補を作る。`;
 
 const conversationConsentStatementVersion = "discord-dm-manual-import-v1";
+const defaultRequirementApprovalNote = "要件定義レビューの指摘を反映し、下流工程へ進めます。";
 
 const retryReasonTemplates: { value: RetryReasonTemplate; label: string }[] = [
   { value: "github_issue_absence_confirmed", label: "GitHub上でIssue未作成を確認" },
@@ -432,6 +433,7 @@ export default function MeetingWorkspace() {
   const [outOfScopeDraft, setOutOfScopeDraft] = useState("");
   const [requirementOpenQuestionsDraft, setRequirementOpenQuestionsDraft] = useState("");
   const [risksDraft, setRisksDraft] = useState("");
+  const [requirementApprovalNote, setRequirementApprovalNote] = useState(defaultRequirementApprovalNote);
   const [issueTitleDraft, setIssueTitleDraft] = useState("");
   const [issueBodyDraft, setIssueBodyDraft] = useState("");
   const [issueAcceptanceDraft, setIssueAcceptanceDraft] = useState("");
@@ -1398,10 +1400,18 @@ export default function MeetingWorkspace() {
       return;
     }
 
+    if (!requirementApprovalNote.trim()) {
+      setApiError("要件定義の承認コメントを入力してください。");
+      return;
+    }
+
     setLoading(true);
     setError("");
     const { data, error: apiError } = await apiClient.POST("/requirements/{requirement_id}/approve", {
       params: { path: { requirement_id: requirement.id } },
+      body: {
+        approval_note: requirementApprovalNote.trim(),
+      },
     });
     setLoading(false);
 
@@ -2093,6 +2103,7 @@ export default function MeetingWorkspace() {
     setOutOfScopeDraft(linesToText(nextRequirement.out_of_scope ?? []));
     setRequirementOpenQuestionsDraft(linesToText(nextRequirement.open_questions ?? []));
     setRisksDraft(linesToText(nextRequirement.risks ?? []));
+    setRequirementApprovalNote(nextRequirement.approval_note ?? defaultRequirementApprovalNote);
     clearIssueDrafts();
     clearOpenApiDrafts();
   }
@@ -2147,6 +2158,7 @@ export default function MeetingWorkspace() {
     setOutOfScopeDraft("");
     setRequirementOpenQuestionsDraft("");
     setRisksDraft("");
+    setRequirementApprovalNote(defaultRequirementApprovalNote);
   }
 
   function clearIssueDrafts() {
@@ -3046,7 +3058,7 @@ export default function MeetingWorkspace() {
                 <Save size={16} />
                 要件定義を保存
               </button>
-              <button className="button primary" type="button" onClick={approveRequirement} disabled={!requirement || loading}>
+              <button className="button primary" type="button" onClick={approveRequirement} disabled={!requirement || !requirementApprovalNote.trim() || loading}>
                 <CheckCircle2 size={16} />
                 要件定義を承認
               </button>
@@ -3064,6 +3076,16 @@ export default function MeetingWorkspace() {
                 要件レビュー対応済み
               </button>
             </div>
+            {requirement ? (
+              <div className="audit-box">
+                <strong>承認者</strong>
+                <span>{requirement.approved_by ?? "-"}</span>
+                <strong>承認日時</strong>
+                <span>{formatDateTime(requirement.approved_at)}</span>
+                <strong>承認コメント</strong>
+                <span>{requirement.approval_note ?? "-"}</span>
+              </div>
+            ) : null}
             <div className="requirement-editor-grid">
               <label>
                 背景
@@ -3100,6 +3122,10 @@ export default function MeetingWorkspace() {
               <label>
                 リスク
                 <textarea value={risksDraft} onChange={(event) => setRisksDraft(event.target.value)} />
+              </label>
+              <label>
+                承認コメント
+                <textarea value={requirementApprovalNote} onChange={(event) => setRequirementApprovalNote(event.target.value)} />
               </label>
             </div>
           </section>

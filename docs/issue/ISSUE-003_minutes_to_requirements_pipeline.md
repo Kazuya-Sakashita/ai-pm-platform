@@ -48,6 +48,7 @@ AI議事録ツールとの差別化には、会議内容を実装可能な要件
 - `docs/review/20260706_requirement_generation_provider_rules_review.md`
 - `docs/review/20260706_requirement_approval_review_center_gate_review.md`
 - `docs/review/20260707_requirement_accepted_risk_expiry_gate_review.md`
+- `docs/review/20260707_requirement_approval_audit_metadata_review.md`
 
 ## レビュー結果
 
@@ -81,7 +82,7 @@ AI議事録ツールとの差別化には、会議内容を実装可能な要件
 - `POST /requirements/{requirement_id}/approve` をOpenAPI、Backend、Frontendへ追加
 - Requirementの `open_questions` が残る場合は409 `review_required` で承認をブロック
 - Requirement承認時に `requirement.approved` AuditLogを保存
-- FrontendにApprove Requirements導線を追加
+- FrontendにRequirement承認導線を追加
 - Playwright E2EでMinutes承認、Requirement生成、編集保存、Requirement review依頼、Requirement承認まで確認
 - `bundle exec rspec`: 35 examples, 0 failures
 - `bundle exec ruby bin/rails zeitwerk:check`: All is good
@@ -132,15 +133,31 @@ AI議事録ツールとの差別化には、会議内容を実装可能な要件
 - `PATH=/Users/kazuya/.rbenv/versions/3.2.2/bin:$PATH bundle exec rspec spec/services/requirement_approval_gate_spec.rb spec/requests/api/v1/requirements_spec.rb spec/requests/api/v1/issue_drafts_spec.rb spec/requests/api/v1/open_api_drafts_spec.rb`: 51 examples, 0 failures
 - 判定: accepted_risk期限切れblockerは完了。ただし承認メタデータとOpenAI provider比較が残るためIssue #3は継続
 
+2026-07-07 05:10 JST追加:
+
+- `requirements` に `approved_at`、`approved_by`、`approval_note` を追加
+- Requirement承認APIで `approval_note` を必須化し、未入力時は422 `approval_note_required` を返す
+- Requirement承認時に `approved_by` は認証済みactor、`approved_at` はサーバー時刻で保存
+- AuditLogには承認コメント本文を保存せず、`approval_note_present` と `approved_at` のみをmetadataへ保存
+- OpenAPIに `ApproveRequirementRequest`、422レスポンス、Requirement承認メタデータを追加
+- Frontend型定義を更新し、Requirement Workspaceで承認コメント入力、承認者、承認日時、承認コメントを表示
+- Playwright happy pathで承認コメント初期値と承認者表示を確認
+- `PATH=/Users/kazuya/.rbenv/versions/3.2.2/bin:$PATH bundle exec rspec spec/services/requirement_approval_gate_spec.rb spec/requests/api/v1/requirements_spec.rb spec/requests/api/v1/issue_drafts_spec.rb spec/requests/api/v1/open_api_drafts_spec.rb`: 52 examples, 0 failures
+- `PATH=/Users/kazuya/.rbenv/versions/3.2.2/bin:$PATH bundle exec ruby bin/rails zeitwerk:check`: All is good
+- `npm run api:verify`: 成功
+- `npm run frontend:build`: 成功
+- `npm run display:check`: 成功
+- 判定: 承認者、承認日時、承認コメントのDB/API/UI接続は完了。ただし再編集時の状態戻しとblocker詳細表示が残るためIssue #3は継続
+
 未完了:
 
 - OpenAI providerによるRequirement生成
 - Requirement Workspaceの差分、未決事項、リスク強調UX
 - Requirement Workspaceで未解決Review件数と承認blocker詳細を表示する
-- 承認者、承認日時、再編集時の状態戻し
+- 承認済みRequirementを再編集した場合の状態戻しと差分履歴
 
 ## 次アクション
 
-- Requirement承認者、承認日時、承認コメントをDB/APIへ追加する
+- 承認済みRequirementを再編集した場合の状態戻しと差分履歴を設計、実装する
 - Requirement Workspaceで未解決Review件数と承認blocker詳細を表示する
 - OpenAI providerを導入する場合は、同じfixtureでdeterministic providerと比較する
