@@ -61,12 +61,25 @@ module Api
         return unless require_actor!(action: "requirement_update")
         return unless authorize_project_role!(project_for(requirement.minute), action: "requirement_update", allowed_roles: project_write_roles)
 
-        requirement.update!(requirement_params)
+        if params.key?(:status)
+          return render_error(
+            "requirement_direct_status_update_not_allowed",
+            "要件定義の状態変更は専用APIまたはレビュー操作から実行してください。",
+            :unprocessable_entity,
+            { requirement_id: requirement.id, approve_endpoint: "/api/v1/requirements/#{requirement.id}/approve" }
+          )
+        end
+
+        revision = RequirementRevisionService.new(requirement, requirement_params).call
         AuditLog.record!(
           project: project_for(requirement.minute),
           action: "requirement.updated",
           target: requirement,
-          actor_id: current_actor_id
+          actor_id: current_actor_id,
+          metadata: {
+            changed_fields: revision.changed_fields,
+            approval_reset: revision.approval_reset
+          }
         )
         render json: { data: requirement.api_json }
       end
@@ -140,7 +153,6 @@ module Api
         params.permit(
           :background,
           :goal,
-          :status,
           user_stories: [],
           functional_requirements: [],
           non_functional_requirements: [],
