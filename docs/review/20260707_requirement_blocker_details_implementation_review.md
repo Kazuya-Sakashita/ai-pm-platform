@@ -60,7 +60,7 @@ Issue #3のRequirement Workspaceで、未決事項、未解決レビュー、期
 
 ## 検証結果
 
-- `NEXT_PUBLIC_API_BASE_URL=http://localhost:3001/api/v1 npm run frontend:e2e -- --grep "creates a project, saves a Discord log, generates minutes, and requests review"`: 1 passed
+- `npm run frontend:e2e -- --grep "creates a project, saves a Discord log, generates minutes, and requests review"`: 1 passed
 - `npm run frontend:build`: 成功
 - `npm run display:check`: Display labels OK: 86 messages, 53 statuses, 5 targets
 - `npm run api:verify`: OpenAPI OK、Redocly valid、型生成成功。Redocly CLIのNode version warningは既存警告

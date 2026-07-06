@@ -27,7 +27,7 @@ Issue #3のRequirement Workspaceに、未解決レビュー件数と承認ブロ
 - Backendの `GET /reviews?target_type=requirement&target_id=...` が既にあり、追加APIなしでRequirement対象Reviewを取得できる。
 - `RequirementApprovalGate` は未決事項、未解決レビュー、期限切れ `accepted_risk` を既に判定しているため、UI表示は同じ条件を薄く反映すればよい。
 - 既存の `validation-panel` と `audit-box` のUI部品を使えるため、画面全体の視覚体系を崩さずに追加できる。
-- 承認ボタンの近くにblockerを出すことで、ユーザーがAPIエラーを受けて初めて理由を知る体験を減らせる。
+- 承認ボタンの近くにブロッカーを出すことで、ユーザーがAPIエラーを受けて初めて理由を知る体験を減らせる。
 
 ## 改善点
 
@@ -50,7 +50,7 @@ Issue #3のRequirement Workspaceに、未解決レビュー件数と承認ブロ
 1. `requirementReviews` stateと `loadRequirementReviews` を追加する。
 2. Requirement生成、保存、承認、レビュー依頼、レビュー解決後にRequirement reviewsを再読込する。
 3. Requirement Workspaceに承認ブロッカーパネルを追加する。
-4. Playwrightで未解決件数、blocker表示、解決後の表示変化を確認する。
+4. Playwrightで未解決件数、ブロッカー表示、解決後の表示変化を確認する。
 5. 実装レビューを保存し、Issue台帳へ同期する。
 
 ## Issue番号
