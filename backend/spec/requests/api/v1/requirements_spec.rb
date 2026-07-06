@@ -137,6 +137,33 @@ RSpec.describe "API V1 Requirements", type: :request do
       expect(requirement.reload.status).to eq("generated")
     end
 
+    it "期限切れのリスク受容レビューがある場合は承認をブロックする" do
+      requirement = create(:requirement, open_questions: [])
+      review = create(
+        :review,
+        target_type: "requirement",
+        target_id: requirement.id,
+        status: "accepted_risk",
+        accepted_risk: {
+          "reason" => "一時的な承認。",
+          "residual_risk" => "期限後に再レビューが必要。",
+          "approved_by" => "Kazuya Reviewer",
+          "expires_at" => 1.day.ago.iso8601,
+          "linked_issue_number" => "#3",
+          "accepted_at" => 2.days.ago.iso8601
+        }
+      )
+      authorize_project(requirement.minute.meeting.project, actor_id: "reviewer-actor", role: "reviewer")
+
+      post "/api/v1/requirements/#{requirement.id}/approve", headers: auth_headers("reviewer-actor")
+
+      expect(response).to have_http_status(:conflict)
+      body = JSON.parse(response.body)
+      expect(body.dig("error", "code")).to eq("review_required")
+      expect(body.dig("error", "details", "expired_accepted_risk_review_ids")).to eq([review.id])
+      expect(requirement.reload.status).to eq("generated")
+    end
+
     it "rejects approval from cross-project admins" do
       requirement = create(:requirement, open_questions: [])
       authorize_project(create(:project), actor_id: "other-admin", role: "admin")
