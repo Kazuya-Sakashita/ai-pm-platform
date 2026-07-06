@@ -911,7 +911,27 @@ test.describe("Meeting Workspace", () => {
     await expect(page.locator("#requirements .panel-header .chip")).toHaveText("修正が必要");
     await expect(page.locator("#issue-draft > .panel-header .chip")).toHaveText("再確認が必要");
     await expect(page.locator("#openapi-draft > .panel-header .chip")).toHaveText("再確認が必要");
+    await expect(page.locator("[aria-label='Issueドラフト再生成案内']")).toContainText("このIssueドラフトは古くなっています");
+    await expect(page.locator("[aria-label='OpenAPIドラフト再生成案内']")).toContainText("このOpenAPIドラフトは古くなっています");
+    await expect(page.getByRole("button", { name: "Issueドラフトを保存", exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Issueドラフトを承認", exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "OpenAPIドラフトを保存", exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "OpenAPIを検証", exact: true })).toBeDisabled();
     await expect(page.getByRole("button", { name: "GitHub Issueへ公開", exact: true })).toBeDisabled();
+
+    await page.getByRole("button", { name: "要件定義を承認", exact: true }).click();
+    await expect(page.locator("header").getByText("要件定義を承認しました")).toBeVisible();
+    await expect(page.locator("#requirements .panel-header .chip")).toHaveText("承認済み");
+
+    await page.getByRole("button", { name: "Issueドラフトを生成", exact: true }).click();
+    await expect(page.locator("header").getByText("Issueドラフトを生成しました")).toBeVisible();
+    await expect(page.locator("[aria-label='Issueドラフト再生成案内']")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Issueドラフトを保存", exact: true })).toBeEnabled();
+
+    await page.getByRole("button", { name: "OpenAPIドラフトを生成", exact: true }).click();
+    await expect(page.locator("header").getByText("OpenAPIドラフトを生成しました")).toBeVisible();
+    await expect(page.locator("[aria-label='OpenAPIドラフト再生成案内']")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "OpenAPIドラフトを保存", exact: true })).toBeEnabled();
   });
 
   test("shows validation errors when required meeting fields are missing", async ({ page, request }) => {

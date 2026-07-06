@@ -60,6 +60,7 @@ module Api
 
       def update
         return unless authorize_open_api_draft!("openapi_draft_update", project_write_roles)
+        return render_stale_open_api_draft("openapi_draft_update") if open_api_draft.status == "stale"
 
         open_api_draft.update!(open_api_draft_params)
         AuditLog.record!(
@@ -75,6 +76,8 @@ module Api
         return unless authorize_open_api_draft!("openapi_draft_validate", project_write_roles)
 
         draft = open_api_draft
+        return render_stale_open_api_draft("openapi_draft_validate") if draft.status == "stale"
+
         project = project_for(draft.requirement)
         previous_status = draft.status
         content_hash = Digest::SHA256.hexdigest(draft.content.to_s)
@@ -165,6 +168,20 @@ module Api
           "Requirement must be approved before generating an OpenAPI draft.",
           :conflict,
           { requirement_id: requirement.id, status: requirement.status }
+        )
+      end
+
+      def render_stale_open_api_draft(action)
+        render_error(
+          "stale_draft",
+          "このOpenAPIドラフトはRequirement更新後に古くなっています。Requirementを再承認し、新しいOpenAPIドラフトを生成してください。",
+          :conflict,
+          {
+            action: action,
+            openapi_draft_id: open_api_draft.id,
+            requirement_id: open_api_draft.requirement_id,
+            status: open_api_draft.status
+          }
         )
       end
 

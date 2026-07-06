@@ -2243,7 +2243,11 @@ export default function MeetingWorkspace() {
     setOpenApiReview(null);
   }
 
+  const isIssueDraftStale = issueDraft?.status === "stale";
+  const isOpenApiDraftStale = openApiDraft?.status === "stale";
   const canPublishIssueDraft =
+    !isIssueDraftStale &&
+    !isOpenApiDraftStale &&
     issueDraft?.status === "approved" &&
     (openApiDraft?.status === "valid" || openApiDraft?.status === "approved") &&
     openApiReview?.status !== "action_required";
@@ -3270,11 +3274,11 @@ export default function MeetingWorkspace() {
                 <ClipboardList size={16} />
                 Issueドラフトを生成
               </button>
-              <button className="button secondary" type="button" onClick={saveIssueDraft} disabled={!issueDraft || loading}>
+              <button className="button secondary" type="button" onClick={saveIssueDraft} disabled={!issueDraft || isIssueDraftStale || loading}>
                 <Save size={16} />
                 Issueドラフトを保存
               </button>
-              <button className="button secondary" type="button" onClick={approveIssueDraft} disabled={!issueDraft || loading}>
+              <button className="button secondary" type="button" onClick={approveIssueDraft} disabled={!issueDraft || isIssueDraftStale || loading}>
                 <CheckCircle2 size={16} />
                 Issueドラフトを承認
               </button>
@@ -3283,6 +3287,18 @@ export default function MeetingWorkspace() {
                 GitHub Issueへ公開
               </button>
             </div>
+            {isIssueDraftStale ? (
+              <div className="validation-panel danger" aria-label="Issueドラフト再生成案内">
+                <div className="panel-header">
+                  <h3>再生成が必要</h3>
+                  <span className="chip warning">Requirement更新済み</span>
+                </div>
+                <div className="validation-row warning">
+                  <strong>このIssueドラフトは古くなっています</strong>
+                  <span>Requirementを再承認し、新しいIssueドラフトを生成してください。</span>
+                </div>
+              </div>
+            ) : null}
             <div className="issue-editor-grid">
               <label>
                 Issueタイトル
@@ -3524,15 +3540,27 @@ export default function MeetingWorkspace() {
                 <FileCode2 size={16} />
                 OpenAPIドラフトを生成
               </button>
-              <button className="button secondary" type="button" onClick={saveOpenApiDraft} disabled={!openApiDraft || loading}>
+              <button className="button secondary" type="button" onClick={saveOpenApiDraft} disabled={!openApiDraft || isOpenApiDraftStale || loading}>
                 <Save size={16} />
                 OpenAPIドラフトを保存
               </button>
-              <button className="button secondary" type="button" onClick={validateOpenApiDraft} disabled={!openApiDraft || loading}>
+              <button className="button secondary" type="button" onClick={validateOpenApiDraft} disabled={!openApiDraft || isOpenApiDraftStale || loading}>
                 <CheckCircle2 size={16} />
                 OpenAPIを検証
               </button>
             </div>
+            {isOpenApiDraftStale ? (
+              <div className="validation-panel danger" aria-label="OpenAPIドラフト再生成案内">
+                <div className="panel-header">
+                  <h3>再生成が必要</h3>
+                  <span className="chip warning">Requirement更新済み</span>
+                </div>
+                <div className="validation-row warning">
+                  <strong>このOpenAPIドラフトは古くなっています</strong>
+                  <span>Requirementを再承認し、新しいOpenAPIドラフトを生成してください。</span>
+                </div>
+              </div>
+            ) : null}
             <div className="openapi-editor-grid">
               <label>
                 OpenAPIタイトル

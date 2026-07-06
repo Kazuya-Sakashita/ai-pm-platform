@@ -58,6 +58,7 @@ module Api
 
       def update
         return unless authorize_issue_draft!("issue_draft_update", project_write_roles)
+        return render_stale_issue_draft("issue_draft_update") if issue_draft.status == "stale"
 
         issue_draft.update!(issue_draft_params)
         AuditLog.record!(
@@ -252,6 +253,20 @@ module Api
           "Requirement must be approved before generating issue drafts.",
           :conflict,
           { requirement_id: requirement.id, status: requirement.status }
+        )
+      end
+
+      def render_stale_issue_draft(action)
+        render_error(
+          "stale_draft",
+          "このIssueドラフトはRequirement更新後に古くなっています。Requirementを再承認し、新しいIssueドラフトを生成してください。",
+          :conflict,
+          {
+            action: action,
+            issue_draft_id: issue_draft.id,
+            requirement_id: issue_draft.requirement_id,
+            status: issue_draft.status
+          }
         )
       end
 
