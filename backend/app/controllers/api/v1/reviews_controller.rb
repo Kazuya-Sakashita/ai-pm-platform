@@ -91,6 +91,10 @@ module Api
         case target_type
         when "meeting"
           Meeting.find(target_id).project
+        when "conversation_import"
+          ConversationImport.find(target_id).project
+        when "conversation_summary_draft"
+          ConversationSummaryDraft.find(target_id).conversation_import.project
         when "minutes"
           Minute.find(target_id).meeting.project
         when "requirement"
@@ -120,7 +124,7 @@ module Api
           "validation_error",
           "Review target must belong to a project-scoped workflow resource.",
           :unprocessable_entity,
-          { supported_target_types: %w[meeting minutes requirement issue_draft openapi_draft] }
+          { supported_target_types: %w[meeting conversation_import conversation_summary_draft minutes requirement issue_draft openapi_draft] }
         )
       end
 

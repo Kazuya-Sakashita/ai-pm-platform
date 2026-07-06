@@ -42,6 +42,28 @@ RSpec.describe "API V1 Reviews", type: :request do
       expect(JSON.parse(response.body).dig("data", "target_type")).to eq("minutes")
     end
 
+    it "stores a conversation summary draft review result" do
+      draft = create(:conversation_summary_draft)
+      authorize_project(draft.conversation_import.project, actor_id: "reviewer-actor", role: "reviewer")
+
+      post "/api/v1/reviews", params: {
+        target_type: "conversation_summary_draft",
+        target_id: draft.id,
+        reviewer_role: "Product Manager",
+        framework: ["G-STACK", "HEART"],
+        positives: ["DM整理ドラフトを編集済み"],
+        improvements: ["承認前にレビュー状態を確認する"],
+        priority: ["P1"],
+        next_actions: ["未解決レビューを解決してから承認する"],
+        issue_numbers: ["ISSUE-037"]
+      }, headers: auth_headers("reviewer-actor")
+
+      expect(response).to have_http_status(:created)
+      body = JSON.parse(response.body)
+      expect(body.dig("data", "target_type")).to eq("conversation_summary_draft")
+      expect(body.dig("data", "target_id")).to eq(draft.id)
+    end
+
     it "rejects reviews for project targets by non-members" do
       minute = create(:minute)
 
@@ -103,6 +125,21 @@ RSpec.describe "API V1 Reviews", type: :request do
       expect(response).to have_http_status(:ok)
       ids = JSON.parse(response.body).fetch("data").map { |item| item.fetch("id") }
       expect(ids).to eq([visible_review.id])
+    end
+
+    it "lists conversation summary draft reviews by target" do
+      draft = create(:conversation_summary_draft)
+      authorize_project(draft.conversation_import.project, actor_id: "viewer-actor", role: "viewer")
+      review = create(:review, target_type: "conversation_summary_draft", target_id: draft.id)
+
+      get "/api/v1/reviews", params: {
+        target_type: "conversation_summary_draft",
+        target_id: draft.id
+      }, headers: auth_headers("viewer-actor")
+
+      expect(response).to have_http_status(:ok)
+      ids = JSON.parse(response.body).fetch("data").map { |item| item.fetch("id") }
+      expect(ids).to eq([review.id])
     end
   end
 end

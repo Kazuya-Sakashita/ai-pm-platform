@@ -134,6 +134,10 @@ function editableConversationSummaryStatus(status?: ConversationSummaryDraft["st
   return status === "draft" || status === "needs_revision";
 }
 
+function blockingReviewStatus(status?: Review["status"]) {
+  return status === "open" || status === "action_required";
+}
+
 function conversationDraftEditFormFromDraft(draft: ConversationSummaryDraft | null): ConversationSummaryDraftEditForm {
   return {
     summary: draft?.summary ?? "",
@@ -315,6 +319,7 @@ function statusTone(status?: string) {
     status === "published" ||
     status === "reconciled" ||
     status === "retry_approved" ||
+    status === "resolved" ||
     status === "local_saved" ||
     status === "ready_for_ai" ||
     status === "healthy"
@@ -329,13 +334,15 @@ function statusTone(status?: string) {
     status === "publish_failed" ||
     status === "unavailable" ||
     status === "rejected" ||
-    status === "blocked"
+    status === "blocked" ||
+    status === "action_required"
   )
     return "danger";
-  if (status === "degraded" || status === "stale") return "warning";
+  if (status === "degraded" || status === "stale" || status === "accepted_risk") return "warning";
   if (status === "error" || status === "revoked") return "danger";
   if (
     status === "in_review" ||
+    status === "open" ||
     status === "running" ||
     status === "generating" ||
     status === "summarizing" ||
@@ -399,6 +406,7 @@ export default function MeetingWorkspace() {
   const [conversationImports, setConversationImports] = useState<ConversationImport[]>([]);
   const [selectedConversationImport, setSelectedConversationImport] = useState<ConversationImport | null>(null);
   const [conversationSummaryDraft, setConversationSummaryDraft] = useState<ConversationSummaryDraft | null>(null);
+  const [conversationSummaryReview, setConversationSummaryReview] = useState<Review | null>(null);
   const [conversationSummaryDraftEdit, setConversationSummaryDraftEdit] = useState<ConversationSummaryDraftEditForm>(() =>
     conversationDraftEditFormFromDraft(null)
   );
@@ -476,6 +484,7 @@ export default function MeetingWorkspace() {
     setConversationImports([]);
     setSelectedConversationImport(null);
     setConversationSummaryDraft(null);
+    setConversationSummaryReview(null);
     setConversationSafetyFlags([]);
     setConversationRedactionSuggestions([]);
     void loadMeetings(selectedProjectId);
@@ -487,6 +496,11 @@ export default function MeetingWorkspace() {
 
   useEffect(() => {
     setConversationSummaryDraftEdit(conversationDraftEditFormFromDraft(conversationSummaryDraft));
+    if (conversationSummaryDraft?.id) {
+      void loadConversationSummaryReview(conversationSummaryDraft.id);
+    } else {
+      setConversationSummaryReview(null);
+    }
   }, [conversationSummaryDraft]);
 
   function setApiError(message: string) {
@@ -507,6 +521,7 @@ export default function MeetingWorkspace() {
     setLastJob(null);
     setLastReview(null);
     setOpenApiReview(null);
+    setConversationSummaryReview(null);
     setIntegrationAccounts([]);
     setProjectMemberships([]);
     setAuthSessions([]);
@@ -1017,6 +1032,16 @@ export default function MeetingWorkspace() {
   async function approveConversationSummary() {
     if (!conversationSummaryDraft) {
       setApiError("承認するDM整理ドラフトがありません。");
+      return;
+    }
+
+    if (conversationSummaryDraft.status === "needs_revision") {
+      setApiError("修正が必要なDM整理ドラフトは承認できません。");
+      return;
+    }
+
+    if (blockingReviewStatus(conversationSummaryReview?.status)) {
+      setApiError("未解決のDM整理レビューがあるため承認できません。");
       return;
     }
 
@@ -1830,6 +1855,82 @@ export default function MeetingWorkspace() {
     setOpenApiReview(validatorReview);
   }
 
+  async function loadConversationSummaryReview(conversationSummaryDraftId: string) {
+    const { data, error: apiError } = await apiClient.GET("/reviews", {
+      params: {
+        query: {
+          target_type: "conversation_summary_draft",
+          target_id: conversationSummaryDraftId,
+        },
+      },
+    });
+
+    if (apiError) {
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    const review = data.data.find((item) => blockingReviewStatus(item.status)) ?? data.data[0] ?? null;
+    setConversationSummaryReview(review);
+  }
+
+  async function requestConversationSummaryReview() {
+    if (!conversationSummaryDraft) {
+      setApiError("レビュー対象のDM整理ドラフトがありません。");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    const { data, error: apiError } = await apiClient.POST("/reviews", {
+      body: {
+        target_type: "conversation_summary_draft",
+        target_id: conversationSummaryDraft.id,
+        reviewer_role: "Product Manager",
+        framework: ["G-STACK", "HEART", "ISO25010"],
+        positives: ["DM整理ドラフトが編集可能な状態で保存されている。"],
+        improvements: ["承認前に誤要約、抜け漏れ、Issue候補、要件候補を確認する。"],
+        priority: ["P1: DM由来情報を下流へ渡す前にレビュー状態を確認する。"],
+        next_actions: ["整理要約、決定事項、未解決事項、Issue候補、要件候補、リスクを確認する。"],
+        issue_numbers: ["#37"],
+      },
+    });
+    setLoading(false);
+
+    if (apiError) {
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    setConversationSummaryReview(data.data);
+    setStatusMessage("DM整理レビューを依頼しました");
+  }
+
+  async function resolveConversationSummaryReview() {
+    if (!conversationSummaryReview) {
+      setApiError("解決するDM整理レビューがありません。");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    const { data, error: apiError } = await apiClient.POST("/reviews/{review_id}/resolve-action", {
+      params: { path: { review_id: conversationSummaryReview.id } },
+      body: {
+        resolution_note: "DM整理ドラフトを確認し、承認ブロッカーを解消しました。",
+      },
+    });
+    setLoading(false);
+
+    if (apiError) {
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    setConversationSummaryReview(data.data);
+    setStatusMessage("DM整理レビューを解決しました");
+  }
+
   async function requestMinutesReview() {
     if (!minutes) {
       setApiError("レビュー対象の議事録がありません。");
@@ -1910,6 +2011,7 @@ export default function MeetingWorkspace() {
   function selectConversationImport(conversationImport: ConversationImport) {
     setSelectedConversationImport(conversationImport);
     setConversationSummaryDraft(conversationImport.latest_summary_draft ?? null);
+    setConversationSummaryReview(null);
     setConversationSafetyFlags(conversationImport.safety_flags);
     setConversationRedactionSuggestions([]);
     setConversationTitle(conversationImport.title);
@@ -1923,6 +2025,7 @@ export default function MeetingWorkspace() {
   function resetConversationImportDraft() {
     setSelectedConversationImport(null);
     setConversationSummaryDraft(null);
+    setConversationSummaryReview(null);
     setConversationSafetyFlags([]);
     setConversationRedactionSuggestions([]);
     setConversationTitle("Discord DM仕様相談");
@@ -1937,6 +2040,7 @@ export default function MeetingWorkspace() {
   function applyConversationImport(nextConversationImport: ConversationImport) {
     setSelectedConversationImport(nextConversationImport);
     setConversationSummaryDraft(nextConversationImport.latest_summary_draft ?? null);
+    setConversationSummaryReview(null);
     setConversationImports((current) => [nextConversationImport, ...current.filter((item) => item.id !== nextConversationImport.id)]);
     setConversationTitle(nextConversationImport.title);
     setConversationParticipants(linesToText(nextConversationImport.participants.map((participant) => participant.display_name)));
@@ -2050,7 +2154,10 @@ export default function MeetingWorkspace() {
   const canEditConversationSummaryDraft = Boolean(
     conversationSummaryDraft && editableConversationSummaryStatus(conversationSummaryDraft.status)
   );
-  const canApproveConversationSummaryDraft = canEditConversationSummaryDraft;
+  const hasBlockingConversationSummaryReview = blockingReviewStatus(conversationSummaryReview?.status);
+  const canApproveConversationSummaryDraft = Boolean(
+    conversationSummaryDraft && conversationSummaryDraft.status === "draft" && !hasBlockingConversationSummaryReview
+  );
   const hasPendingGitHubReconciliation = issueDraft?.github_reconciliation?.pending === true;
   const isGitHubReconciliationCooldownActive =
     hasPendingGitHubReconciliation &&
@@ -2595,6 +2702,16 @@ export default function MeetingWorkspace() {
                 </div>
                 <div className="gate-row">
                   <CircleDot size={16} />
+                  <span>DM整理レビュー</span>
+                  <strong>{conversationSummaryReview ? statusLabel(conversationSummaryReview.status) : statusLabel("clear")}</strong>
+                </div>
+                <div className="gate-row">
+                  <CircleDot size={16} />
+                  <span>DM整理承認</span>
+                  <strong>{conversationSummaryDraft?.status === "approved" ? statusLabel("approved") : statusLabel("pending")}</strong>
+                </div>
+                <div className="gate-row">
+                  <CircleDot size={16} />
                   <span>要件定義生成</span>
                   <strong>{yesNoLabel(Boolean(requirement))}</strong>
                 </div>
@@ -2651,6 +2768,8 @@ export default function MeetingWorkspace() {
                 <span>{lastReview ? `${statusLabel(lastReview.status)} / ${lastReview.reviewer_role}` : "-"}</span>
                 <strong>APIブロッカー</strong>
                 <span>{openApiReview ? `${statusLabel(openApiReview.status)} / ${openApiReview.reviewer_role}` : "-"}</span>
+                <strong>DMレビュー</strong>
+                <span>{conversationSummaryReview ? `${statusLabel(conversationSummaryReview.status)} / ${conversationSummaryReview.reviewer_role}` : "-"}</span>
               </div>
             </aside>
           </section>
@@ -2688,6 +2807,24 @@ export default function MeetingWorkspace() {
               >
                 <Save size={16} />
                 整理ドラフト保存
+              </button>
+              <button
+                className="button secondary"
+                type="button"
+                onClick={requestConversationSummaryReview}
+                disabled={!conversationSummaryDraft || loading}
+              >
+                <Send size={16} />
+                DM整理レビュー依頼
+              </button>
+              <button
+                className="button secondary"
+                type="button"
+                onClick={resolveConversationSummaryReview}
+                disabled={!hasBlockingConversationSummaryReview || loading}
+              >
+                <CheckCircle2 size={16} />
+                レビュー対応済み
               </button>
               <button className="button primary" type="button" onClick={approveConversationSummary} disabled={!canApproveConversationSummaryDraft || loading}>
                 <CheckCircle2 size={16} />
@@ -2788,6 +2925,16 @@ export default function MeetingWorkspace() {
                   <span className={`chip ${statusTone(conversationSummaryDraft.status)}`}>{statusLabel(conversationSummaryDraft.status)}</span>
                   <span className="chip neutral">信頼度 {summaryConfidence(conversationSummaryDraft.confidence)}</span>
                   <span className="chip neutral">{canEditConversationSummaryDraft ? "編集可能" : "読み取り専用"}</span>
+                </div>
+                <div className="audit-box conversation-audit" aria-label="DM整理レビュー状態">
+                  <strong>レビューセンター</strong>
+                  <span>{conversationSummaryReview ? statusLabel(conversationSummaryReview.status) : statusLabel("clear")}</span>
+                  <strong>対象</strong>
+                  <span>{targetLabel("conversation_summary_draft")}</span>
+                  <strong>担当</strong>
+                  <span>{conversationSummaryReview?.reviewer_role ?? "-"}</span>
+                  <strong>承認ブロッカー</strong>
+                  <span>{hasBlockingConversationSummaryReview ? statusLabel("blocked") : statusLabel("clear")}</span>
                 </div>
                 <div className="conversation-summary-grid">
                   <label className="conversation-wide">
