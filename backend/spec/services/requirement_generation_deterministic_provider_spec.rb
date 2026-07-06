@@ -3,7 +3,7 @@ require "rails_helper"
 RSpec.describe RequirementGeneration::DeterministicProvider do
   let(:minutes_class) { Struct.new(:summary, :decisions, :open_questions, :action_items, keyword_init: true) }
 
-  it "extracts security and privacy non functional requirements" do
+  it "セキュリティとプライバシーの非機能要件を抽出する" do
     minutes = minutes_class.new(
       summary: "Discordログにはメールアドレス、個人名、API keyらしき文字列が含まれる。SSOはMVP外とする。",
       decisions: [{ "text" => "Requirement本文に機微情報を直接残さない。" }],
@@ -17,7 +17,7 @@ RSpec.describe RequirementGeneration::DeterministicProvider do
     expect(output.fetch(:out_of_scope)).to include("SSO実装はMVP外。")
   end
 
-  it "extracts downstream implementation and CI automation boundaries" do
+  it "後続実装とCI自動化の境界を抽出する" do
     minutes = minutes_class.new(
       summary: "Backend/Frontend実装は次工程とする。初期MVPでは自動採点を警告扱いにし、CI上で品質低下を検知する。",
       decisions: [{ "text" => "合格しない生成結果はIssue化前にレビューする。" }],
@@ -34,7 +34,7 @@ RSpec.describe RequirementGeneration::DeterministicProvider do
     )
   end
 
-  it "does not reuse source text between generate calls" do
+  it "generate呼び出し間でsource textを再利用しない" do
     provider = described_class.new
     first_minutes = minutes_class.new(
       summary: "GitHub Issue化は次フェーズでよい。",

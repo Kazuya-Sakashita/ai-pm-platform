@@ -263,7 +263,7 @@ module RequirementGenerationQuality
     def markdown
       data = summary
       lines = [
-        "# Requirement生成品質 baseline",
+        "# Requirement生成品質ベースライン",
         "",
         "## メタデータ",
         "",
@@ -276,7 +276,7 @@ module RequirementGenerationQuality
         "",
         "## ケース別スコア",
         "",
-        "| Case | タイトル | Score | Critical failures |",
+        "| ケース | タイトル | 点数 | Critical failure |",
         "| --- | --- | ---: | --- |"
       ]
 
@@ -301,9 +301,9 @@ module RequirementGenerationQuality
         lines += [
           "### #{result.case_id}: #{result.title}",
           "",
-          "Score: #{format("%.1f", result.score)}",
+          "点数: #{format("%.1f", result.score)}",
           "",
-          "| Category | Score | Max |",
+          "| 評価カテゴリ | 点数 | 満点 |",
           "| --- | ---: | ---: |"
         ]
         result.category_scores.each do |category, score|
@@ -311,7 +311,7 @@ module RequirementGenerationQuality
         end
         lines += [
           "",
-          "Findings:",
+          "検出結果:",
           ""
         ]
         lines += result.findings.map { |finding| "- #{finding}" }
@@ -336,7 +336,7 @@ module RequirementGenerationQuality
         quiet: false
       }
       parser = OptionParser.new do |opts|
-        opts.banner = "Usage: ruby scripts/evaluate-requirement-generation.rb [options]"
+        opts.banner = "使い方: ruby scripts/evaluate-requirement-generation.rb [options]"
         opts.on("--fixtures PATH", "評価fixture JSON") { |value| options[:fixture_path] = value }
         opts.on("--provider NAME", "provider名。現在はdeterministicのみ") { |value| options[:provider] = value }
         opts.on("--output PATH", "Markdown baseline reportを書き出す") { |value| options[:output_path] = value }
@@ -364,12 +364,12 @@ module RequirementGenerationQuality
     def self.summary_line(summary, case_count)
       failed_cases = summary.fetch(:failed_cases).join(",")
       [
-        "Requirement generation baseline: #{summary.fetch(:passed) ? "合格" : "基準未達"}",
-        "average=#{summary.fetch(:average)}",
-        "cases=#{case_count}",
-        "failed_cases=#{failed_cases.empty? ? "なし" : failed_cases}",
-        "p0_failures=#{summary.fetch(:p0_failures).size}",
-        "critical_failures=#{summary.fetch(:critical_failures).size}"
+        "Requirement生成品質ベースライン: #{summary.fetch(:passed) ? "合格" : "基準未達"}",
+        "平均点=#{summary.fetch(:average)}",
+        "ケース数=#{case_count}",
+        "基準未達ケース=#{failed_cases.empty? ? "なし" : failed_cases}",
+        "P0未達=#{summary.fetch(:p0_failures).size}",
+        "Critical failure=#{summary.fetch(:critical_failures).size}"
       ].join(" ")
     end
 
@@ -380,7 +380,7 @@ module RequirementGenerationQuality
         require File.join(ROOT, "backend/app/services/requirement_generation/deterministic_provider")
         RequirementGeneration::DeterministicProvider.new
       else
-        raise ArgumentError, "unsupported provider: #{name}"
+        raise ArgumentError, "未対応のproviderです: #{name}"
       end
     end
   end
