@@ -800,9 +800,21 @@ test.describe("Meeting Workspace", () => {
     await expect(page.locator("#requirements .panel-header .chip")).toHaveText("承認済み");
     await expect(page.locator("#requirements").getByText("local-demo-owner")).toBeVisible();
 
+    await page.getByLabel("目的").fill("Updated requirement goal after reapproval.");
+    await page.getByRole("button", { name: "要件定義を保存", exact: true }).click();
+    await expect(page.locator("header").getByText("要件定義を保存しました")).toBeVisible();
+    await expect(page.locator("#requirements .panel-header .chip")).toHaveText("修正が必要");
+    await expect(page.locator("#requirements .audit-box").getByText("-").first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Issueドラフトを生成", exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "OpenAPIドラフトを生成", exact: true })).toBeDisabled();
+
+    await page.getByRole("button", { name: "要件定義を承認", exact: true }).click();
+    await expect(page.locator("header").getByText("要件定義を承認しました")).toBeVisible();
+    await expect(page.locator("#requirements .panel-header .chip")).toHaveText("承認済み");
+
     await page.getByRole("button", { name: "Issueドラフトを生成", exact: true }).click();
     await expect(page.locator("header").getByText("Issueドラフトを生成しました")).toBeVisible();
-    await expect(page.getByLabel("Issueタイトル")).toHaveValue(/Updated requirement goal from E2E/);
+    await expect(page.getByLabel("Issueタイトル")).toHaveValue(/Updated requirement goal after reapproval/);
     await expect(page.getByLabel("Issue本文")).toHaveValue(/## 完了条件/);
     await expect(page.getByLabel("Issue受け入れ条件")).toHaveValue(/connect Playwright smoke coverage/);
 
@@ -817,7 +829,7 @@ test.describe("Meeting Workspace", () => {
 
     await page.getByRole("button", { name: "OpenAPIドラフトを生成", exact: true }).click();
     await expect(page.locator("header").getByText("OpenAPIドラフトを生成しました")).toBeVisible();
-    await expect(page.getByLabel("OpenAPIタイトル")).toHaveValue(/Updated requirement goal from E2E/);
+    await expect(page.getByLabel("OpenAPIタイトル")).toHaveValue(/Updated requirement goal after reapproval/);
     await expect(page.getByLabel("OpenAPI YAML")).toHaveValue(/openapi: 3.1.0/);
     await expect(page.getByLabel("OpenAPI YAML")).toHaveValue(/paths:/);
 

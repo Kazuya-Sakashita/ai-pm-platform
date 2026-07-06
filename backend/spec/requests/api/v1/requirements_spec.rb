@@ -93,6 +93,51 @@ RSpec.describe "API V1 Requirements", type: :request do
       expect(response).to have_http_status(:forbidden)
       expect(JSON.parse(response.body).dig("error", "code")).to eq("project_forbidden")
     end
+
+    it "承認済みRequirementのレビュー対象フィールドが変わる場合は承認状態を差し戻す" do
+      requirement = create(
+        :requirement,
+        status: "approved",
+        open_questions: [],
+        approved_at: 1.hour.ago,
+        approved_by: "reviewer-actor",
+        approval_note: "承認済み"
+      )
+      authorize_project(requirement.minute.meeting.project)
+
+      patch "/api/v1/requirements/#{requirement.id}", params: {
+        goal: "承認後に変更した目的"
+      }, headers: auth_headers("dm-editor")
+
+      expect(response).to have_http_status(:ok)
+      body = JSON.parse(response.body)
+      expect(body.dig("data", "status")).to eq("needs_changes")
+      expect(body.dig("data", "approved_at")).to be_nil
+      expect(body.dig("data", "approved_by")).to be_nil
+      expect(body.dig("data", "approval_note")).to be_nil
+      expect(requirement.reload.status).to eq("needs_changes")
+      expect(requirement.approved_at).to be_nil
+      expect(requirement.approved_by).to be_nil
+      expect(requirement.approval_note).to be_nil
+      expect(requirement.minute.meeting.project.audit_logs.last.metadata).to include(
+        "approval_reset" => true,
+        "changed_fields" => ["goal"]
+      )
+    end
+
+    it "PATCHで直接statusを変更することを拒否する" do
+      requirement = create(:requirement, open_questions: [])
+      authorize_project(requirement.minute.meeting.project)
+
+      patch "/api/v1/requirements/#{requirement.id}", params: {
+        status: "needs_changes"
+      }, headers: auth_headers("dm-editor")
+
+      expect(response).to have_http_status(422)
+      body = JSON.parse(response.body)
+      expect(body.dig("error", "code")).to eq("requirement_direct_status_update_not_allowed")
+      expect(requirement.reload.status).to eq("generated")
+    end
   end
 
   describe "POST /api/v1/requirements/:id/approve" do

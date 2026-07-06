@@ -1171,7 +1171,6 @@ export interface components {
             out_of_scope?: string[];
             open_questions?: string[];
             risks?: string[];
-            status?: components["schemas"]["ArtifactStatus"];
         };
         ApproveRequirementRequest: {
             /** @description 人間の承認コメント。承認者はrequest bodyではなく認証済みactorから導出する。 */

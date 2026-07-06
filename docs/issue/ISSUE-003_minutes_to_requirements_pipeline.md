@@ -149,15 +149,32 @@ AI議事録ツールとの差別化には、会議内容を実装可能な要件
 - `npm run display:check`: 成功
 - 判定: 承認者、承認日時、承認コメントのDB/API/UI接続は完了。ただし再編集時の状態戻しとblocker詳細表示が残るためIssue #3は継続
 
+2026-07-07 05:20 JST追加:
+
+- `RequirementRevisionService` を追加し、Requirement更新時のレビュー対象フィールド差分を検知
+- 承認済みRequirementの重要フィールドが変わる場合、`status` を `needs_changes` に戻し、`approved_at`、`approved_by`、`approval_note` をクリア
+- PATCHで `status` を直接送る状態変更API迂回を422 `requirement_direct_status_update_not_allowed` で拒否
+- AuditLog metadataへ `changed_fields` と `approval_reset` を保存
+- OpenAPIの `UpdateRequirementRequest.status` を削除し、Frontend型定義を同期
+- `PATH=/Users/kazuya/.rbenv/versions/3.2.2/bin:$PATH bundle exec rspec spec/services/requirement_revision_service_spec.rb spec/services/requirement_approval_gate_spec.rb spec/requests/api/v1/requirements_spec.rb spec/requests/api/v1/issue_drafts_spec.rb spec/requests/api/v1/open_api_drafts_spec.rb`: 51 examples, 0 failures
+- `PATH=/Users/kazuya/.rbenv/versions/3.2.2/bin:$PATH bundle exec ruby bin/rails zeitwerk:check`: All is good
+- `npm run api:verify`: 成功
+- `npm run display:check`: 成功
+- `npm run frontend:build`: 成功
+- `npm run frontend:e2e -- --grep "creates a project, saves a Discord log, generates minutes, and requests review"`: 1 passed
+- 判定: 承認済みRequirement再編集時の状態戻しは完了。ただしPR CI、blocker詳細表示、下流draft stale化が残るためIssue #3は継続
+
 未完了:
 
 - OpenAI providerによるRequirement生成
 - Requirement Workspaceの差分、未決事項、リスク強調UX
 - Requirement Workspaceで未解決Review件数と承認blocker詳細を表示する
-- 承認済みRequirementを再編集した場合の状態戻しと差分履歴
+- Requirement差し戻し時の下流Issue/OpenAPI draft stale化
+- Requirement差分履歴
 
 ## 次アクション
 
-- 承認済みRequirementを再編集した場合の状態戻しと差分履歴を設計、実装する
+- PR CIでRequirement再編集時の状態戻し導線を確認する
 - Requirement Workspaceで未解決Review件数と承認blocker詳細を表示する
+- Requirement差し戻し時の下流Issue/OpenAPI draft stale化を設計する
 - OpenAI providerを導入する場合は、同じfixtureでdeterministic providerと比較する
