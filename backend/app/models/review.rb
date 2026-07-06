@@ -1,5 +1,16 @@
 class Review < ApplicationRecord
-  TARGET_TYPES = %w[meeting minutes requirement issue_draft openapi_draft architecture security release].freeze
+  TARGET_TYPES = %w[
+    meeting
+    conversation_import
+    conversation_summary_draft
+    minutes
+    requirement
+    issue_draft
+    openapi_draft
+    architecture
+    security
+    release
+  ].freeze
   STATUSES = %w[open action_required resolved accepted_risk].freeze
 
   validates :target_type, inclusion: { in: TARGET_TYPES }

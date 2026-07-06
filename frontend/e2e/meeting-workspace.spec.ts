@@ -1067,6 +1067,22 @@ test.describe("Meeting Workspace", () => {
       updated_at: now,
     };
     let latestSummaryDraft: typeof summaryDraft | undefined;
+    const conversationReview = {
+      id: "review-conversation-summary-draft",
+      target_type: "conversation_summary_draft",
+      target_id: summaryDraft.id,
+      status: "open",
+      reviewer_role: "Product Manager",
+      framework: ["G-STACK", "HEART", "ISO25010"],
+      positives: ["DM整理ドラフトが編集可能な状態で保存されている。"],
+      improvements: ["承認前に誤要約、抜け漏れ、Issue候補、要件候補を確認する。"],
+      priority: ["P1: DM由来情報を下流へ渡す前にレビュー状態を確認する。"],
+      next_actions: ["整理要約、決定事項、未解決事項、Issue候補、要件候補、リスクを確認する。"],
+      issue_numbers: ["#37"],
+      created_at: now,
+      updated_at: now,
+    };
+    let latestConversationReview: typeof conversationReview | undefined;
 
     await page.route("**/api/v1/operations/queue-health**", async (route) => {
       await route.fulfill({
@@ -1120,6 +1136,54 @@ test.describe("Meeting Workspace", () => {
           meta: { total_count: 1 },
         }),
       });
+    });
+    await page.route(/\/api\/v1\/reviews\?.*/, async (route) => {
+      const url = new URL(route.request().url());
+      expect(url.searchParams.get("target_type")).toBe("conversation_summary_draft");
+      expect(url.searchParams.get("target_id")).toBe(summaryDraft.id);
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: latestConversationReview ? [latestConversationReview] : [],
+          meta: { total_count: latestConversationReview ? 1 : 0 },
+        }),
+      });
+    });
+    await page.route("**/api/v1/reviews", async (route) => {
+      const requestBody = route.request().postDataJSON();
+      expect(route.request().method()).toBe("POST");
+      expect(requestBody).toMatchObject({
+        target_type: "conversation_summary_draft",
+        target_id: summaryDraft.id,
+        reviewer_role: "Product Manager",
+      });
+
+      latestConversationReview = {
+        ...conversationReview,
+        framework: requestBody.framework,
+        positives: requestBody.positives,
+        improvements: requestBody.improvements,
+        priority: requestBody.priority,
+        next_actions: requestBody.next_actions,
+        issue_numbers: requestBody.issue_numbers,
+        updated_at: new Date().toISOString(),
+      };
+
+      await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ data: latestConversationReview }) });
+    });
+    await page.route(`**/api/v1/reviews/${conversationReview.id}/resolve-action`, async (route) => {
+      const requestBody = route.request().postDataJSON();
+      expect(route.request().method()).toBe("POST");
+      expect(requestBody.resolution_note).toContain("DM整理ドラフト");
+      latestConversationReview = {
+        ...(latestConversationReview ?? conversationReview),
+        status: "resolved",
+        updated_at: new Date().toISOString(),
+      };
+
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: latestConversationReview }) });
     });
     await page.route(`**/api/v1/projects/${project.id}/conversation-imports`, async (route) => {
       if (route.request().method() === "POST") {
@@ -1283,7 +1347,21 @@ test.describe("Meeting Workspace", () => {
     await expect(page.locator("#conversation-import").getByLabel("整理要約")).toHaveValue("人間レビューで要約を修正した。");
     await expect(page.locator("#conversation-import").getByLabel("未解決事項")).toHaveValue("");
 
-    await page.locator("#conversation-import").getByRole("button", { name: "整理ドラフト承認" }).click();
+    const approveConversationSummaryButton = page.locator("#conversation-import").getByRole("button", { name: "整理ドラフト承認" });
+    const conversationReviewPanel = page.locator("#conversation-import").getByLabel("DM整理レビュー状態");
+    await page.locator("#conversation-import").getByRole("button", { name: "DM整理レビュー依頼" }).click();
+    await expect(page.locator("header").getByText("DM整理レビューを依頼しました")).toBeVisible();
+    await expect(conversationReviewPanel.getByText("未対応")).toBeVisible();
+    await expect(conversationReviewPanel.getByText("ブロック中")).toBeVisible();
+    await expect(approveConversationSummaryButton).toBeDisabled();
+
+    await page.locator("#conversation-import").getByRole("button", { name: "レビュー対応済み" }).click();
+    await expect(page.locator("header").getByText("DM整理レビューを解決しました")).toBeVisible();
+    await expect(conversationReviewPanel.getByText("解決済み")).toBeVisible();
+    await expect(conversationReviewPanel.getByText("通過")).toBeVisible();
+    await expect(approveConversationSummaryButton).toBeEnabled();
+
+    await approveConversationSummaryButton.click();
     await expect(page.locator("header").getByText("DM整理ドラフトを承認しました")).toBeVisible();
     await expect(page.locator("#conversation-import .validation-panel.success .chip").first()).toHaveText("承認済み");
     await expect(page.locator("#conversation-import .chip").filter({ hasText: "読み取り専用" })).toBeVisible();
