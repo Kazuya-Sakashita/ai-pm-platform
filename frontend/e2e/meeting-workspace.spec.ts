@@ -797,7 +797,7 @@ test.describe("Meeting Workspace", () => {
     await page.getByRole("button", { name: "Issueドラフトを生成", exact: true }).click();
     await expect(page.locator("header").getByText("Issueドラフトを生成しました")).toBeVisible();
     await expect(page.getByLabel("Issueタイトル")).toHaveValue(/Updated requirement goal from E2E/);
-    await expect(page.getByLabel("Issue本文")).toHaveValue(/## Acceptance Criteria/);
+    await expect(page.getByLabel("Issue本文")).toHaveValue(/## 完了条件/);
     await expect(page.getByLabel("Issue受け入れ条件")).toHaveValue(/connect Playwright smoke coverage/);
 
     await page.getByLabel("Issueタイトル").fill("Updated issue draft title from E2E.");
