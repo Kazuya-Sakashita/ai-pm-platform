@@ -1144,6 +1144,15 @@ export interface components {
             open_questions?: string[];
             risks?: string[];
             generated_by_model?: string;
+            /**
+             * Format: date-time
+             * @description Requirementが承認されたサーバー時刻。
+             */
+            approved_at?: string;
+            /** @description Requirementを承認した認証済みactor ID。 */
+            approved_by?: string;
+            /** @description 監査のために保存する人間の承認コメント。 */
+            approval_note?: string;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -1163,6 +1172,10 @@ export interface components {
             open_questions?: string[];
             risks?: string[];
             status?: components["schemas"]["ArtifactStatus"];
+        };
+        ApproveRequirementRequest: {
+            /** @description 人間の承認コメント。承認者はrequest bodyではなく認証済みactorから導出する。 */
+            approval_note: string;
         };
         /** @enum {string} */
         IssueDraftStatus: "draft" | "in_review" | "needs_changes" | "approved" | "publishing" | "published" | "publish_failed";
@@ -2659,7 +2672,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApproveRequirementRequest"];
+            };
+        };
         responses: {
             /** @description Requirement approved */
             200: {
@@ -2674,6 +2691,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["ReviewRequired"];
+            422: components["responses"]["ValidationError"];
         };
     };
     generateIssueDraft: {

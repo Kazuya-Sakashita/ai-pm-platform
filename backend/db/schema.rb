@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_07_06_000100) do
+ActiveRecord::Schema[7.1].define(version: 2026_07_07_044800) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pgcrypto"
   enable_extension "plpgsql"
@@ -336,6 +336,11 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_06_000100) do
     t.string "generated_by_model"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.datetime "approved_at"
+    t.string "approved_by"
+    t.text "approval_note"
+    t.index ["approved_at"], name: "index_requirements_on_approved_at"
+    t.index ["approved_by", "approved_at"], name: "index_requirements_on_approved_by_and_approved_at"
     t.index ["minutes_id", "created_at"], name: "index_requirements_on_minutes_id_and_created_at"
     t.index ["minutes_id"], name: "index_requirements_on_minutes_id"
     t.index ["status"], name: "index_requirements_on_status"

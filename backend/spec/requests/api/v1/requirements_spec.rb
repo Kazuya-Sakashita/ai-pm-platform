@@ -100,20 +100,46 @@ RSpec.describe "API V1 Requirements", type: :request do
       requirement = create(:requirement, open_questions: [])
       authorize_project(requirement.minute.meeting.project, actor_id: "reviewer-actor", role: "reviewer")
 
-      post "/api/v1/requirements/#{requirement.id}/approve", headers: auth_headers("reviewer-actor")
+      post "/api/v1/requirements/#{requirement.id}/approve", params: {
+        approval_note: "未解決事項が解消され、実装工程へ進めます。"
+      }, headers: auth_headers("reviewer-actor")
 
       expect(response).to have_http_status(:ok)
       body = JSON.parse(response.body)
       expect(body.dig("data", "status")).to eq("approved")
+      expect(body.dig("data", "approved_by")).to eq("reviewer-actor")
+      expect(body.dig("data", "approved_at")).to be_present
+      expect(body.dig("data", "approval_note")).to eq("未解決事項が解消され、実装工程へ進めます。")
       expect(requirement.reload.status).to eq("approved")
+      expect(requirement.approved_by).to eq("reviewer-actor")
+      expect(requirement.approved_at).to be_present
+      expect(requirement.approval_note).to eq("未解決事項が解消され、実装工程へ進めます。")
       expect(requirement.minute.meeting.project.audit_logs.last.action).to eq("requirement.approved")
+      expect(requirement.minute.meeting.project.audit_logs.last.metadata).to include("approval_note_present" => true)
+    end
+
+    it "承認コメントがない場合は承認を拒否する" do
+      requirement = create(:requirement, open_questions: [])
+      authorize_project(requirement.minute.meeting.project, actor_id: "reviewer-actor", role: "reviewer")
+
+      post "/api/v1/requirements/#{requirement.id}/approve", params: {}, headers: auth_headers("reviewer-actor")
+
+      expect(response).to have_http_status(422)
+      body = JSON.parse(response.body)
+      expect(body.dig("error", "code")).to eq("approval_note_required")
+      expect(requirement.reload.status).to eq("generated")
+      expect(requirement.approved_at).to be_nil
+      expect(requirement.approved_by).to be_nil
+      expect(requirement.approval_note).to be_nil
     end
 
     it "blocks approval when unresolved open questions remain" do
       requirement = create(:requirement, open_questions: ["Who owns final approval?"])
       authorize_project(requirement.minute.meeting.project, actor_id: "reviewer-actor", role: "reviewer")
 
-      post "/api/v1/requirements/#{requirement.id}/approve", headers: auth_headers("reviewer-actor")
+      post "/api/v1/requirements/#{requirement.id}/approve", params: {
+        approval_note: "未解決事項を確認しました。"
+      }, headers: auth_headers("reviewer-actor")
 
       expect(response).to have_http_status(:conflict)
       body = JSON.parse(response.body)
@@ -127,7 +153,9 @@ RSpec.describe "API V1 Requirements", type: :request do
       review = create(:review, target_type: "requirement", target_id: requirement.id, status: "action_required")
       authorize_project(requirement.minute.meeting.project, actor_id: "reviewer-actor", role: "reviewer")
 
-      post "/api/v1/requirements/#{requirement.id}/approve", headers: auth_headers("reviewer-actor")
+      post "/api/v1/requirements/#{requirement.id}/approve", params: {
+        approval_note: "レビュー指摘の残存状態を確認しました。"
+      }, headers: auth_headers("reviewer-actor")
 
       expect(response).to have_http_status(:conflict)
       body = JSON.parse(response.body)
@@ -155,7 +183,9 @@ RSpec.describe "API V1 Requirements", type: :request do
       )
       authorize_project(requirement.minute.meeting.project, actor_id: "reviewer-actor", role: "reviewer")
 
-      post "/api/v1/requirements/#{requirement.id}/approve", headers: auth_headers("reviewer-actor")
+      post "/api/v1/requirements/#{requirement.id}/approve", params: {
+        approval_note: "期限切れリスク受容の残存状態を確認しました。"
+      }, headers: auth_headers("reviewer-actor")
 
       expect(response).to have_http_status(:conflict)
       body = JSON.parse(response.body)
@@ -168,7 +198,9 @@ RSpec.describe "API V1 Requirements", type: :request do
       requirement = create(:requirement, open_questions: [])
       authorize_project(create(:project), actor_id: "other-admin", role: "admin")
 
-      post "/api/v1/requirements/#{requirement.id}/approve", headers: auth_headers("other-admin")
+      post "/api/v1/requirements/#{requirement.id}/approve", params: {
+        approval_note: "別プロジェクトからは承認できません。"
+      }, headers: auth_headers("other-admin")
 
       expect(response).to have_http_status(:forbidden)
       expect(JSON.parse(response.body).dig("error", "code")).to eq("project_forbidden")

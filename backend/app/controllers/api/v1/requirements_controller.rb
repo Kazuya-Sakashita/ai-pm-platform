@@ -78,12 +78,32 @@ module Api
         approval_gate = RequirementApprovalGate.new(requirement).call
         return render_requirement_approval_blocked(approval_gate) unless approval_gate.allowed
 
-        requirement.update!(status: "approved")
+        approval_note = params[:approval_note].to_s.strip
+        if approval_note.blank?
+          return render_error(
+            "approval_note_required",
+            "要件定義の承認コメントを入力してください。",
+            :unprocessable_entity,
+            { requirement_id: requirement.id }
+          )
+        end
+
+        approved_at = Time.current
+        requirement.update!(
+          status: "approved",
+          approved_at: approved_at,
+          approved_by: current_actor_id,
+          approval_note: approval_note
+        )
         AuditLog.record!(
           project: project_for(requirement.minute),
           action: "requirement.approved",
           target: requirement,
-          actor_id: current_actor_id
+          actor_id: current_actor_id,
+          metadata: {
+            approved_at: approved_at.iso8601,
+            approval_note_present: true
+          }
         )
         render json: { data: requirement.api_json }
       end

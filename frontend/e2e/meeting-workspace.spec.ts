@@ -794,9 +794,11 @@ test.describe("Meeting Workspace", () => {
     await expect(page.locator("header").getByText("要件レビューを解決しました")).toBeVisible();
     await expect(page.getByText("解決済み / Product Manager")).toBeVisible();
 
+    await expect(page.locator("#requirements").getByLabel("承認コメント")).toHaveValue(/下流工程へ進めます/);
     await page.getByRole("button", { name: "要件定義を承認", exact: true }).click();
     await expect(page.locator("header").getByText("要件定義を承認しました")).toBeVisible();
     await expect(page.locator("#requirements .panel-header .chip")).toHaveText("承認済み");
+    await expect(page.locator("#requirements").getByText("local-demo-owner")).toBeVisible();
 
     await page.getByRole("button", { name: "Issueドラフトを生成", exact: true }).click();
     await expect(page.locator("header").getByText("Issueドラフトを生成しました")).toBeVisible();
