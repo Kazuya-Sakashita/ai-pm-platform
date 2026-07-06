@@ -11,6 +11,8 @@ https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/22
 登録理由: ユーザーから「DiscordのDMのやり取りを整理してまとめる機能も欲しい」と要望があったため。
 
 登録日: 2026-07-02
+状態: Closed
+クローズ日: 2026-07-06
 
 ## 背景
 
@@ -60,6 +62,7 @@ AI PM Platformは、会議だけでなく、日常的な意思決定や仕様相
 - `docs/review/20260702_discord_dm_openapi_design_review.md`
 - `docs/review/20260705_discord_dm_backend_mvp_review.md`
 - `docs/review/20260705_discord_dm_frontend_mvp_review.md`
+- `docs/review/20260706_discord_dm_manual_import_mvp_closure_review.md`
 
 ## レビュー結果
 
@@ -72,6 +75,8 @@ AI PM Platformは、会議だけでなく、日常的な意思決定や仕様相
 2026-07-05にFrontend MVPを実装。Meeting Workspaceへ「DM整理」パネルを追加し、Conversation Import保存/更新、scan、Conversation Summary Draft生成、承認理由付き承認をブラウザから操作できるようにした。表示ラベルを日本語化し、Playwright mock E2Eで同意確認、マスキング後テキスト、承認理由、承認後表示を固定した。
 
 同日に `ADR-0012` を追加し、raw text / redacted textの暗号化、retention、削除/匿名化をproduction gateとして明文化した。現時点のBackend MVPはDB平文保存であるため、Issue #22はproduction-readyではなく継続OPENとする。
+
+2026-07-06に親Issueクローズ判定レビューを実施した。後続Issue #29、#35、#36、#37、#38 はすべてCLOSEDであり、DM手動インポート、同意確認、マスキング、安全チェック、PII検出、AI整理ドラフト生成、編集保存、Review Center連動、暗号化、retention、匿名化、Policy Object、safe AuditLogまでMVPとして完了したため、ISSUE-022をクローズ可能と判定した。実OpenAI API smoke、実GitHub App smoke、staging/production worker smoke、同意証跡の粒度強化、支援技術レビューはrelease gateまたは後続Issueで継続する。
 
 良かった点:
 
@@ -143,14 +148,15 @@ P1
 
 ## 次アクション
 
-- DM整理ドラフト編集保存UIを実装する
-- AI整理prompt/schemaをStructured Outputs providerへ接続する
-- raw text暗号化、retention、削除/匿名化APIを実装する
-- PII/redaction suggestionを強化する
-- Review CenterとConversation Summary Draft承認を接続する
-- 同意なし、secret検出、stale draft、生成失敗、モバイル表示のFrontend E2Eを追加する
+- DM整理ドラフト編集保存UIを実装する（ISSUE-036完了、GitHub #36クローズ済み）
+- AI整理prompt/schemaをStructured Outputs providerへ接続する（ISSUE-035完了、GitHub #35クローズ済み）
+- raw text暗号化、retention、削除/匿名化APIを実装する（ISSUE-029完了、GitHub #29クローズ済み）
+- PII/redaction suggestionを強化する（ISSUE-038完了、GitHub #38クローズ済み）
+- Review CenterとConversation Summary Draft承認を接続する（ISSUE-037完了、GitHub #37クローズ済み）
+- 同意なし、secret検出、stale draft、生成失敗、モバイル表示のFrontend E2Eを追加する（関連失敗系はISSUE-034/038/036/037で対応済み）
 - GitHub IssueへFrontend MVP完了内容を同期する（完了）
 - 2026-07-05 並行Issue分割: ISSUE-035、ISSUE-036、ISSUE-037、ISSUE-038を作成し、GitHub Issue #22へ同期コメント済み
+- ISSUE-022親Issueをクローズする（2026-07-06完了）
 
 ## 関連ドキュメント
 
