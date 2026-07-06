@@ -156,12 +156,12 @@ AI議事録ツールとの差別化には、会議内容を実装可能な要件
 - PATCHで `status` を直接送る状態変更API迂回を422 `requirement_direct_status_update_not_allowed` で拒否
 - AuditLog metadataへ `changed_fields` と `approval_reset` を保存
 - OpenAPIの `UpdateRequirementRequest.status` を削除し、Frontend型定義を同期
-- `PATH=/Users/kazuya/.rbenv/versions/3.2.2/bin:$PATH bundle exec rspec spec/services/requirement_revision_service_spec.rb spec/requests/api/v1/requirements_spec.rb`: 16 examples, 0 failures
-- `PATH=/Users/kazuya/.rbenv/versions/3.2.2/bin:$PATH bundle exec rspec spec/services/requirement_revision_service_spec.rb spec/services/requirement_approval_gate_spec.rb spec/requests/api/v1/requirements_spec.rb spec/requests/api/v1/issue_drafts_spec.rb spec/requests/api/v1/open_api_drafts_spec.rb`: 56 examples, 0 failures
+- `PATH=/Users/kazuya/.rbenv/versions/3.2.2/bin:$PATH bundle exec rspec spec/services/requirement_revision_service_spec.rb spec/services/requirement_approval_gate_spec.rb spec/requests/api/v1/requirements_spec.rb spec/requests/api/v1/issue_drafts_spec.rb spec/requests/api/v1/open_api_drafts_spec.rb`: 51 examples, 0 failures
 - `PATH=/Users/kazuya/.rbenv/versions/3.2.2/bin:$PATH bundle exec ruby bin/rails zeitwerk:check`: All is good
 - `npm run api:verify`: 成功
 - `npm run display:check`: 成功
 - `npm run frontend:build`: 成功
+- `npm run frontend:e2e -- --grep "creates a project, saves a Discord log, generates minutes, and requests review"`: 1 passed
 - 判定: 承認済みRequirement再編集時の状態戻しは完了。ただしPR CI、blocker詳細表示、下流draft stale化が残るためIssue #3は継続
 
 未完了:
