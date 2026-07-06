@@ -36,6 +36,23 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
       expect(requirement.minute.meeting.project.audit_logs.last.action).to eq("issue_draft.generated")
     end
 
+    it "generates a new issue draft without overwriting an existing stale draft" do
+      requirement = create(:requirement, status: "approved", open_questions: [], goal: "更新後のRequirementから再生成する。")
+      stale_issue_draft = create(:issue_draft, requirement: requirement, status: "stale", title: "古いIssueドラフト")
+      authorize_requirement_project(requirement)
+
+      post "/api/v1/requirements/#{requirement.id}/generate-issue-draft", headers: auth_headers("workflow-editor")
+
+      expect(response).to have_http_status(:accepted)
+      body = JSON.parse(response.body)
+      job = Job.find(body.dig("data", "job_id"))
+      issue_draft = IssueDraft.find(job.target_id)
+      expect(issue_draft.id).not_to eq(stale_issue_draft.id)
+      expect(issue_draft.status).to eq("draft")
+      expect(stale_issue_draft.reload.status).to eq("stale")
+      expect(stale_issue_draft.title).to eq("古いIssueドラフト")
+    end
+
     it "requires an approved requirement before generation" do
       requirement = create(:requirement, status: "generated")
       authorize_requirement_project(requirement)
@@ -181,6 +198,28 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
       expect(issue_draft.requirement.minute.meeting.project.audit_logs.last.action).to eq("issue_draft.updated")
     end
 
+    it "rejects stale issue draft updates" do
+      issue_draft = create(:issue_draft, status: "stale")
+      authorize_issue_draft_project(issue_draft, actor_id: "workflow-editor", role: "editor")
+
+      patch "/api/v1/issue-drafts/#{issue_draft.id}", params: {
+        title: "更新後の古いIssueタイトル",
+        status: "approved"
+      }, headers: auth_headers("workflow-editor")
+
+      expect(response).to have_http_status(:conflict)
+      body = JSON.parse(response.body)
+      expect(body.dig("error", "code")).to eq("stale_draft")
+      expect(body.dig("error", "details")).to include(
+        "action" => "issue_draft_update",
+        "issue_draft_id" => issue_draft.id,
+        "status" => "stale"
+      )
+      issue_draft.reload
+      expect(issue_draft.status).to eq("stale")
+      expect(issue_draft.title).not_to eq("更新後の古いIssueタイトル")
+    end
+
     it "rejects updates by viewers" do
       issue_draft = create(:issue_draft)
       authorize_issue_draft_project(issue_draft, actor_id: "workflow-viewer", role: "viewer")
@@ -239,6 +278,23 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
       expect(response).to have_http_status(:conflict)
       body = JSON.parse(response.body)
       expect(body.dig("error", "code")).to eq("issue_draft_review_required")
+      expect(Job.where(job_type: "github_publish")).to be_empty
+    end
+
+    it "blocks stale issue drafts" do
+      issue_draft = create(:issue_draft, status: "stale")
+      authorize_issue_draft_project(issue_draft)
+      create(:open_api_draft, requirement: issue_draft.requirement, status: "valid")
+
+      post "/api/v1/issue-drafts/#{issue_draft.id}/publish-github", headers: auth_headers("workflow-admin")
+
+      expect(response).to have_http_status(:conflict)
+      body = JSON.parse(response.body)
+      expect(body.dig("error", "code")).to eq("stale_draft")
+      expect(body.dig("error", "details")).to include(
+        "issue_draft_id" => issue_draft.id,
+        "issue_draft_status" => "stale"
+      )
       expect(Job.where(job_type: "github_publish")).to be_empty
     end
 

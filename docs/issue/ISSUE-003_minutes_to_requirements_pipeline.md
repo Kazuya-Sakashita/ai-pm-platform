@@ -54,6 +54,8 @@ AI議事録ツールとの差別化には、会議内容を実装可能な要件
 - `docs/review/20260707_downstream_draft_stale_design_review.md`
 - `docs/review/20260707_downstream_draft_stale_implementation_review.md`
 - `docs/review/20260707_requirement_followup_issue_split_review.md`
+- `docs/review/20260707_requirement_stale_regeneration_ux_design_review.md`
+- `docs/review/20260707_requirement_stale_regeneration_ux_implementation_review.md`
 
 ## レビュー結果
 
@@ -216,16 +218,24 @@ AI議事録ツールとの差別化には、会議内容を実装可能な要件
 - 分割レビューを `docs/review/20260707_requirement_followup_issue_split_review.md` に保存
 - 判定: Issue #3は親Issueとして継続し、子Issueの完了状況を見て最終クローズ判断する
 
+2026-07-07 07:18 JST追加:
+
+- ISSUE-051 / GitHub #68でstale後の下流Draft再生成UXを実装
+- Issue/OpenAPI Draftのstale状態に再生成案内を追加
+- Frontendでstale Draftの保存、承認、公開、検証操作を無効化
+- Backend/APIでもstale Draftの更新、公開、検証を409 `stale_draft` で拒否
+- Requirement再承認後に新しいIssue DraftとOpenAPI Draftを再生成できることをPlaywrightで確認
+- 既存stale Draftを上書きせず保持することをRequest specで確認
+- 判定: ISSUE-051の中核要件は完了。Issue #3はISSUE-050、ISSUE-052、ISSUE-053完了状況を見て最終クローズ判断する
+
 未完了:
 
 - ISSUE-050: Requirement差分履歴とレビュー履歴タイムライン
-- ISSUE-051: stale後の下流Draft再生成UX
 - ISSUE-052: Requirement生成OpenAI provider比較
 - ISSUE-053: Requirement Workspaceの未決事項、リスク、差分強調UX
 
 ## 次アクション
 
 - ISSUE-050から差分保存方式とPII/secret除外方針を設計する
-- ISSUE-051でstale後の再生成と再承認のAPI駆動フローを設計する
 - ISSUE-052は既存provider実装を読み、OpenAI provider設計レビューから始める
 - ISSUE-053はP1作業と衝突しない範囲で画面改善を進める

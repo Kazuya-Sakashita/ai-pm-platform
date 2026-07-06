@@ -27,6 +27,23 @@ RSpec.describe "API V1 OpenAPI Drafts", type: :request do
       expect(requirement.minute.meeting.project.audit_logs.last.action).to eq("openapi_draft.generated")
     end
 
+    it "generates a new OpenAPI draft without overwriting an existing stale draft" do
+      requirement = create(:requirement, status: "approved", open_questions: [], goal: "更新後のRequirementからOpenAPIを再生成する。")
+      stale_open_api_draft = create(:open_api_draft, requirement: requirement, status: "stale", title: "古いOpenAPIドラフト")
+      authorize_project(requirement.minute.meeting.project)
+
+      post "/api/v1/requirements/#{requirement.id}/generate-openapi-draft", headers: auth_headers("dm-editor")
+
+      expect(response).to have_http_status(:accepted)
+      body = JSON.parse(response.body)
+      job = Job.find(body.dig("data", "job_id"))
+      open_api_draft = OpenApiDraft.find(job.target_id)
+      expect(open_api_draft.id).not_to eq(stale_open_api_draft.id)
+      expect(open_api_draft.status).to eq("draft")
+      expect(stale_open_api_draft.reload.status).to eq("stale")
+      expect(stale_open_api_draft.title).to eq("古いOpenAPIドラフト")
+    end
+
     it "requires approved requirements before OpenAPI draft generation" do
       requirement = create(:requirement, status: "generated")
       authorize_project(requirement.minute.meeting.project)
@@ -74,6 +91,28 @@ RSpec.describe "API V1 OpenAPI Drafts", type: :request do
       expect(open_api_draft.requirement.minute.meeting.project.audit_logs.last.action).to eq("openapi_draft.updated")
     end
 
+    it "rejects stale OpenAPI draft updates" do
+      open_api_draft = create(:open_api_draft, status: "stale")
+      authorize_project(open_api_draft.requirement.minute.meeting.project)
+
+      patch "/api/v1/openapi-drafts/#{open_api_draft.id}", params: {
+        title: "更新後の古いOpenAPIドラフト",
+        status: "valid"
+      }, headers: auth_headers("dm-editor")
+
+      expect(response).to have_http_status(:conflict)
+      body = JSON.parse(response.body)
+      expect(body.dig("error", "code")).to eq("stale_draft")
+      expect(body.dig("error", "details")).to include(
+        "action" => "openapi_draft_update",
+        "openapi_draft_id" => open_api_draft.id,
+        "status" => "stale"
+      )
+      open_api_draft.reload
+      expect(open_api_draft.status).to eq("stale")
+      expect(open_api_draft.title).not_to eq("更新後の古いOpenAPIドラフト")
+    end
+
     it "rejects OpenAPI draft updates by viewers" do
       open_api_draft = create(:open_api_draft)
       authorize_project(open_api_draft.requirement.minute.meeting.project, actor_id: "viewer-actor", role: "viewer")
@@ -105,6 +144,25 @@ RSpec.describe "API V1 OpenAPI Drafts", type: :request do
       audit_log = open_api_draft.requirement.minute.meeting.project.audit_logs.find_by!(action: "openapi_draft.validation_succeeded")
       expect(audit_log.action).to eq("openapi_draft.validation_succeeded")
       expect(audit_log.metadata).to include("valid" => true, "error_count" => 0, "warning_count" => 0, "job_id" => job.id)
+    end
+
+    it "rejects stale OpenAPI draft validation" do
+      open_api_draft = create(:open_api_draft, status: "stale", validation_errors: ["以前の検証エラー"])
+      authorize_project(open_api_draft.requirement.minute.meeting.project)
+
+      post "/api/v1/openapi-drafts/#{open_api_draft.id}/validate", headers: auth_headers("dm-editor")
+
+      expect(response).to have_http_status(:conflict)
+      body = JSON.parse(response.body)
+      expect(body.dig("error", "code")).to eq("stale_draft")
+      expect(body.dig("error", "details")).to include(
+        "action" => "openapi_draft_validate",
+        "openapi_draft_id" => open_api_draft.id,
+        "status" => "stale"
+      )
+      expect(open_api_draft.reload.status).to eq("stale")
+      expect(open_api_draft.validation_errors).to eq(["以前の検証エラー"])
+      expect(Job.where(job_type: "validation", target_type: "openapi_draft", target_id: open_api_draft.id)).to be_empty
     end
 
     it "returns validation errors for invalid OpenAPI content" do

@@ -6,10 +6,12 @@ class IssueDraftPublishGate
   end
 
   def call
+    return blocked("stale_draft", "このIssueドラフトはRequirement更新後に古くなっています。", issue_draft_id: issue_draft.id, issue_draft_status: issue_draft.status) if issue_draft.status == "stale"
     return blocked("issue_draft_review_required", "Issue draft must be approved before publishing.", issue_draft_status: issue_draft.status) unless issue_draft.status == "approved"
 
     open_api_draft = latest_open_api_draft
     return blocked("openapi_draft_required", "Valid OpenAPI draft is required before publishing.", openapi_draft_status: nil) unless open_api_draft
+    return blocked("stale_draft", "このOpenAPIドラフトはRequirement更新後に古くなっています。", openapi_draft_id: open_api_draft.id, openapi_draft_status: open_api_draft.status) if open_api_draft.status == "stale"
     return blocked("openapi_validation_required", "OpenAPI draft must be valid before publishing.", openapi_draft_id: open_api_draft.id, openapi_draft_status: open_api_draft.status) unless %w[valid approved].include?(open_api_draft.status)
 
     blocker = validation_blocker(open_api_draft)
