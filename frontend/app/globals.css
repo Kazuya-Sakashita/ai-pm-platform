@@ -490,6 +490,10 @@ textarea {
   border-left-color: var(--amber);
 }
 
+.validation-row.success {
+  border-left-color: var(--teal);
+}
+
 .validation-row strong,
 .validation-row span {
   overflow-wrap: anywhere;
