@@ -1204,13 +1204,41 @@ test.describe("Meeting Workspace", () => {
         }),
       });
     });
+    await page.route(`**/api/v1/conversation-summary-drafts/${summaryDraft.id}`, async (route) => {
+      const requestBody = route.request().postDataJSON();
+      expect(requestBody.summary).toBe("人間レビューで要約を修正した。");
+      expect(requestBody.decisions).toEqual([expect.objectContaining({ text: "DM整理MVPは手動貼り付けで先に進める。" })]);
+      expect(requestBody.open_questions).toEqual([]);
+      expect(requestBody.action_items).toEqual([expect.objectContaining({ text: "編集保存UIをE2Eで固定する。" })]);
+      expect(requestBody.issue_candidates).toEqual([
+        expect.objectContaining({
+          title: "DM整理ドラフト編集UI",
+          priority: "P1",
+          body: "AI整理結果を承認前に修正できるようにする。",
+        }),
+      ]);
+      expect(requestBody.requirement_candidates).toEqual([
+        expect.objectContaining({
+          title: "編集可能な整理ドラフト",
+          requirement: "承認前のDM整理ドラフトを保存できる。",
+          acceptance_criteria: ["保存後に表示が更新される", "承認済みは読み取り専用"],
+        }),
+      ]);
+      expect(requestBody.risks).toEqual([expect.objectContaining({ text: "古いドラフトを誤って承認する。" })]);
+      latestSummaryDraft = {
+        ...summaryDraft,
+        ...requestBody,
+        updated_at: new Date().toISOString(),
+      };
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: latestSummaryDraft }) });
+    });
     await page.route(`**/api/v1/conversation-summary-drafts/${summaryDraft.id}/approve`, async (route) => {
       const requestBody = route.request().postDataJSON();
       expect(requestBody).toMatchObject({
         approval_note: "同意確認とマスキング内容をレビューしました。",
         generate_downstream_candidates: true,
       });
-      latestSummaryDraft = { ...summaryDraft, status: "approved" };
+      latestSummaryDraft = { ...(latestSummaryDraft ?? summaryDraft), status: "approved" };
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: latestSummaryDraft }) });
     });
 
@@ -1237,12 +1265,30 @@ test.describe("Meeting Workspace", () => {
     await expect(page.locator("header").getByText("ジョブ 完了")).toBeVisible();
     await expect(page.locator("#conversation-import").getByLabel("整理要約")).toHaveValue(/DMから手動インポートMVP/);
     await expect(page.locator("#conversation-import").getByLabel("決定事項")).toHaveValue(/手動貼り付けで進める/);
-    await expect(page.locator("#conversation-import").getByText("DM手動インポートUIを追加")).toBeVisible();
-    await expect(page.locator("#conversation-import").getByText("DM整理レビューゲート")).toBeVisible();
+    await expect(page.locator("#conversation-import").getByLabel("Issue候補")).toHaveValue(/DM手動インポートUIを追加/);
+    await expect(page.locator("#conversation-import").getByLabel("要件候補")).toHaveValue(/DM整理レビューゲート/);
+
+    await page.locator("#conversation-import").getByLabel("整理要約").fill("人間レビューで要約を修正した。");
+    await page.locator("#conversation-import").getByLabel("決定事項").fill("DM整理MVPは手動貼り付けで先に進める。");
+    await page.locator("#conversation-import").getByLabel("未解決事項").fill("");
+    await page.locator("#conversation-import").getByLabel("アクション項目").fill("編集保存UIをE2Eで固定する。");
+    await page.locator("#conversation-import").getByLabel("Issue候補").fill("DM整理ドラフト編集UI | P1 | AI整理結果を承認前に修正できるようにする。");
+    await page
+      .locator("#conversation-import")
+      .getByLabel("要件候補")
+      .fill("編集可能な整理ドラフト | 承認前のDM整理ドラフトを保存できる。 | 保存後に表示が更新される、承認済みは読み取り専用");
+    await page.locator("#conversation-import").getByLabel("リスク").fill("古いドラフトを誤って承認する。");
+    await page.locator("#conversation-import").getByRole("button", { name: "整理ドラフト保存" }).click();
+    await expect(page.locator("header").getByText("DM整理ドラフトを保存しました")).toBeVisible();
+    await expect(page.locator("#conversation-import").getByLabel("整理要約")).toHaveValue("人間レビューで要約を修正した。");
+    await expect(page.locator("#conversation-import").getByLabel("未解決事項")).toHaveValue("");
 
     await page.locator("#conversation-import").getByRole("button", { name: "整理ドラフト承認" }).click();
     await expect(page.locator("header").getByText("DM整理ドラフトを承認しました")).toBeVisible();
     await expect(page.locator("#conversation-import .validation-panel.success .chip").first()).toHaveText("承認済み");
+    await expect(page.locator("#conversation-import .chip").filter({ hasText: "読み取り専用" })).toBeVisible();
+    await expect(page.locator("#conversation-import").getByRole("button", { name: "整理ドラフト保存" })).toBeDisabled();
+    await expect(page.locator("#conversation-import").getByLabel("整理要約")).toHaveAttribute("readonly", "");
     await expect(page.getByLabel("DMインポート一覧").getByText("承認済み")).toBeVisible();
 
     page.once("dialog", async (dialog) => {

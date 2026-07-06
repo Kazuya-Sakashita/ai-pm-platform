@@ -390,7 +390,8 @@ textarea {
 }
 
 .conversation-editor-grid textarea,
-.conversation-summary-grid textarea {
+.conversation-summary-grid textarea,
+.conversation-candidates textarea {
   min-height: 136px;
 }
 

@@ -51,6 +51,11 @@ type IntegrationAccount = components["schemas"]["IntegrationAccount"];
 type MeetingSourceType = components["schemas"]["MeetingSourceType"];
 type ConversationImport = components["schemas"]["ConversationImport"];
 type ConversationSummaryDraft = components["schemas"]["ConversationSummaryDraft"];
+type ConversationDecision = components["schemas"]["ConversationDecision"];
+type ConversationActionItem = components["schemas"]["ConversationActionItem"];
+type ConversationIssueCandidate = components["schemas"]["ConversationIssueCandidate"];
+type ConversationRequirementCandidate = components["schemas"]["ConversationRequirementCandidate"];
+type ConversationRisk = components["schemas"]["ConversationRisk"];
 type ConversationParticipant = components["schemas"]["ConversationParticipant"];
 type ConversationSafetyFlag = components["schemas"]["ConversationSafetyFlag"];
 type ConversationRedactionSuggestion = components["schemas"]["ConversationRedactionSuggestion"];
@@ -65,6 +70,16 @@ type GitHubReconciliationSearchSummary = {
   search_incomplete_results?: boolean;
   search_result_limit?: number;
   search_has_more_results?: boolean;
+};
+
+type ConversationSummaryDraftEditForm = {
+  summary: string;
+  decisions: string;
+  openQuestions: string;
+  actionItems: string;
+  issueCandidates: string;
+  requirementCandidates: string;
+  risks: string;
 };
 
 type ApiErrorPayload = {
@@ -112,6 +127,82 @@ function conversationParticipantsFromText(value: string): ConversationParticipan
   return compactLines(value.replaceAll(",", "\n")).map((displayName) => ({
     display_name: displayName,
     role: "unknown",
+  }));
+}
+
+function editableConversationSummaryStatus(status?: ConversationSummaryDraft["status"]) {
+  return status === "draft" || status === "needs_revision";
+}
+
+function conversationDraftEditFormFromDraft(draft: ConversationSummaryDraft | null): ConversationSummaryDraftEditForm {
+  return {
+    summary: draft?.summary ?? "",
+    decisions: linesToText(draft?.decisions.map((decision) => decision.text) ?? []),
+    openQuestions: linesToText(draft?.open_questions ?? []),
+    actionItems: linesToText(draft?.action_items.map((action) => action.text) ?? []),
+    issueCandidates: linesToText(
+      draft?.issue_candidates.map((candidate) => [candidate.title, candidate.priority, candidate.body].filter(Boolean).join(" | ")) ?? []
+    ),
+    requirementCandidates: linesToText(
+      draft?.requirement_candidates.map((candidate) =>
+        [candidate.title, candidate.requirement, candidate.acceptance_criteria.join("、")].filter(Boolean).join(" | ")
+      ) ?? []
+    ),
+    risks: linesToText(draft?.risks.map((risk) => risk.text) ?? []),
+  };
+}
+
+function conversationDecisionsFromText(value: string, existing: ConversationDecision[]): ConversationDecision[] {
+  return compactLines(value).map((text, index) => ({
+    ...existing[index],
+    text,
+    confidence: existing[index]?.confidence ?? 0.5,
+  }));
+}
+
+function conversationActionItemsFromText(value: string, existing: ConversationActionItem[]): ConversationActionItem[] {
+  return compactLines(value).map((text, index) => ({
+    ...existing[index],
+    text,
+    status: existing[index]?.status ?? "open",
+    confidence: existing[index]?.confidence ?? 0.5,
+  }));
+}
+
+function conversationIssueCandidatesFromText(value: string, existing: ConversationIssueCandidate[]): ConversationIssueCandidate[] {
+  return compactLines(value).map((line, index) => {
+    const [titlePart, priorityPart, ...bodyParts] = line.split("|").map((part) => part.trim());
+    const priority = ["P0", "P1", "P2", "P3"].includes(priorityPart) ? (priorityPart as ConversationIssueCandidate["priority"]) : existing[index]?.priority ?? "P2";
+    return {
+      ...existing[index],
+      title: titlePart || existing[index]?.title || "未整理のIssue候補",
+      priority,
+      body: bodyParts.join(" | ") || existing[index]?.body || titlePart || "詳細未記入",
+      labels: existing[index]?.labels ?? [],
+      confidence: existing[index]?.confidence ?? 0.5,
+    };
+  });
+}
+
+function conversationRequirementCandidatesFromText(value: string, existing: ConversationRequirementCandidate[]): ConversationRequirementCandidate[] {
+  return compactLines(value).map((line, index) => {
+    const [titlePart, requirementPart, criteriaPart] = line.split("|").map((part) => part.trim());
+    return {
+      ...existing[index],
+      title: titlePart || existing[index]?.title || "未整理の要件候補",
+      requirement: requirementPart || existing[index]?.requirement || titlePart || "要件未記入",
+      acceptance_criteria: compactLines((criteriaPart || "").replaceAll("、", "\n").replaceAll(",", "\n")),
+      confidence: existing[index]?.confidence ?? 0.5,
+    };
+  });
+}
+
+function conversationRisksFromText(value: string, existing: ConversationRisk[]): ConversationRisk[] {
+  return compactLines(value).map((text, index) => ({
+    ...existing[index],
+    text,
+    severity: existing[index]?.severity ?? "medium",
+    confidence: existing[index]?.confidence ?? 0.5,
   }));
 }
 
@@ -308,6 +399,9 @@ export default function MeetingWorkspace() {
   const [conversationImports, setConversationImports] = useState<ConversationImport[]>([]);
   const [selectedConversationImport, setSelectedConversationImport] = useState<ConversationImport | null>(null);
   const [conversationSummaryDraft, setConversationSummaryDraft] = useState<ConversationSummaryDraft | null>(null);
+  const [conversationSummaryDraftEdit, setConversationSummaryDraftEdit] = useState<ConversationSummaryDraftEditForm>(() =>
+    conversationDraftEditFormFromDraft(null)
+  );
   const [conversationSafetyFlags, setConversationSafetyFlags] = useState<ConversationSafetyFlag[]>([]);
   const [conversationRedactionSuggestions, setConversationRedactionSuggestions] = useState<ConversationRedactionSuggestion[]>([]);
   const [conversationTitle, setConversationTitle] = useState("Discord DM仕様相談");
@@ -390,6 +484,10 @@ export default function MeetingWorkspace() {
     void loadConversationImports(selectedProjectId);
     void loadQueueHealth({ announce: false });
   }, [selectedProjectId]);
+
+  useEffect(() => {
+    setConversationSummaryDraftEdit(conversationDraftEditFormFromDraft(conversationSummaryDraft));
+  }, [conversationSummaryDraft]);
 
   function setApiError(message: string) {
     setError(message);
@@ -871,9 +969,59 @@ export default function MeetingWorkspace() {
     setStatusMessage("DM整理ドラフトを生成しました");
   }
 
+  async function saveConversationSummaryDraftEdits() {
+    if (!conversationSummaryDraft) {
+      setApiError("保存するDM整理ドラフトがありません。");
+      return;
+    }
+
+    if (!canEditConversationSummaryDraft) {
+      setApiError("承認済みまたは古い整理ドラフトは編集できません。");
+      return;
+    }
+
+    if (!conversationSummaryDraftEdit.summary.trim()) {
+      setApiError("整理要約を入力してください。");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    const { data, error: apiError } = await apiClient.PATCH("/conversation-summary-drafts/{conversation_summary_draft_id}", {
+      params: { path: { conversation_summary_draft_id: conversationSummaryDraft.id } },
+      body: {
+        summary: conversationSummaryDraftEdit.summary.trim(),
+        decisions: conversationDecisionsFromText(conversationSummaryDraftEdit.decisions, conversationSummaryDraft.decisions),
+        open_questions: compactLines(conversationSummaryDraftEdit.openQuestions),
+        action_items: conversationActionItemsFromText(conversationSummaryDraftEdit.actionItems, conversationSummaryDraft.action_items),
+        issue_candidates: conversationIssueCandidatesFromText(conversationSummaryDraftEdit.issueCandidates, conversationSummaryDraft.issue_candidates),
+        requirement_candidates: conversationRequirementCandidatesFromText(
+          conversationSummaryDraftEdit.requirementCandidates,
+          conversationSummaryDraft.requirement_candidates
+        ),
+        risks: conversationRisksFromText(conversationSummaryDraftEdit.risks, conversationSummaryDraft.risks),
+      },
+    });
+    setLoading(false);
+
+    if (apiError) {
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    setConversationSummaryDraft(data.data);
+    await refreshConversationImport(data.data.conversation_import_id);
+    setStatusMessage("DM整理ドラフトを保存しました");
+  }
+
   async function approveConversationSummary() {
     if (!conversationSummaryDraft) {
       setApiError("承認するDM整理ドラフトがありません。");
+      return;
+    }
+
+    if (!canApproveConversationSummaryDraft) {
+      setApiError("承認済みまたは古い整理ドラフトは承認できません。");
       return;
     }
 
@@ -1899,6 +2047,10 @@ export default function MeetingWorkspace() {
     (openApiDraft?.status === "valid" || openApiDraft?.status === "approved") &&
     openApiReview?.status !== "action_required";
   const canGenerateConversationSummary = selectedConversationImport?.status === "ready_for_ai";
+  const canEditConversationSummaryDraft = Boolean(
+    conversationSummaryDraft && editableConversationSummaryStatus(conversationSummaryDraft.status)
+  );
+  const canApproveConversationSummaryDraft = canEditConversationSummaryDraft;
   const hasPendingGitHubReconciliation = issueDraft?.github_reconciliation?.pending === true;
   const isGitHubReconciliationCooldownActive =
     hasPendingGitHubReconciliation &&
@@ -2528,7 +2680,16 @@ export default function MeetingWorkspace() {
                 {loading ? <Loader2 className="spin" size={16} /> : <MessageSquareText size={16} />}
                 整理ドラフト生成
               </button>
-              <button className="button primary" type="button" onClick={approveConversationSummary} disabled={!conversationSummaryDraft || loading}>
+              <button
+                className="button secondary"
+                type="button"
+                onClick={saveConversationSummaryDraftEdits}
+                disabled={!canEditConversationSummaryDraft || loading}
+              >
+                <Save size={16} />
+                整理ドラフト保存
+              </button>
+              <button className="button primary" type="button" onClick={approveConversationSummary} disabled={!canApproveConversationSummaryDraft || loading}>
                 <CheckCircle2 size={16} />
                 整理ドラフト承認
               </button>
@@ -2626,59 +2787,69 @@ export default function MeetingWorkspace() {
                   <h3>整理ドラフト</h3>
                   <span className={`chip ${statusTone(conversationSummaryDraft.status)}`}>{statusLabel(conversationSummaryDraft.status)}</span>
                   <span className="chip neutral">信頼度 {summaryConfidence(conversationSummaryDraft.confidence)}</span>
+                  <span className="chip neutral">{canEditConversationSummaryDraft ? "編集可能" : "読み取り専用"}</span>
                 </div>
                 <div className="conversation-summary-grid">
                   <label className="conversation-wide">
                     整理要約
-                    <textarea readOnly value={conversationSummaryDraft.summary} />
+                    <textarea
+                      readOnly={!canEditConversationSummaryDraft}
+                      value={conversationSummaryDraftEdit.summary}
+                      onChange={(event) => setConversationSummaryDraftEdit((current) => ({ ...current, summary: event.target.value }))}
+                    />
                   </label>
                   <label>
                     決定事項
-                    <textarea readOnly value={linesToText(conversationSummaryDraft.decisions.map((decision) => decision.text))} />
+                    <textarea
+                      readOnly={!canEditConversationSummaryDraft}
+                      value={conversationSummaryDraftEdit.decisions}
+                      onChange={(event) => setConversationSummaryDraftEdit((current) => ({ ...current, decisions: event.target.value }))}
+                    />
                   </label>
                   <label>
                     未解決事項
-                    <textarea readOnly value={linesToText(conversationSummaryDraft.open_questions)} />
+                    <textarea
+                      readOnly={!canEditConversationSummaryDraft}
+                      value={conversationSummaryDraftEdit.openQuestions}
+                      onChange={(event) => setConversationSummaryDraftEdit((current) => ({ ...current, openQuestions: event.target.value }))}
+                    />
                   </label>
                   <label>
                     アクション項目
-                    <textarea readOnly value={linesToText(conversationSummaryDraft.action_items.map((action) => action.text))} />
+                    <textarea
+                      readOnly={!canEditConversationSummaryDraft}
+                      value={conversationSummaryDraftEdit.actionItems}
+                      onChange={(event) => setConversationSummaryDraftEdit((current) => ({ ...current, actionItems: event.target.value }))}
+                    />
                   </label>
                   <label>
                     リスク
-                    <textarea readOnly value={linesToText(conversationSummaryDraft.risks.map((risk) => risk.text))} />
+                    <textarea
+                      readOnly={!canEditConversationSummaryDraft}
+                      value={conversationSummaryDraftEdit.risks}
+                      onChange={(event) => setConversationSummaryDraftEdit((current) => ({ ...current, risks: event.target.value }))}
+                    />
                   </label>
                 </div>
                 <div className="conversation-candidates" aria-label="DM由来候補">
-                  <div>
-                    <strong className="mini-heading">Issue候補</strong>
-                    <div className="validation-list">
-                      {conversationSummaryDraft.issue_candidates.map((candidate, index) => (
-                        <div className="validation-row warning" key={`${candidate.title}-${index}`}>
-                          <strong>{candidate.title}</strong>
-                          <span>{candidate.priority}</span>
-                          <p>{candidate.body}</p>
-                        </div>
-                      ))}
-                      {conversationSummaryDraft.issue_candidates.length === 0 ? <p className="empty">Issue候補なし</p> : null}
-                    </div>
-                  </div>
-                  <div>
-                    <strong className="mini-heading">要件候補</strong>
-                    <div className="validation-list">
-                      {conversationSummaryDraft.requirement_candidates.map((candidate, index) => (
-                        <div className="validation-row warning" key={`${candidate.title}-${index}`}>
-                          <strong>{candidate.title}</strong>
-                          <span>候補</span>
-                          <p>
-                            {candidate.requirement}
-                            {candidate.acceptance_criteria.length > 0 ? ` / 受け入れ条件: ${candidate.acceptance_criteria.join("、")}` : ""}
-                          </p>
-                        </div>
-                      ))}
-                      {conversationSummaryDraft.requirement_candidates.length === 0 ? <p className="empty">要件候補なし</p> : null}
-                    </div>
-                  </div>
+                  <label>
+                    Issue候補
+                    <textarea
+                      readOnly={!canEditConversationSummaryDraft}
+                      value={conversationSummaryDraftEdit.issueCandidates}
+                      onChange={(event) => setConversationSummaryDraftEdit((current) => ({ ...current, issueCandidates: event.target.value }))}
+                    />
+                  </label>
+                  <label>
+                    要件候補
+                    <textarea
+                      readOnly={!canEditConversationSummaryDraft}
+                      value={conversationSummaryDraftEdit.requirementCandidates}
+                      onChange={(event) =>
+                        setConversationSummaryDraftEdit((current) => ({ ...current, requirementCandidates: event.target.value }))
+                      }
+                    />
+                  </label>
                 </div>
                 <label>
                   承認理由

@@ -75,6 +75,34 @@ RSpec.describe "API V1 Conversation Summary Drafts", type: :request do
       expect(draft.conversation_import.project.audit_logs.last.actor_id).to eq("dm-editor")
       expect(stored_summary_draft_row(draft).values.compact.join(" ")).not_to include("レビュー後のDM整理サマリー")
     end
+
+    it "rejects updates for approved drafts" do
+      draft = create(:conversation_summary_draft, status: "approved")
+      authorize_project(draft.conversation_import.project, role: "reviewer")
+
+      patch "/api/v1/conversation-summary-drafts/#{draft.id}", params: {
+        summary: "承認後に書き換えない"
+      }, headers: actor_headers
+
+      expect(response).to have_http_status(422)
+      body = JSON.parse(response.body)
+      expect(body.dig("error", "code")).to eq("summary_draft_not_editable")
+      expect(draft.reload.summary).not_to eq("承認後に書き換えない")
+    end
+
+    it "rejects direct status changes to approved" do
+      draft = create(:conversation_summary_draft)
+      authorize_project(draft.conversation_import.project, role: "reviewer")
+
+      patch "/api/v1/conversation-summary-drafts/#{draft.id}", params: {
+        status: "approved"
+      }, headers: actor_headers
+
+      expect(response).to have_http_status(422)
+      body = JSON.parse(response.body)
+      expect(body.dig("error", "code")).to eq("summary_draft_status_not_editable")
+      expect(draft.reload.status).to eq("draft")
+    end
   end
 
   describe "POST /api/v1/conversation-summary-drafts/:id/approve" do
@@ -120,6 +148,20 @@ RSpec.describe "API V1 Conversation Summary Drafts", type: :request do
       expect(response).to have_http_status(:forbidden)
       expect(JSON.parse(response.body).dig("error", "code")).to eq("conversation_import_forbidden")
       expect(draft.reload.status).to eq("draft")
+    end
+
+    it "rejects approval for stale drafts" do
+      draft = create(:conversation_summary_draft, status: "stale")
+      authorize_project(draft.conversation_import.project, role: "reviewer")
+
+      post "/api/v1/conversation-summary-drafts/#{draft.id}/approve", params: {
+        approval_note: "古いドラフトは承認しない"
+      }, headers: actor_headers
+
+      expect(response).to have_http_status(422)
+      body = JSON.parse(response.body)
+      expect(body.dig("error", "code")).to eq("summary_draft_not_editable")
+      expect(draft.reload.status).to eq("stale")
     end
   end
 
