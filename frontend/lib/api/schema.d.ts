@@ -390,6 +390,23 @@ export interface paths {
         patch: operations["updateRequirement"];
         trace?: never;
     };
+    "/requirements/{requirement_id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Requirementの差分履歴とレビュー履歴を取得する */
+        get: operations["getRequirementHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/requirements/{requirement_id}/approve": {
         parameters: {
             query?: never;
@@ -1160,6 +1177,43 @@ export interface components {
         };
         RequirementResponse: {
             data: components["schemas"]["Requirement"];
+        };
+        RequirementHistoryValue: {
+            /** @description 値が配列の場合は要素数、単一値の場合は空でなければ1。 */
+            item_count: number;
+            /** @description secretや不要なPIIを含まない短い表示用要約。 */
+            preview?: string;
+            /** @description secret、個人情報、法務・金融情報などの検知により本文を保存しなかった場合はtrue。 */
+            redacted: boolean;
+            finding_categories?: string[];
+        };
+        RequirementHistoryChange: {
+            field: string;
+            before: components["schemas"]["RequirementHistoryValue"];
+            after: components["schemas"]["RequirementHistoryValue"];
+        };
+        RequirementHistoryItem: {
+            id: string;
+            /** @enum {string} */
+            source_type: "audit_log" | "review";
+            /** @enum {string} */
+            event_type: "generated" | "generation_failed" | "updated" | "approved" | "review_requested" | "review_resolved" | "review_risk_accepted";
+            title: string;
+            action?: string;
+            actor_id?: string;
+            reviewer_role?: string;
+            review_status?: components["schemas"]["ReviewStatus"];
+            summary?: string;
+            changed_fields?: string[];
+            changes?: components["schemas"]["RequirementHistoryChange"][];
+            approval_reset?: boolean;
+            stale_issue_draft_count?: number;
+            stale_open_api_draft_count?: number;
+            /** Format: date-time */
+            occurred_at: string;
+        };
+        RequirementHistoryResponse: {
+            data: components["schemas"]["RequirementHistoryItem"][];
         };
         UpdateRequirementRequest: {
             background?: string;
@@ -2660,6 +2714,31 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             422: components["responses"]["ValidationError"];
+        };
+    };
+    getRequirementHistory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                requirement_id: components["parameters"]["RequirementId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Requirement history timeline */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequirementHistoryResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     approveRequirement: {

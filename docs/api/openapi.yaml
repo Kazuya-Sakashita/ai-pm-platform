@@ -821,6 +821,27 @@ paths:
         "422":
           $ref: "#/components/responses/ValidationError"
 
+  /requirements/{requirement_id}/history:
+    get:
+      tags: [Requirements]
+      summary: Requirementの差分履歴とレビュー履歴を取得する
+      operationId: getRequirementHistory
+      parameters:
+        - $ref: "#/components/parameters/RequirementId"
+      responses:
+        "200":
+          description: Requirement history timeline
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RequirementHistoryResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /requirements/{requirement_id}/approve:
     post:
       tags: [Requirements]
@@ -2670,6 +2691,89 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/Requirement"
+
+    RequirementHistoryValue:
+      type: object
+      required: [item_count, redacted]
+      properties:
+        item_count:
+          type: integer
+          minimum: 0
+          description: 値が配列の場合は要素数、単一値の場合は空でなければ1。
+        preview:
+          type: string
+          description: secretや不要なPIIを含まない短い表示用要約。
+        redacted:
+          type: boolean
+          description: secret、個人情報、法務・金融情報などの検知により本文を保存しなかった場合はtrue。
+        finding_categories:
+          type: array
+          items:
+            type: string
+
+    RequirementHistoryChange:
+      type: object
+      required: [field, before, after]
+      properties:
+        field:
+          type: string
+        before:
+          $ref: "#/components/schemas/RequirementHistoryValue"
+        after:
+          $ref: "#/components/schemas/RequirementHistoryValue"
+
+    RequirementHistoryItem:
+      type: object
+      required: [id, source_type, event_type, title, occurred_at]
+      properties:
+        id:
+          type: string
+        source_type:
+          type: string
+          enum: [audit_log, review]
+        event_type:
+          type: string
+          enum: [generated, generation_failed, updated, approved, review_requested, review_resolved, review_risk_accepted]
+        title:
+          type: string
+        action:
+          type: string
+        actor_id:
+          type: string
+        reviewer_role:
+          type: string
+        review_status:
+          $ref: "#/components/schemas/ReviewStatus"
+        summary:
+          type: string
+        changed_fields:
+          type: array
+          items:
+            type: string
+        changes:
+          type: array
+          items:
+            $ref: "#/components/schemas/RequirementHistoryChange"
+        approval_reset:
+          type: boolean
+        stale_issue_draft_count:
+          type: integer
+          minimum: 0
+        stale_open_api_draft_count:
+          type: integer
+          minimum: 0
+        occurred_at:
+          type: string
+          format: date-time
+
+    RequirementHistoryResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/RequirementHistoryItem"
 
     UpdateRequirementRequest:
       type: object

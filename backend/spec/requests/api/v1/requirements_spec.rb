@@ -37,7 +37,7 @@ RSpec.describe "API V1 Requirements", type: :request do
       body = JSON.parse(response.body)
       expect(body.dig("error", "code")).to eq("review_required")
       expect(body.dig("error", "details", "status")).to eq("generated")
-      expect(Job.where(target_type: "requirement")).to be_empty
+      expect(Job.where(project: minutes.meeting.project, target_type: "requirement")).to be_empty
     end
 
     it "requires authentication before checking minutes status" do
@@ -61,6 +61,110 @@ RSpec.describe "API V1 Requirements", type: :request do
       body = JSON.parse(response.body)
       expect(body.dig("data", "id")).to eq(requirement.id)
       expect(body.dig("data", "generated_by_model")).to eq("deterministic-requirements-placeholder-v1")
+    end
+  end
+
+  describe "GET /api/v1/requirements/:id/history" do
+    it "Requirement更新履歴とレビュー履歴を時系列で返す" do
+      requirement = create(:requirement)
+      project = requirement.minute.meeting.project
+      authorize_project(project, actor_id: "viewer-actor", role: "viewer")
+      review = create(
+        :review,
+        target_type: "requirement",
+        target_id: requirement.id,
+        status: "resolved",
+        reviewer_role: "Product Manager",
+        created_at: 2.hours.ago,
+        updated_at: 1.hour.ago
+      )
+      AuditLog.record!(
+        project: project,
+        action: "requirement.updated",
+        target: requirement,
+        actor_id: "dm-editor",
+        metadata: {
+          changed_fields: ["goal"],
+          field_changes: [
+            {
+              field: "goal",
+              before: { item_count: 1, redacted: false, preview: "旧目的" },
+              after: { item_count: 1, redacted: false, preview: "新目的" }
+            }
+          ],
+          approval_reset: true,
+          stale_issue_draft_count: 1,
+          stale_open_api_draft_count: 1
+        }
+      )
+
+      get "/api/v1/requirements/#{requirement.id}/history", headers: auth_headers("viewer-actor")
+
+      expect(response).to have_http_status(:ok)
+      body = JSON.parse(response.body)
+      event_types = body["data"].map { |item| item["event_type"] }
+      expect(event_types).to include("updated", "review_requested", "review_resolved")
+      updated_event = body["data"].find { |item| item["event_type"] == "updated" }
+      requested_event = body["data"].find { |item| item["event_type"] == "review_requested" }
+      resolved_event = body["data"].find { |item| item["event_type"] == "review_resolved" }
+
+      expect(updated_event).to include(
+        "source_type" => "audit_log",
+        "title" => "要件定義を更新",
+        "actor_id" => "dm-editor",
+        "changed_fields" => ["goal"],
+        "approval_reset" => true,
+        "stale_issue_draft_count" => 1,
+        "stale_open_api_draft_count" => 1
+      )
+      expect(updated_event.dig("changes", 0, "before", "preview")).to eq("旧目的")
+      expect(updated_event.dig("changes", 0, "after", "preview")).to eq("新目的")
+      expect(requested_event).to include(
+        "id" => "review-#{review.id}-review_requested",
+        "source_type" => "review",
+        "reviewer_role" => "Product Manager",
+        "review_status" => "open"
+      )
+      expect(resolved_event).to include(
+        "id" => "review-#{review.id}-review_resolved",
+        "source_type" => "review",
+        "reviewer_role" => "Product Manager",
+        "review_status" => "resolved"
+      )
+    end
+
+    it "secretを含む差分本文を履歴APIへ返さない" do
+      requirement = create(:requirement)
+      project = requirement.minute.meeting.project
+      authorize_project(project, actor_id: "viewer-actor", role: "viewer")
+      AuditLog.record!(
+        project: project,
+        action: "requirement.updated",
+        target: requirement,
+        actor_id: "dm-editor",
+        metadata: {
+          changed_fields: ["goal"],
+          field_changes: [
+            {
+              field: "goal",
+              before: { item_count: 1, redacted: false, preview: "旧目的" },
+              after: {
+                item_count: 1,
+                redacted: true,
+                preview: "機密情報を含むため非表示",
+                finding_categories: ["credential"]
+              }
+            }
+          ]
+        }
+      )
+
+      get "/api/v1/requirements/#{requirement.id}/history", headers: auth_headers("viewer-actor")
+
+      expect(response).to have_http_status(:ok)
+      body = JSON.parse(response.body)
+      expect(body.to_s).to include("機密情報を含むため非表示", "credential")
+      expect(body.to_s).not_to include("api_key")
     end
   end
 
@@ -126,6 +230,13 @@ RSpec.describe "API V1 Requirements", type: :request do
       expect(requirement.minute.meeting.project.audit_logs.last.metadata).to include(
         "approval_reset" => true,
         "changed_fields" => ["goal"],
+        "field_changes" => [
+          hash_including(
+            "field" => "goal",
+            "before" => hash_including("redacted" => false),
+            "after" => hash_including("preview" => "承認後に変更した目的")
+          )
+        ],
         "stale_issue_draft_ids" => [issue_draft.id],
         "stale_issue_draft_count" => 1,
         "stale_open_api_draft_ids" => [open_api_draft.id],
