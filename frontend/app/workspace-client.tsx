@@ -1995,6 +1995,29 @@ export default function MeetingWorkspace() {
     setStatusMessage("要件レビューを依頼しました");
   }
 
+  async function resolveRequirementReview() {
+    if (!requirement || !lastReview || lastReview.target_type !== "requirement" || lastReview.target_id !== requirement.id) {
+      setApiError("解決する要件レビューがありません。");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    const { data, error: apiError } = await apiClient.POST("/reviews/{review_id}/resolve-action", {
+      params: { path: { review_id: lastReview.id } },
+      body: { resolution_note: "要件定義レビューの指摘を確認し、未決事項を解消しました。" },
+    });
+    setLoading(false);
+
+    if (apiError) {
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    setLastReview(data.data);
+    setStatusMessage("要件レビューを解決しました");
+  }
+
   function selectMeeting(meeting: Meeting) {
     setSelectedMeeting(meeting);
     setMinutes(null);
@@ -3030,6 +3053,15 @@ export default function MeetingWorkspace() {
               <button className="button" type="button" onClick={requestRequirementReview} disabled={!requirement || loading}>
                 <Send size={16} />
                 要件レビュー依頼
+              </button>
+              <button
+                className="button secondary"
+                type="button"
+                onClick={resolveRequirementReview}
+                disabled={!requirement || !lastReview || lastReview.target_type !== "requirement" || lastReview.target_id !== requirement.id || !["open", "action_required"].includes(lastReview.status) || loading}
+              >
+                <CheckCircle2 size={16} />
+                要件レビュー対応済み
               </button>
             </div>
             <div className="requirement-editor-grid">

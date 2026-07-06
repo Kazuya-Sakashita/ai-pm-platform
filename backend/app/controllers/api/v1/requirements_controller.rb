@@ -75,7 +75,8 @@ module Api
         return unless require_actor!(action: "requirement_approve")
         return unless authorize_project_role!(project_for(requirement.minute), action: "requirement_approve", allowed_roles: project_review_roles)
 
-        return render_requirement_review_required(requirement) if requirement.open_questions.any?
+        approval_gate = RequirementApprovalGate.new(requirement).call
+        return render_requirement_approval_blocked(approval_gate) unless approval_gate.allowed
 
         requirement.update!(status: "approved")
         AuditLog.record!(
@@ -102,12 +103,12 @@ module Api
         )
       end
 
-      def render_requirement_review_required(requirement)
+      def render_requirement_approval_blocked(gate)
         render_error(
-          "review_required",
-          "Requirement open questions must be resolved before approval.",
+          gate.code,
+          gate.message,
           :conflict,
-          { requirement_id: requirement.id, open_questions: requirement.open_questions }
+          gate.details
         )
       end
 
