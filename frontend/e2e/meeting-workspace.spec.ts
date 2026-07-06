@@ -809,15 +809,17 @@ test.describe("Meeting Workspace", () => {
     await expect(page.locator("header").getByText("要件レビューを依頼しました")).toBeVisible();
     await expect(page.locator("#requirements .audit-box").getByText("未対応 / Product Manager")).toBeVisible();
     await expect(requirementHistory.getByText("レビューを依頼")).toBeVisible();
+    await expect(requirementHistory.getByText("関連Issue: #3")).toBeVisible();
     await expect(requirementBlockerRow("未解決レビュー").getByText("1件", { exact: true })).toBeVisible();
     await expect(requirementBlockerRow("未解決レビュー").getByText("未対応 / Product Manager")).toBeVisible();
-    await expect(page.locator("#requirements").getByText("背景、目的、受け入れ条件、未解決事項、リスクを確認する。")).toBeVisible();
+    await expect(page.getByLabel("要件承認ブロッカー").getByText("背景、目的、受け入れ条件、未解決事項、リスクを確認する。")).toBeVisible();
     await expect(page.getByRole("button", { name: "要件定義を承認", exact: true })).toBeDisabled();
 
     await page.getByRole("button", { name: "要件レビュー対応済み", exact: true }).click();
     await expect(page.locator("header").getByText("要件レビューを解決しました")).toBeVisible();
     await expect(page.locator("#requirements .audit-box").getByText("解決済み / Product Manager")).toBeVisible();
     await expect(requirementHistory.getByText("レビューを解決")).toBeVisible();
+    await expect(requirementHistory.getByText("要件定義レビューの指摘を確認し、未決事項を解消しました。")).toBeVisible();
     await expect(requirementBlockerRow("未解決レビュー").getByText("0件", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "要件定義を承認", exact: true })).toBeEnabled();
 

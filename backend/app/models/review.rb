@@ -1,4 +1,6 @@
 class Review < ApplicationRecord
+  has_many :review_state_events, dependent: :destroy
+
   TARGET_TYPES = %w[
     meeting
     conversation_import

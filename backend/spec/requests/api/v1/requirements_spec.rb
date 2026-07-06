@@ -74,9 +74,33 @@ RSpec.describe "API V1 Requirements", type: :request do
         target_type: "requirement",
         target_id: requirement.id,
         status: "resolved",
-        reviewer_role: "Product Manager",
-        created_at: 2.hours.ago,
-        updated_at: 1.hour.ago
+        reviewer_role: "Product Manager"
+      )
+      requested_review_event = ReviewStateEvent.create!(
+        review: review,
+        project: project,
+        target_type: "requirement",
+        target_id: requirement.id,
+        event_type: "review_requested",
+        from_status: nil,
+        to_status: "open",
+        actor_id: "reviewer-actor",
+        issue_numbers: ["ISSUE-050"],
+        occurred_at: 2.hours.ago
+      )
+      resolved_review_event = ReviewStateEvent.create!(
+        review: review,
+        project: project,
+        target_type: "requirement",
+        target_id: requirement.id,
+        event_type: "review_resolved",
+        from_status: "open",
+        to_status: "resolved",
+        actor_id: "reviewer-actor",
+        reason_code: "review_resolved",
+        reason_summary: "確認済み",
+        issue_numbers: ["ISSUE-050"],
+        occurred_at: 1.hour.ago
       )
       AuditLog.record!(
         project: project,
@@ -120,16 +144,23 @@ RSpec.describe "API V1 Requirements", type: :request do
       expect(updated_event.dig("changes", 0, "before", "preview")).to eq("旧目的")
       expect(updated_event.dig("changes", 0, "after", "preview")).to eq("新目的")
       expect(requested_event).to include(
-        "id" => "review-#{review.id}-review_requested",
-        "source_type" => "review",
+        "id" => requested_review_event.id,
+        "source_type" => "review_event",
+        "actor_id" => "reviewer-actor",
         "reviewer_role" => "Product Manager",
-        "review_status" => "open"
+        "review_status" => "open",
+        "to_status" => "open"
       )
       expect(resolved_event).to include(
-        "id" => "review-#{review.id}-review_resolved",
-        "source_type" => "review",
+        "id" => resolved_review_event.id,
+        "source_type" => "review_event",
+        "actor_id" => "reviewer-actor",
         "reviewer_role" => "Product Manager",
-        "review_status" => "resolved"
+        "review_status" => "resolved",
+        "from_status" => "open",
+        "to_status" => "resolved",
+        "reason_summary" => "確認済み",
+        "issue_numbers" => ["ISSUE-050"]
       )
     end
 

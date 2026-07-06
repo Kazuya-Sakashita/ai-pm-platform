@@ -10,7 +10,7 @@ class RequirementHistoryQuery
   end
 
   def call
-    (audit_events + review_events).sort_by { |event| event[:occurred_at].to_s }.reverse
+    (audit_events + review_state_events).sort_by { |event| event[:occurred_at].to_s }.reverse
   end
 
   private
@@ -44,30 +44,39 @@ class RequirementHistoryQuery
     }.compact
   end
 
-  def review_events
-    Review.where(target_type: "requirement", target_id: requirement.id).flat_map do |review|
-      events = [review_event(review, "review_requested", "レビューを依頼", review.created_at, review_status: "open")]
-
-      if review.status == "resolved"
-        events << review_event(review, "review_resolved", "レビューを解決", review.updated_at, review_status: "resolved")
-      elsif review.status == "accepted_risk"
-        events << review_event(review, "review_risk_accepted", "リスク受容を記録", review.updated_at, review_status: "accepted_risk")
-      end
-
-      events
-    end
+  def review_state_events
+    ReviewStateEvent.where(target_type: "requirement", target_id: requirement.id)
+                    .includes(:review)
+                    .map { |event| review_event(event) }
   end
 
-  def review_event(review, event_type, title, occurred_at, review_status:)
+  def review_event(event)
     {
-      id: "review-#{review.id}-#{event_type}",
-      source_type: "review",
-      event_type: event_type,
-      title: title,
-      reviewer_role: review.reviewer_role,
-      review_status: review_status,
-      occurred_at: iso_time(occurred_at)
-    }
+      id: event.id,
+      source_type: "review_event",
+      event_type: event.event_type,
+      title: review_event_title(event.event_type),
+      actor_id: event.actor_id,
+      review_id: event.review_id,
+      reviewer_role: event.review.reviewer_role,
+      review_status: event.to_status,
+      from_status: event.from_status,
+      to_status: event.to_status,
+      reason_code: event.reason_code,
+      reason_summary: event.reason_summary,
+      issue_numbers: event.issue_numbers,
+      occurred_at: iso_time(event.occurred_at)
+    }.compact
+  end
+
+  def review_event_title(event_type)
+    {
+      "review_requested" => "レビューを依頼",
+      "review_action_required" => "レビュー対応が必要",
+      "review_resolved" => "レビューを解決",
+      "review_risk_accepted" => "リスク受容を記録",
+      "review_reopened" => "レビューを再オープン"
+    }.fetch(event_type, event_type)
   end
 
   def requirement_project

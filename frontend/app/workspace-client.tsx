@@ -352,8 +352,11 @@ function requirementHistoryChangeLabel(change: RequirementHistoryChange) {
 }
 
 function requirementHistoryMeta(item: RequirementHistoryItem) {
-  if (item.source_type === "review") {
-    return `${statusLabel(item.review_status)} / ${item.reviewer_role ?? "-"}`;
+  if (item.source_type === "review" || item.source_type === "review_event") {
+    const statusTransition = item.from_status ? `${statusLabel(item.from_status)} から ${statusLabel(item.to_status ?? item.review_status)}` : statusLabel(item.to_status ?? item.review_status);
+    const actor = item.actor_id ? `担当 ${item.actor_id}` : null;
+    const reviewer = item.reviewer_role ?? "-";
+    return [statusTransition, reviewer, actor].filter(Boolean).join(" / ");
   }
 
   if (item.approval_reset) return "承認差し戻し";
@@ -364,8 +367,8 @@ function requirementHistoryMeta(item: RequirementHistoryItem) {
 
 function requirementHistoryTone(item: RequirementHistoryItem) {
   if (item.event_type === "updated" && item.approval_reset) return "warning";
-  if (item.event_type === "review_requested") return "review";
-  if (item.event_type === "review_risk_accepted") return "warning";
+  if (item.event_type === "review_requested" || item.event_type === "review_reopened") return "review";
+  if (item.event_type === "review_action_required" || item.event_type === "review_risk_accepted") return "warning";
   if (item.event_type === "generated" || item.event_type === "approved" || item.event_type === "review_resolved") return "success";
   return statusTone(item.review_status ?? item.event_type);
 }
@@ -3313,6 +3316,8 @@ export default function MeetingWorkspace() {
                               ))}
                             </ul>
                           ) : null}
+                          {item.reason_summary ? <p>{item.reason_summary}</p> : null}
+                          {item.issue_numbers?.length ? <p>関連Issue: {item.issue_numbers.join("、")}</p> : null}
                           {item.stale_issue_draft_count || item.stale_open_api_draft_count ? (
                             <p>
                               再確認対象: Issue {item.stale_issue_draft_count ?? 0}件 / OpenAPI {item.stale_open_api_draft_count ?? 0}件

@@ -149,16 +149,20 @@ module GithubIssuePublish
         reviewer_role: REVIEWER_ROLE
       )
 
-      review.update!(
-        status: "action_required",
-        framework: FRAMEWORK,
-        positives: ["GitHub marker search ran before creating another Issue."],
-        improvements: [detail, "Do not retry publish until a reviewer confirms the correct GitHub Issue state."],
-        priority: ["P0: Resolve GitHub publish reconciliation before re-publishing."],
-        next_actions: next_actions(code, matches),
-        issue_numbers: ["ISSUE-004"],
-        resolution_note: nil
-      )
+      transition_service.mark_action_required!(
+        review: review,
+      reason_code: code,
+      reason_text: detail,
+      attributes: {
+          framework: FRAMEWORK,
+          positives: ["GitHub marker search ran before creating another Issue."],
+          improvements: [detail, "Do not retry publish until a reviewer confirms the correct GitHub Issue state."],
+          priority: ["P0: Resolve GitHub publish reconciliation before re-publishing."],
+          next_actions: next_actions(code, matches),
+          issue_numbers: ["ISSUE-004"],
+          resolution_note: nil
+      }
+    )
 
       review
     end
@@ -167,16 +171,25 @@ module GithubIssuePublish
       review = active_review_blocker
       return unless review && review.status != "accepted_risk"
 
+      transition_service.resolve!(
+        review: review,
+        resolution_note: "GitHub publish reconciliation resolved at #{Time.current.iso8601}.",
+        reason_code: "github_reconciliation_resolved",
+        issue_numbers: ["ISSUE-004"]
+      )
+
       review.update!(
-        status: "resolved",
         framework: FRAMEWORK,
         positives: ["One GitHub Issue marker match was reconciled."],
         improvements: ["No active GitHub publish reconciliation blocker remains."],
         priority: ["P0: Keep publish reconciliation clear before implementation starts."],
         next_actions: ["Proceed with the reconciled GitHub Issue link."],
-        issue_numbers: ["ISSUE-004"],
-        resolution_note: "GitHub publish reconciliation resolved at #{Time.current.iso8601}."
+        issue_numbers: ["ISSUE-004"]
       )
+    end
+
+    def transition_service
+      @transition_service ||= ReviewTransitionService.new(project: project, actor_id: "system", sensitive_handling: :redact)
     end
 
     def active_review_blocker

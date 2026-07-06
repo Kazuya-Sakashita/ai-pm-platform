@@ -47,8 +47,10 @@ Rails.application.routes.draw do
         post "validate", on: :member
       end
       resources :reviews, only: %i[index create] do
+        get "events", to: "reviews#events", on: :member
         post "resolve-action", to: "reviews#resolve_action", on: :member
         post "accept-risk", to: "reviews#accept_risk", on: :member
+        post "reopen", to: "reviews#reopen", on: :member
       end
       resources :jobs, only: %i[show]
       get "operations/queue-health", to: "operations#queue_health"

@@ -58,6 +58,8 @@ AI議事録ツールとの差別化には、会議内容を実装可能な要件
 - `docs/review/20260707_requirement_stale_regeneration_ux_implementation_review.md`
 - `docs/review/20260707_requirement_history_timeline_design_review.md`
 - `docs/review/20260707_requirement_history_timeline_implementation_review.md`
+- `docs/review/20260707_review_state_transition_audit_design_review.md`
+- `docs/review/20260707_review_state_transition_audit_implementation_review.md`
 
 ## レビュー結果
 
@@ -246,14 +248,28 @@ AI議事録ツールとの差別化には、会議内容を実装可能な要件
 - `npm run frontend:e2e -- --grep "creates a project, saves a Discord log, generates minutes, and requests review"`: 1 passed
 - 判定: ISSUE-050のMVP要件は完了。PR CI通過後にGitHub #67をクローズし、Issue #3はISSUE-052、ISSUE-053、ISSUE-054の完了状況を見て最終クローズ判断する
 
+2026-07-07 08:08 JST追加:
+
+- ISSUE-054 / GitHub #73でReview状態遷移の厳密監査を実装
+- `review_state_events` を追加し、Review作成、対応要求、解決、リスク受容、再オープンをappend-onlyイベントとして保存できるようにした
+- `ReviewTransitionService` へ状態更新とイベント作成を集約し、`ReviewsController`、OpenAPI検証ゲート、GitHub publish reconciliation blockerから利用するようにした
+- リスク受容者はクライアント入力ではなく認証済みactor IDをサーバー側で保存するようにした
+- Review本文、解決メモ、リスク受容理由、残存リスクのsecret/PII検知時は422で保存しないようにした
+- Requirement履歴タイムラインはReview現在状態推測ではなく `ReviewStateEvent` を表示するようにした
+- `PATH=/Users/kazuya/.rbenv/versions/3.2.2/bin:$PATH bundle exec rspec`: 307 examples, 0 failures
+- `PATH=/Users/kazuya/.rbenv/versions/3.2.2/bin:$PATH bundle exec ruby bin/rails zeitwerk:check`: All is good
+- `npm run api:verify`: 成功
+- `npm run display:check`: 成功
+- `npm run frontend:build`: 成功
+- `npm run frontend:e2e -- --grep "creates a project, saves a Discord log, generates minutes, and requests review"`: 1 passed
+- 判定: ISSUE-054のMVP要件は完了。PR CI通過後にGitHub #73をクローズし、Issue #3はISSUE-052とISSUE-053の完了状況を見て最終クローズ判断する
+
 未完了:
 
 - ISSUE-052: Requirement生成OpenAI provider比較
 - ISSUE-053: Requirement Workspaceの未決事項、リスク、差分強調UX
-- ISSUE-054: Review状態遷移の厳密監査
 
 ## 次アクション
 
 - ISSUE-052は既存provider実装を読み、OpenAI provider比較の設計レビューから始める
 - ISSUE-053はRequirement履歴タイムラインと衝突しない範囲で画面改善を進める
-- ISSUE-054はReview状態遷移イベントのDB/API設計レビューから始める
