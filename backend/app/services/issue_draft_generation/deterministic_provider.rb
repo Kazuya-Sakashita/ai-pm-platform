@@ -15,38 +15,38 @@ module IssueDraftGeneration
     def title(requirement)
       source = requirement.goal.presence ||
                Array(requirement.functional_requirements).first ||
-               "Implement approved requirement"
+               "承認済み要件を実装する"
       normalized = source.to_s.gsub(/\AFR-\d+:\s*/, "").strip
-      normalized = "Implement approved requirement" if normalized.empty?
+      normalized = "承認済み要件を実装する" if normalized.empty?
       normalized[0, 120]
     end
 
     def body(requirement)
       [
-        "## Background",
+        "## 背景",
         requirement.background,
         "",
-        "## Goal",
+        "## 目的",
         requirement.goal,
         "",
-        list_section("User Stories", requirement.user_stories),
-        list_section("Functional Requirements", requirement.functional_requirements),
-        list_section("Non-Functional Requirements", requirement.non_functional_requirements),
-        list_section("Acceptance Criteria", requirement.acceptance_criteria),
-        list_section("Out of Scope", requirement.out_of_scope),
-        list_section("Open Questions", requirement.open_questions),
-        list_section("Risks", requirement.risks),
-        "## Review Gate",
-        "- Requirement status: #{requirement.status}",
-        "- Generated from Requirement ID: #{requirement.id}",
-        "- Human review is required before implementation."
+        list_section("ユーザーストーリー", requirement.user_stories),
+        list_section("機能要件", requirement.functional_requirements),
+        list_section("非機能要件", requirement.non_functional_requirements),
+        list_section("完了条件", requirement.acceptance_criteria),
+        list_section("スコープ外", requirement.out_of_scope),
+        list_section("未決事項", requirement.open_questions),
+        list_section("リスク", requirement.risks),
+        "## レビューゲート",
+        "- 要件ステータス: #{requirement.status}",
+        "- 生成元要件ID: #{requirement.id}",
+        "- 実装前に人間レビューが必要です。"
       ].flatten.join("\n").strip
     end
 
     def list_section(title, values)
       items = Array(values).map(&:to_s).map(&:strip).reject(&:empty?)
       lines = ["## #{title}"]
-      lines += items.any? ? items.map { |item| "- #{item}" } : ["- None"]
+      lines += items.any? ? items.map { |item| "- #{item}" } : ["- 未設定"]
       lines << ""
       lines
     end

@@ -25,7 +25,7 @@ module MinutesGeneration
 
     def summary
       first_lines = lines.first(3).join(" ")
-      first_lines.empty? ? "No meeting content was provided." : first_lines[0, 500]
+      first_lines.empty? ? "会議内容が入力されていません。" : first_lines[0, 500]
     end
 
     def decisions

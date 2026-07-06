@@ -16,6 +16,32 @@ VISIBLE_ATTRIBUTE_PATTERN = /\b(?:aria-label|placeholder|title|alt)=["']([^"']*[
 VISIBLE_PROPERTY_PATTERN = /^\s*(?:title|description|label|placeholder):\s*"([^"]*[A-Za-z][^"]*)"/
 VISIBLE_FUNCTION_PATTERN = /\b(?:setStatusMessage|setErrorMessage|setFormError)\("([^"]*[A-Za-z][^"]*)"\)/
 JSX_TEXT_PATTERN = %r{(?<!/)>([^<>{}\n]*[A-Za-z][^<>{}\n]*)<}
+BACKEND_USER_MESSAGE_FILES = Dir.glob(File.join(ROOT, "backend/app/{controllers,services}/**/*.rb")).sort
+BACKEND_USER_MESSAGE_PATTERNS = [
+  ["safe_detail", /safe_detail:\s*"([^"]*[A-Za-z][^"]*)"/],
+  ["safe_error_detail", /safe_error_detail:\s*"([^"]*[A-Za-z][^"]*)"/],
+  ["render_error", /render_error\(\s*"[^"]+"\s*,\s*"([^"]*[A-Za-z][^"]*)"/m],
+  ["manual_reconciliation_error", /raise_manual_error\(\s*"[^"]+"\s*,\s*"([^"]*[A-Za-z][^"]*)"/m],
+  ["publish_gate_error", /blocked\(\s*"[^"]+"\s*,\s*"([^"]*[A-Za-z][^"]*)"/m],
+  ["github_safe_fallback", /safe_github_error\(\s*response\s*,\s*"([^"]*[A-Za-z][^"]*)"/],
+  ["github_account_error", /mark_account_error\(\s*account\s*,\s*"([^"]*[A-Za-z][^"]*)"/],
+  ["publish_reconciliation_detail", /RECONCILIATION_REQUIRED_DETAIL\s*=\s*"([^"]*[A-Za-z][^"]*)"/]
+].freeze
+AI_TEMPLATE_FILES = [
+  File.join(ROOT, "backend/app/services/issue_draft_generation/deterministic_provider.rb"),
+  File.join(ROOT, "backend/app/services/requirement_generation/deterministic_provider.rb"),
+  File.join(ROOT, "backend/app/services/open_api_draft_generation/deterministic_provider.rb"),
+  File.join(ROOT, "backend/app/services/minutes_generation/deterministic_provider.rb")
+].freeze
+AI_TEMPLATE_LEGACY_ENGLISH_PATTERNS = [
+  /"## (?:Background|Goal|User Stories|Functional Requirements|Non-Functional Requirements|Acceptance Criteria|Out of Scope|Open Questions|Risks|Review Gate)"/,
+  /"Implement approved requirement"/,
+  /"As a project member, I want /,
+  /"Given approved minutes, when /,
+  /"No meeting content was provided\."/,
+  /"OpenAPI draft: /,
+  /"Create an API endpoint for the approved requirement\."/
+].freeze
 
 def extract_ts_map(source, name)
   block = source[/const #{Regexp.escape(name)}: Record<string, string> = \{\n(.*?)\n\};/m, 1]
@@ -76,6 +102,45 @@ def check_visible_copy(errors)
         next unless english_only_visible_copy?(normalized)
 
         errors << "#{relative_path}:#{index + 1} #{kind} should be Japanese or explicitly allowlisted: #{normalized.inspect}"
+      end
+    end
+  end
+end
+
+def line_number_for(source, offset)
+  source[0...offset].count("\n") + 1
+end
+
+def check_backend_user_messages(errors, message_labels)
+  BACKEND_USER_MESSAGE_FILES.each do |path|
+    relative_path = path.delete_prefix("#{ROOT}/")
+    source = File.read(path)
+
+    BACKEND_USER_MESSAGE_PATTERNS.each do |kind, pattern|
+      source.to_enum(:scan, pattern).each do
+        match = Regexp.last_match
+        text = match[1].gsub(/\s+/, " ").strip
+        next if text.empty?
+        next if text.match?(JAPANESE_PATTERN)
+        next if message_labels[text]
+
+        line_number = line_number_for(source, match.begin(1))
+        errors << "#{relative_path}:#{line_number} #{kind} must be Japanese or registered in messageLabels: #{text.inspect}"
+      end
+    end
+  end
+end
+
+def check_ai_template_copy(errors)
+  AI_TEMPLATE_FILES.each do |path|
+    relative_path = path.delete_prefix("#{ROOT}/")
+    source = File.read(path)
+
+    AI_TEMPLATE_LEGACY_ENGLISH_PATTERNS.each do |pattern|
+      source.to_enum(:scan, pattern).each do
+        match = Regexp.last_match
+        line_number = line_number_for(source, match.begin(0))
+        errors << "#{relative_path}:#{line_number} generated artifact template should be Japanese: #{match[0].inspect}"
       end
     end
   end
@@ -143,6 +208,8 @@ target_expectations.each do |key, expected|
 end
 
 check_visible_copy(errors)
+check_backend_user_messages(errors, message_labels)
+check_ai_template_copy(errors)
 
 if errors.any?
   warn "Display label consistency check failed:"

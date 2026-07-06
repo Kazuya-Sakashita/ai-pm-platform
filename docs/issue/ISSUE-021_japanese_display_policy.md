@@ -59,16 +59,19 @@ AI PM Platformは日本語で運用されるプロジェクト管理・議事録
 - `docs/review/20260704_queue_health_japanese_ui_copy_review.md`
 - `docs/review/20260704_hardcoded_english_ui_copy_check_review.md`
 - `docs/review/20260706_japanese_display_policy_next_preparation_review.md`
+- `docs/review/20260706_japanese_display_policy_backend_ai_template_review.md`
 
 ## レビュー結果
 
-2026-07-01にCodex一次レビューを実施。日本語表示ポリシーとして妥当。追加で日本語UI用語集を作成し、主要ステータス、ボタン、ラベル、エラー文言テンプレートを整理した。Frontendの主要画面へ日本語表示を適用し、`statusLabel` / `targetLabel` / `displayMessage` で内部値と表示文言を分離した。さらに表示変換helper/mapを `frontend/lib/display-labels.ts` へ共通化した。Playwrightで主要導線、失敗導線、pending/link/validation reconciliation導線を日本語UI文言で確認した。2026-07-04に `scripts/check-display-labels.rb` と `npm run display:check` を追加し、日本語UI用語集、`display-labels.ts`、OpenAPIのGitHub照合履歴status enumの整合を静的確認できるようにした。同日にCI workflowへ `npm run display:check` を追加し、main反映前に表示ラベル劣化を検知できるようにした。API safe detail本体の日本語化範囲整理、AI生成テンプレート日本語統一、視覚回帰確認は未完了。
+2026-07-01にCodex一次レビューを実施。日本語表示ポリシーとして妥当。追加で日本語UI用語集を作成し、主要ステータス、ボタン、ラベル、エラー文言テンプレートを整理した。Frontendの主要画面へ日本語表示を適用し、`statusLabel` / `targetLabel` / `displayMessage` で内部値と表示文言を分離した。さらに表示変換helper/mapを `frontend/lib/display-labels.ts` へ共通化した。Playwrightで主要導線、失敗導線、pending/link/validation reconciliation導線を日本語UI文言で確認した。2026-07-04に `scripts/check-display-labels.rb` と `npm run display:check` を追加し、日本語UI用語集、`display-labels.ts`、OpenAPIのGitHub照合履歴status enumの整合を静的確認できるようにした。同日にCI workflowへ `npm run display:check` を追加し、main反映前に表示ラベル劣化を検知できるようにした。2026-07-06にAPI safe detailの主要表示範囲とAI生成テンプレートの日本語統一を追加で実施した。視覚回帰確認はP2継続改善として残る。
 
 2026-07-04にQueue health監視MVP追加後のUIコピーを確認し、運用監視パネル内の `Worker`、`Failed`、`Recurring`、`stale`、`Queue health` などの英語表示を日本語へ修正した。内部queue名やAPI enumは英語のまま維持し、ユーザーが読むラベル、aria-label、空状態、集計表示のみを日本語化した。
 
 2026-07-04に `display:check` へ直書き英語UIコピー検出を追加した。対象はFrontend app配下のJSX text、`aria-label`、`placeholder`、`title`、`alt`、表示系property、status/error message setterに限定し、API enumや内部識別子へ過剰反応しないようにした。あわせてmetadata description、GitHub単独ラベル、公開済みGitHub Issue見出しを日本語文脈へ修正し、E2E期待値も更新した。
 
 2026-07-06に次回着手準備レビューを実施した。UI表示、status label、target label、safe messageの日本語化、`display:check`、GitHub/レビュー/コミット文面の日本語統一ルールは整っている。次回はBackend safe detailとAI生成テンプレートの日本語棚卸しを行い、不足が小さければ#21のクローズ判定へ進む。
+
+2026-07-06にBackend安全文言とAI生成テンプレートの実装レビューを実施した。`display:check` を拡張し、Backendの `safe_detail`、`safe_error_detail`、`render_error`、GitHub公開ゲート、手動照合エラー、GitHub safe fallbackが日本語または `messageLabels` 登録済みであることを検査できるようにした。`messageLabels` は86件へ拡張し、OpenAI、GitHub App、GitHub公開照合、Issue/Requirement/OpenAPI生成ゲート、運用/レビューAPIの主要エラーを日本語表示できるようにした。Issueドラフト、要件定義、OpenAPIドラフト、議事録の生成テンプレートを日本語へ寄せ、OpenAI向けプロンプトも日本語標準へ更新した。P1完了条件は満たしたため、CI成功後にGitHub Issue #21をクローズする判定とした。
 
 良かった点:
 
@@ -81,14 +84,15 @@ AI PM Platformは日本語で運用されるプロジェクト管理・議事録
 - CI workflowへ `npm run display:check` を追加し、表示ラベルのズレを継続的に検知できるようにした。
 - Queue health監視パネルの主要ラベル、aria-label、空状態、集計表示を日本語化した。
 - Frontend app配下の可視コピーに英語のみ文字列が混入した場合、`npm run display:check` で検出できるようにした。
+- Backend安全文言とAI生成テンプレートの主要な英語残存を `npm run display:check` で検出できるようにした。
+- AI生成テンプレートとOpenAIプロンプトを日本語標準へ寄せ、生成物の日本語一貫性を高めた。
 
 改善点:
 
-- Backend safe detailはまだ英語が中心で、Frontend側のmessage mapに依存している。
-- AI生成されるIssue/Review/要件定義テンプレートの日本語統一は未完了。
 - スクリーンショットによる狭幅/視覚回帰確認は未実施。
 - 用語集ドキュメントと `display-labels.ts` の自動整合チェック、およびCI workflowへの組み込みは実装済み。
-- 直書き英語UIコピーの初期検出は実装済み。ただしBackend safe detail、AI生成テンプレート、複雑なJSX式の完全検出は未対応。
+- 直書き英語UIコピーの初期検出は実装済み。ただし複雑なJSX式と任意英語文の意味的検出は完全ではない。
+- Backend safe detailとAI生成テンプレートの主要範囲は検査対象へ追加済み。ただし動的providerメッセージと任意英語文の意味的検出は完全ではない。
 - CIでの狭幅スクリーンショット、支援技術確認、視覚回帰確認は未実装。
 
 検証結果:
@@ -110,6 +114,11 @@ AI PM Platformは日本語で運用されるプロジェクト管理・議事録
 - 2026-07-04 hardcoded English UI copy check: `npm run frontend:e2e -- --grep "links an existing GitHub Issue|shows repository validation errors"`: 2 passed
 - 2026-07-06 next preparation: `npm run display:check`: success（52 messages、53 statuses、5 targets）
 - 2026-07-06 next preparation: `npm run frontend:build`: success
+- 2026-07-06 backend safe detail / AI template: `npm run display:check`: success（86 messages、53 statuses、5 targets）
+- 2026-07-06 backend safe detail / AI template: `npm run api:verify`: success
+- 2026-07-06 backend safe detail / AI template: `npm run frontend:build`: success
+- 2026-07-06 backend safe detail / AI template: `bundle exec rspec spec/services/issue_draft_generation_service_spec.rb spec/services/requirement_generation_service_spec.rb spec/services/open_api_draft_generation_service_spec.rb spec/services/minutes_generation/openai_provider_spec.rb spec/services/conversation_summary_generation/openai_provider_spec.rb`: 15 examples、0 failures
+- 2026-07-06 backend safe detail / AI template: `bundle exec rspec spec/services/issue_draft_publish_gate_spec.rb spec/requests/api/v1/issue_drafts_spec.rb spec/services/github_issue_publish/manual_reconciliation_service_spec.rb spec/services/github_issue_publish/github_app_provider_spec.rb spec/services/github_integration/installation_verifier_spec.rb`: 48 examples、0 failures
 
 ## 優先度
 
@@ -123,13 +132,10 @@ P1
 
 ## 次アクション
 
-- API safe detailの日本語化範囲を整理する
-- AI生成されるIssue/Review/要件定義テンプレートを日本語運用へ寄せる
-- 日本語UIのスクリーンショット/狭幅表示確認を追加する
-- CI上の `display:check` 成功をGitHub Actionsで確認する
-- 直書き英語UIコピー検出をBackend safe detailとAI生成テンプレートへ拡張する
-- 日本語表示レビューの外部AIレビュー結果を追記する
-- 次回着手時は、Backend safe detailとAI生成テンプレートを短時間で棚卸しし、クローズ判定または個別Issue分割を判断する
+- PR CIで `display:check`、Backendテスト、Frontendビルドの成功を確認する
+- CI成功後にGitHub Issue #21をクローズする
+- 日本語UIのスクリーンショット/狭幅表示確認はP2継続改善として別Issue候補にする
+- 日本語表示レビューの外部AIレビュー結果が追加された場合は差分を追記する
 
 ## 関連ドキュメント
 
