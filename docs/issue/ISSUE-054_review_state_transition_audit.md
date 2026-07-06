@@ -9,7 +9,7 @@ ISSUE-054
 https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/73
 
 登録日: 2026-07-07
-状態: OPEN
+状態: OPEN（実装完了、PR CI確認待ち）
 
 ## 背景
 
@@ -48,6 +48,8 @@ Reviewの状態変更を監査可能なイベントとして保存し、Requirem
 
 - `docs/review/20260707_requirement_history_timeline_design_review.md`
 - `docs/review/20260707_requirement_history_timeline_implementation_review.md`
+- `docs/review/20260707_review_state_transition_audit_design_review.md`
+- `docs/review/20260707_review_state_transition_audit_implementation_review.md`
 
 ## レビュー結果
 
@@ -59,8 +61,32 @@ P1
 
 ## 次アクション
 
-1. Review状態遷移イベントのデータモデルを設計する。
-2. OpenAPIへReview event APIまたは既存Review response拡張を追加する。
-3. `ReviewsController` のcreate、resolve、accept riskへイベント記録を追加する。
-4. Requirement履歴APIへReview eventを統合する。
-5. RSpecとPlaywrightで監査タイムラインを検証する。
+1. PR CIとmain CIを確認する。
+2. CI通過後にGitHub Issue #73をクローズする。
+3. Manual reconciliation actor引き継ぎとReviewEventページングを後続Issue化するか判断する。
+4. 次はISSUE-052またはISSUE-053を優先する。
+
+## 実装メモ
+
+2026-07-07 08:08 JST追加:
+
+- `review_state_events` テーブルと `ReviewStateEvent` modelを追加した。
+- 既存Reviewを `legacy_backfill` として状態遷移イベントへbackfillし、actor不明は `actor_unknown` として明示した。
+- `ReviewTransitionService` を追加し、Review作成、対応要求、解決、リスク受容、再オープンを状態更新とイベント作成の同一transactionで処理するようにした。
+- `accept_risk.approved_by` はクライアント入力ではなく認証済みactor IDをサーバー側で設定するようにした。
+- ユーザー入力のReview本文、解決メモ、リスク受容理由、残存リスクは `SensitiveContentScanner` で検査し、secret/PII検知時は422で保存しないようにした。
+- `GET /api/v1/reviews/{review_id}/events` と `POST /api/v1/reviews/{review_id}/reopen` を追加した。
+- OpenAPI検証ゲートとGitHub publish reconciliation blockerを `ReviewTransitionService` 経由へ移した。
+- Manual GitHub reconciliationではUI操作actorを `ReviewTransitionService` へ渡し、状態遷移イベントのactorに保存するようにした。
+- `RequirementHistoryQuery` をReview現在状態推測から `ReviewStateEvent` 参照へ切り替えた。
+- Requirement Workspaceの履歴タイムラインでReview状態遷移のactor、状態、理由要約、関連Issueを表示するようにした。
+
+## 検証結果
+
+- `PATH=/Users/kazuya/.rbenv/versions/3.2.2/bin:$PATH RAILS_ENV=test bundle exec rails db:migrate`
+- `PATH=/Users/kazuya/.rbenv/versions/3.2.2/bin:$PATH bundle exec rspec`: 307 examples, 0 failures
+- `PATH=/Users/kazuya/.rbenv/versions/3.2.2/bin:$PATH bundle exec ruby bin/rails zeitwerk:check`: All is good
+- `npm run api:verify`
+- `npm run display:check`
+- `npm run frontend:build`
+- `npm run frontend:e2e -- --grep "creates a project, saves a Discord log, generates minutes, and requests review"`: 1 passed

@@ -22,15 +22,19 @@ class OpenApiDraftReviewGateService
       reviewer_role: REVIEWER_ROLE
     )
 
-    review.update!(
-      status: "action_required",
-      framework: FRAMEWORK,
-      positives: ["OpenAPI validation ran and produced actionable findings."],
-      improvements: validation_messages.presence || ["OpenAPI draft is invalid and must be corrected before implementation."],
-      priority: ["P0: Fix OpenAPI validation errors before implementation or publish."],
-      next_actions: next_actions,
-      issue_numbers: ["ISSUE-004"],
-      resolution_note: nil
+    transition_service.mark_action_required!(
+      review: review,
+      reason_code: "openapi_validation_failed",
+      reason_text: validation_messages.first,
+      attributes: {
+        framework: FRAMEWORK,
+        positives: ["OpenAPI validation ran and produced actionable findings."],
+        improvements: validation_messages.presence || ["OpenAPI draft is invalid and must be corrected before implementation."],
+        priority: ["P0: Fix OpenAPI validation errors before implementation or publish."],
+        next_actions: next_actions,
+        issue_numbers: ["ISSUE-004"],
+        resolution_note: nil
+      }
     )
 
     review
@@ -40,18 +44,31 @@ class OpenApiDraftReviewGateService
     review = validation_review
     return unless review && review.status != "accepted_risk"
 
+    transition_service.resolve!(
+      review: review,
+      resolution_note: "OpenAPI validation passed at #{Time.current.iso8601}.",
+      reason_code: "openapi_validation_passed",
+      issue_numbers: ["ISSUE-004"]
+    )
+
     review.update!(
-      status: "resolved",
       framework: FRAMEWORK,
       positives: ["OpenAPI validation passed."],
       improvements: ["No active OpenAPI validation blocker remains."],
       priority: ["P0: Keep OpenAPI validation green before implementation or publish."],
       next_actions: ["Proceed to human API review or GitHub Issue publication gate."],
-      issue_numbers: ["ISSUE-004"],
-      resolution_note: "OpenAPI validation passed at #{Time.current.iso8601}."
+      issue_numbers: ["ISSUE-004"]
     )
 
     review
+  end
+
+  def transition_service
+    @transition_service ||= ReviewTransitionService.new(
+      project: open_api_draft.requirement.minute.meeting.project,
+      actor_id: "system",
+      sensitive_handling: :redact
+    )
   end
 
   def validation_review

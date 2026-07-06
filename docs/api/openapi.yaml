@@ -1221,6 +1221,27 @@ paths:
         "422":
           $ref: "#/components/responses/ValidationError"
 
+  /reviews/{review_id}/events:
+    get:
+      tags: [Reviews]
+      summary: List review state events
+      operationId: listReviewStateEvents
+      parameters:
+        - $ref: "#/components/parameters/ReviewId"
+      responses:
+        "200":
+          description: Review state events
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewStateEventListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /reviews/{review_id}/accept-risk:
     post:
       tags: [Reviews]
@@ -1247,6 +1268,37 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /reviews/{review_id}/reopen:
+    post:
+      tags: [Reviews]
+      summary: Reopen a review
+      operationId: reopenReview
+      parameters:
+        - $ref: "#/components/parameters/ReviewId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReopenReviewRequest"
+      responses:
+        "200":
+          description: Review reopened
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
         "422":
           $ref: "#/components/responses/ValidationError"
 
@@ -2730,10 +2782,10 @@ components:
           type: string
         source_type:
           type: string
-          enum: [audit_log, review]
+          enum: [audit_log, review, review_event]
         event_type:
           type: string
-          enum: [generated, generation_failed, updated, approved, review_requested, review_resolved, review_risk_accepted]
+          enum: [generated, generation_failed, updated, approved, review_requested, review_action_required, review_resolved, review_risk_accepted, review_reopened]
         title:
           type: string
         action:
@@ -2742,8 +2794,23 @@ components:
           type: string
         reviewer_role:
           type: string
+        review_id:
+          type: string
+          format: uuid
         review_status:
           $ref: "#/components/schemas/ReviewStatus"
+        from_status:
+          $ref: "#/components/schemas/ReviewStatus"
+        to_status:
+          $ref: "#/components/schemas/ReviewStatus"
+        reason_code:
+          type: string
+        reason_summary:
+          type: string
+        issue_numbers:
+          type: array
+          items:
+            type: string
         summary:
           type: string
         changed_fields:
@@ -3067,6 +3134,67 @@ components:
       type: string
       enum: [open, action_required, resolved, accepted_risk]
 
+    ReviewStateEventType:
+      type: string
+      enum: [review_requested, review_action_required, review_resolved, review_risk_accepted, review_reopened]
+
+    ReviewStateEvent:
+      type: object
+      required: [id, review_id, project_id, target_type, target_id, event_type, to_status, actor_id, issue_numbers, metadata, occurred_at, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        review_id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        target_type:
+          $ref: "#/components/schemas/ReviewTargetType"
+        target_id:
+          type: string
+        event_type:
+          $ref: "#/components/schemas/ReviewStateEventType"
+        from_status:
+          $ref: "#/components/schemas/ReviewStatus"
+        to_status:
+          $ref: "#/components/schemas/ReviewStatus"
+        actor_id:
+          type: string
+        reviewer_role:
+          type: string
+        reason_code:
+          type: string
+        reason_summary:
+          type: string
+          maxLength: 200
+        issue_numbers:
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+          additionalProperties: true
+        occurred_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+
+    ReviewStateEventListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReviewStateEvent"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+
     Review:
       type: object
       required: [id, target_type, target_id, status, reviewer_role, framework, positives, improvements, priority, next_actions, issue_numbers, created_at, updated_at]
@@ -3179,6 +3307,7 @@ components:
         resolution_note:
           type: string
           minLength: 1
+          maxLength: 1000
 
     AcceptReviewRiskRequest:
       type: object
@@ -3187,14 +3316,30 @@ components:
         reason:
           type: string
           minLength: 1
+          maxLength: 1000
         residual_risk:
           type: string
           minLength: 1
+          maxLength: 1000
         expires_at:
           type: string
           format: date-time
         linked_issue_number:
           type: string
+          minLength: 1
+
+    ReopenReviewRequest:
+      type: object
+      required: [reason_summary]
+      properties:
+        reason_summary:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        issue_numbers:
+          type: array
+          items:
+            type: string
 
     AcceptedRisk:
       type: object
@@ -3206,7 +3351,7 @@ components:
           type: string
         approved_by:
           type: string
-          format: uuid
+          description: リスク受容を実行した認証済みactor ID。クライアント入力ではなくサーバー側で設定する。
         expires_at:
           type: string
           format: date-time

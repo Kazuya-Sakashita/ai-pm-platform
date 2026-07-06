@@ -179,6 +179,7 @@ module Api
         result = GithubIssuePublish::ManualReconciliationService.new(
           attempt,
           github_reconciliation_resolution_params,
+          actor_id: current_actor_id,
           job: job
         ).call
         job.update!(status: "succeeded", progress: 100)

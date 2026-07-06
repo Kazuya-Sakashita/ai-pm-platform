@@ -14,9 +14,10 @@ module GithubIssuePublish
     FRAMEWORK = ReconciliationService::FRAMEWORK
     Result = Struct.new(:status, :review, :resolution_approver, :retry_reason_template, keyword_init: true)
 
-    def initialize(attempt, params, job: nil)
+    def initialize(attempt, params, actor_id: "system", job: nil)
       @attempt = attempt
       @params = params.to_h.symbolize_keys
+      @actor_id = actor_id.presence || "system"
       @job = job
     end
 
@@ -39,7 +40,7 @@ module GithubIssuePublish
 
     private
 
-    attr_reader :attempt, :params, :job
+    attr_reader :attempt, :params, :actor_id, :job
 
     def issue_draft
       @issue_draft ||= attempt.issue_draft
@@ -263,18 +264,27 @@ module GithubIssuePublish
       review = active_review_blocker
       return unless review && review.status != "accepted_risk"
 
+      transition_service.resolve!(
+        review: review,
+        resolution_note: note,
+        reason_code: "manual_github_reconciliation_resolved",
+        issue_numbers: ["ISSUE-004"]
+      )
+
       review.update!(
-        status: "resolved",
         framework: FRAMEWORK,
         positives: ["Manual GitHub publish reconciliation was reviewed."],
         improvements: ["No active GitHub publish reconciliation blocker remains."],
         priority: ["P0: Keep manual reconciliation audit trail attached to the Issue Draft."],
         next_actions: ["Proceed according to the selected manual reconciliation action."],
-        issue_numbers: ["ISSUE-004"],
-        resolution_note: note
+        issue_numbers: ["ISSUE-004"]
       )
 
       review
+    end
+
+    def transition_service
+      @transition_service ||= ReviewTransitionService.new(project: project, actor_id: actor_id, sensitive_handling: :redact)
     end
 
     def active_review_blocker

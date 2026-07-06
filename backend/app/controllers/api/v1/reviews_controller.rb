@@ -16,32 +16,55 @@ module Api
         return unless target_project
         return unless authorize_project_role!(target_project, action: "review_create", allowed_roles: project_review_roles)
 
-        review = Review.create!(review_params.merge(status: "open"))
+        review = transition_service(target_project).create!(review_params)
         render json: { data: review.api_json }, status: :created
       end
 
-      def resolve_action
-        return unless authorize_review!("review_resolve", project_review_roles)
+      def events
+        return unless authorize_review!("review_events_read", project_read_roles)
 
-        review.update!(status: "resolved", resolution_note: params.require(:resolution_note))
-        render json: { data: review.api_json }
+        events = review.review_state_events.order(occurred_at: :desc, created_at: :desc)
+        render json: { data: events.map(&:api_json), meta: pagination_meta(events) }
+      end
+
+      def resolve_action
+        target_project = authorize_review!("review_resolve", project_review_roles)
+        return unless target_project
+
+        target_review = review
+        updated_review = transition_service(target_project).resolve!(
+          review: target_review,
+          resolution_note: params.require(:resolution_note)
+        )
+        render json: { data: updated_review.api_json }
       end
 
       def accept_risk
-        return unless authorize_review!("review_accept_risk", project_review_roles)
+        target_project = authorize_review!("review_accept_risk", project_review_roles)
+        return unless target_project
 
-        review.update!(
-          status: "accepted_risk",
-          accepted_risk: {
-            reason: params.require(:reason),
-            residual_risk: params.require(:residual_risk),
-            approved_by: params[:approved_by],
-            expires_at: params.require(:expires_at),
-            linked_issue_number: params.require(:linked_issue_number),
-            accepted_at: Time.current.iso8601
-          }
+        target_review = review
+        updated_review = transition_service(target_project).accept_risk!(
+          review: target_review,
+          reason: params.require(:reason),
+          residual_risk: params.require(:residual_risk),
+          expires_at: params.require(:expires_at),
+          linked_issue_number: params.require(:linked_issue_number)
         )
-        render json: { data: review.api_json }
+        render json: { data: updated_review.api_json }
+      end
+
+      def reopen
+        target_project = authorize_review!("review_reopen", project_review_roles)
+        return unless target_project
+
+        target_review = review
+        updated_review = transition_service(target_project).reopen!(
+          review: target_review,
+          reason_summary: params.require(:reason_summary),
+          issue_numbers: params[:issue_numbers]
+        )
+        render json: { data: updated_review.api_json }
       end
 
       private
@@ -56,7 +79,13 @@ module Api
         target_project = project_for_review_target(review.target_type, review.target_id)
         return false unless target_project
 
-        authorize_project_role!(target_project, action: action, allowed_roles: allowed_roles)
+        return false unless authorize_project_role!(target_project, action: action, allowed_roles: allowed_roles)
+
+        target_project
+      end
+
+      def transition_service(project)
+        ReviewTransitionService.new(project: project, actor_id: current_actor_id, sensitive_handling: :reject)
       end
 
       def scoped_reviews_for_read
@@ -140,6 +169,19 @@ module Api
           next_actions: [],
           issue_numbers: []
         )
+      end
+
+      rescue_from ReviewTransitionService::SensitiveContentError do |error|
+        render_error(
+          "sensitive_content_detected",
+          "レビュー本文に機密情報または個人情報の可能性がある内容が含まれています。伏字化してから保存してください。",
+          :unprocessable_entity,
+          error.details
+        )
+      end
+
+      rescue_from ReviewTransitionService::InvalidTransitionError do |error|
+        render_error(error.code, "レビュー状態の変更条件を満たしていません。", :conflict, error.details)
       end
     end
   end

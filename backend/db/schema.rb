@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_07_07_044800) do
+ActiveRecord::Schema[7.1].define(version: 2026_07_07_075900) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pgcrypto"
   enable_extension "plpgsql"
@@ -346,6 +346,30 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_07_044800) do
     t.index ["status"], name: "index_requirements_on_status"
   end
 
+  create_table "review_state_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "review_id", null: false
+    t.uuid "project_id", null: false
+    t.string "target_type", null: false
+    t.string "target_id", null: false
+    t.string "event_type", null: false
+    t.string "from_status"
+    t.string "to_status", null: false
+    t.string "actor_id", default: "system", null: false
+    t.string "reason_code"
+    t.string "reason_summary"
+    t.jsonb "issue_numbers", default: [], null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.datetime "occurred_at", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["event_type", "occurred_at"], name: "index_review_state_events_on_event_type_and_occurred_at"
+    t.index ["project_id", "occurred_at"], name: "index_review_state_events_on_project_id_and_occurred_at"
+    t.index ["project_id"], name: "index_review_state_events_on_project_id"
+    t.index ["review_id", "occurred_at"], name: "index_review_state_events_on_review_id_and_occurred_at"
+    t.index ["review_id"], name: "index_review_state_events_on_review_id"
+    t.index ["target_type", "target_id", "occurred_at"], name: "idx_on_target_type_target_id_occurred_at_ceaa381147"
+  end
+
   create_table "reviews", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "target_type", null: false
     t.string "target_id", null: false
@@ -399,5 +423,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_07_044800) do
   add_foreign_key "open_api_drafts", "requirements"
   add_foreign_key "project_memberships", "projects"
   add_foreign_key "requirements", "minutes", column: "minutes_id"
+  add_foreign_key "review_state_events", "projects"
+  add_foreign_key "review_state_events", "reviews"
   add_foreign_key "security_events", "projects"
 end

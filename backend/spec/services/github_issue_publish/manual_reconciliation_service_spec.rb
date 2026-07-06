@@ -37,6 +37,7 @@ RSpec.describe GithubIssuePublish::ManualReconciliationService do
         github_issue_api_id: 420,
         github_issue_node_id: "I_kwMANUAL"
       },
+      actor_id: "admin-actor",
       job: job
     ).call
 
@@ -49,6 +50,8 @@ RSpec.describe GithubIssuePublish::ManualReconciliationService do
     expect(attempt.github_issue_node_id).to eq("I_kwMANUAL")
     expect(review.reload.status).to eq("resolved")
     expect(review.resolution_note).to include("Reviewed duplicate candidates")
+    event = review.review_state_events.find_by!(event_type: "review_resolved")
+    expect(event.actor_id).to eq("admin-actor")
     audit_log = project.audit_logs.find_by!(action: "issue_draft.github_publish_manually_reconciled")
     expect(audit_log.metadata).to include("attempt_id" => attempt.id, "job_id" => job.id, "github_issue_number" => 42)
   end

@@ -597,6 +597,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/reviews/{review_id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List review state events */
+        get: operations["listReviewStateEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/reviews/{review_id}/accept-risk": {
         parameters: {
             query?: never;
@@ -608,6 +625,23 @@ export interface paths {
         put?: never;
         /** Mark review blocker as accepted risk */
         post: operations["acceptReviewRisk"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reviews/{review_id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reopen a review */
+        post: operations["reopenReview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1195,14 +1229,21 @@ export interface components {
         RequirementHistoryItem: {
             id: string;
             /** @enum {string} */
-            source_type: "audit_log" | "review";
+            source_type: "audit_log" | "review" | "review_event";
             /** @enum {string} */
-            event_type: "generated" | "generation_failed" | "updated" | "approved" | "review_requested" | "review_resolved" | "review_risk_accepted";
+            event_type: "generated" | "generation_failed" | "updated" | "approved" | "review_requested" | "review_action_required" | "review_resolved" | "review_risk_accepted" | "review_reopened";
             title: string;
             action?: string;
             actor_id?: string;
             reviewer_role?: string;
+            /** Format: uuid */
+            review_id?: string;
             review_status?: components["schemas"]["ReviewStatus"];
+            from_status?: components["schemas"]["ReviewStatus"];
+            to_status?: components["schemas"]["ReviewStatus"];
+            reason_code?: string;
+            reason_summary?: string;
+            issue_numbers?: string[];
             summary?: string;
             changed_fields?: string[];
             changes?: components["schemas"]["RequirementHistoryChange"][];
@@ -1351,6 +1392,37 @@ export interface components {
         ReviewTargetType: "meeting" | "conversation_import" | "conversation_summary_draft" | "minutes" | "requirement" | "issue_draft" | "openapi_draft" | "architecture" | "security" | "release";
         /** @enum {string} */
         ReviewStatus: "open" | "action_required" | "resolved" | "accepted_risk";
+        /** @enum {string} */
+        ReviewStateEventType: "review_requested" | "review_action_required" | "review_resolved" | "review_risk_accepted" | "review_reopened";
+        ReviewStateEvent: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            review_id: string;
+            /** Format: uuid */
+            project_id: string;
+            target_type: components["schemas"]["ReviewTargetType"];
+            target_id: string;
+            event_type: components["schemas"]["ReviewStateEventType"];
+            from_status?: components["schemas"]["ReviewStatus"];
+            to_status: components["schemas"]["ReviewStatus"];
+            actor_id: string;
+            reviewer_role?: string;
+            reason_code?: string;
+            reason_summary?: string;
+            issue_numbers: string[];
+            metadata: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            occurred_at: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        ReviewStateEventListResponse: {
+            data: components["schemas"]["ReviewStateEvent"][];
+            meta: components["schemas"]["PaginationMeta"];
+        };
         Review: {
             /** Format: uuid */
             id: string;
@@ -1398,10 +1470,14 @@ export interface components {
             expires_at: string;
             linked_issue_number: string;
         };
+        ReopenReviewRequest: {
+            reason_summary: string;
+            issue_numbers?: string[];
+        };
         AcceptedRisk: {
             reason: string;
             residual_risk: string;
-            /** Format: uuid */
+            /** @description リスク受容を実行した認証済みactor ID。クライアント入力ではなくサーバー側で設定する。 */
             approved_by: string;
             /** Format: date-time */
             expires_at: string;
@@ -3148,6 +3224,31 @@ export interface operations {
             422: components["responses"]["ValidationError"];
         };
     };
+    listReviewStateEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: components["parameters"]["ReviewId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Review state events */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewStateEventListResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     acceptReviewRisk: {
         parameters: {
             query?: never;
@@ -3175,6 +3276,37 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    reopenReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: components["parameters"]["ReviewId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReopenReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Review reopened */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
             422: components["responses"]["ValidationError"];
         };
     };

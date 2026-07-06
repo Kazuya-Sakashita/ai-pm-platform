@@ -100,6 +100,14 @@ RSpec.describe GithubIssuePublish::ReconciliationService do
     )
     expect(review.status).to eq("action_required")
     expect(review.improvements.join(" ")).to include("No GitHub Issue marker match")
+    event = review.review_state_events.find_by!(event_type: "review_action_required")
+    expect(event).to have_attributes(
+      project_id: project.id,
+      actor_id: "system",
+      from_status: nil,
+      to_status: "action_required",
+      reason_code: "github_publish_reconciliation_no_match"
+    )
     audit_log = project.audit_logs.find_by!(action: "issue_draft.github_publish_reconciliation_blocked")
     expect(audit_log.metadata).to include("attempt_id" => attempt.id, "match_count" => 0, "review_id" => review.id, "search_total_count" => 0)
   end

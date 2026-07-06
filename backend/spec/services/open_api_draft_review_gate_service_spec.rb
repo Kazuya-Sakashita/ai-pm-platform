@@ -22,6 +22,13 @@ RSpec.describe OpenApiDraftReviewGateService do
     expect(review.framework).to include("OpenAPI Validation", "G-STACK")
     expect(review.improvements.first).to include("$.paths empty_paths")
     expect(review.next_actions.first).to include("Fix $.paths")
+    event = review.review_state_events.find_by!(event_type: "review_action_required")
+    expect(event).to have_attributes(
+      project_id: open_api_draft.requirement.minute.meeting.project.id,
+      actor_id: "system",
+      from_status: nil,
+      to_status: "action_required"
+    )
   end
 
   it "updates the existing validation blocker instead of duplicating it" do
@@ -62,6 +69,13 @@ RSpec.describe OpenApiDraftReviewGateService do
     expect(resolved_review.id).to eq(review.id)
     expect(resolved_review.status).to eq("resolved")
     expect(resolved_review.resolution_note).to include("OpenAPI validation passed")
+    event = review.review_state_events.find_by!(event_type: "review_resolved")
+    expect(event).to have_attributes(
+      actor_id: "system",
+      from_status: "action_required",
+      to_status: "resolved",
+      reason_code: "openapi_validation_passed"
+    )
   end
 
   it "does not overwrite an accepted risk when validation passes" do
