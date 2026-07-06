@@ -1177,7 +1177,7 @@ export interface components {
             approval_note: string;
         };
         /** @enum {string} */
-        IssueDraftStatus: "draft" | "in_review" | "needs_changes" | "approved" | "publishing" | "published" | "publish_failed";
+        IssueDraftStatus: "draft" | "in_review" | "needs_changes" | "approved" | "publishing" | "published" | "publish_failed" | "stale";
         GitHubReconciliationStatus: {
             pending: boolean;
             /** Format: uuid */
@@ -1255,7 +1255,7 @@ export interface components {
             status?: components["schemas"]["IssueDraftStatus"];
         };
         /** @enum {string} */
-        OpenApiDraftStatus: "draft" | "invalid" | "valid" | "in_review" | "needs_changes" | "approved";
+        OpenApiDraftStatus: "draft" | "invalid" | "valid" | "in_review" | "needs_changes" | "approved" | "stale";
         OpenApiDraft: {
             /** Format: uuid */
             id: string;
