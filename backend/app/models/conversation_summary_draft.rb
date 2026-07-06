@@ -1,5 +1,6 @@
 class ConversationSummaryDraft < ApplicationRecord
   STATUSES = %w[draft needs_revision approved rejected stale].freeze
+  EDITABLE_STATUSES = %w[draft needs_revision].freeze
   ANONYMIZED_SUMMARY = "削除済み".freeze
   STORED_SUMMARY_PLACEHOLDER = "暗号化済み".freeze
   PROTECTED_PAYLOAD_DEFAULTS = {
@@ -53,6 +54,10 @@ class ConversationSummaryDraft < ApplicationRecord
       validation_errors: [],
       retention_expires_at: retention_expires_at || anonymized_at
     )
+  end
+
+  def editable?
+    EDITABLE_STATUSES.include?(status)
   end
 
   def api_json
