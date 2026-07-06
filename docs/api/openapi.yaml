@@ -2712,7 +2712,7 @@ components:
 
     IssueDraftStatus:
       type: string
-      enum: [draft, in_review, needs_changes, approved, publishing, published, publish_failed]
+      enum: [draft, in_review, needs_changes, approved, publishing, published, publish_failed, stale]
 
     GitHubReconciliationStatus:
       type: object
@@ -2869,7 +2869,7 @@ components:
 
     OpenApiDraftStatus:
       type: string
-      enum: [draft, invalid, valid, in_review, needs_changes, approved]
+      enum: [draft, invalid, valid, in_review, needs_changes, approved, stale]
 
     OpenApiDraft:
       type: object

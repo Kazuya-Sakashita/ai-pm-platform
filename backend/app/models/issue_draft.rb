@@ -1,5 +1,5 @@
 class IssueDraft < ApplicationRecord
-  STATUSES = %w[draft in_review needs_changes approved publishing published publish_failed].freeze
+  STATUSES = %w[draft in_review needs_changes approved publishing published publish_failed stale].freeze
 
   belongs_to :requirement
   has_many :github_issue_publish_attempts, dependent: :destroy

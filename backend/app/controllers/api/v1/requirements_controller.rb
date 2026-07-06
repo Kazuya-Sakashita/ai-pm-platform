@@ -78,7 +78,11 @@ module Api
           actor_id: current_actor_id,
           metadata: {
             changed_fields: revision.changed_fields,
-            approval_reset: revision.approval_reset
+            approval_reset: revision.approval_reset,
+            stale_issue_draft_ids: revision.stale_issue_draft_ids,
+            stale_issue_draft_count: revision.stale_issue_draft_ids.size,
+            stale_open_api_draft_ids: revision.stale_open_api_draft_ids,
+            stale_open_api_draft_count: revision.stale_open_api_draft_ids.size
           }
         )
         render json: { data: requirement.api_json }

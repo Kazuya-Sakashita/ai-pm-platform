@@ -904,6 +904,14 @@ test.describe("Meeting Workspace", () => {
     await expect(page.locator("#issue-draft").getByRole("button", { name: "マーカー検索" })).toHaveCount(0);
     await expect(page.getByLabel("GitHub連携").getByRole("button", { name: "GitHub連携を開始" })).toBeVisible();
     await expect(page.getByLabel("GitHub再接続").getByRole("button", { name: "GitHub連携を開始" })).toBeVisible();
+
+    await page.locator("#requirements").getByLabel("目的").fill("Updated requirement goal after downstream drafts.");
+    await page.getByRole("button", { name: "要件定義を保存", exact: true }).click();
+    await expect(page.locator("header").getByText("要件定義を保存しました")).toBeVisible();
+    await expect(page.locator("#requirements .panel-header .chip")).toHaveText("修正が必要");
+    await expect(page.locator("#issue-draft > .panel-header .chip")).toHaveText("再確認が必要");
+    await expect(page.locator("#openapi-draft > .panel-header .chip")).toHaveText("再確認が必要");
+    await expect(page.getByRole("button", { name: "GitHub Issueへ公開", exact: true })).toBeDisabled();
   });
 
   test("shows validation errors when required meeting fields are missing", async ({ page, request }) => {

@@ -1,5 +1,5 @@
 class OpenApiDraft < ApplicationRecord
-  STATUSES = %w[draft invalid valid in_review needs_changes approved].freeze
+  STATUSES = %w[draft invalid valid in_review needs_changes approved stale].freeze
 
   belongs_to :requirement, inverse_of: :open_api_drafts
 

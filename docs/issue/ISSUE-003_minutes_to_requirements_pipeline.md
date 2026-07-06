@@ -51,6 +51,8 @@ AI議事録ツールとの差別化には、会議内容を実装可能な要件
 - `docs/review/20260707_requirement_approval_audit_metadata_review.md`
 - `docs/review/20260707_requirement_blocker_details_design_review.md`
 - `docs/review/20260707_requirement_blocker_details_implementation_review.md`
+- `docs/review/20260707_downstream_draft_stale_design_review.md`
+- `docs/review/20260707_downstream_draft_stale_implementation_review.md`
 
 ## レビュー結果
 
@@ -186,15 +188,30 @@ AI議事録ツールとの差別化には、会議内容を実装可能な要件
 - `npm run frontend:e2e -- --grep "links an existing GitHub Issue from pending reconciliation"`: 1 passed
 - 判定: Requirement Workspaceでの承認ブロッカー詳細表示は完了。ただし下流draft stale化、差分履歴、OpenAI provider比較が残るためIssue #3は継続
 
+2026-07-07 06:58 JST追加:
+
+- OpenAPIの `IssueDraftStatus` と `OpenApiDraftStatus` に `stale` を追加
+- Backend modelとFrontend生成型を同期
+- `RequirementRevisionService` で承認済みRequirementのレビュー対象フィールドが変わる場合、関連Issue DraftとOpenAPI Draftを `stale` に更新
+- stale化はRequirement更新と同じトランザクション内で実施
+- AuditLog metadataへ `stale_issue_draft_ids`、`stale_issue_draft_count`、`stale_open_api_draft_ids`、`stale_open_api_draft_count` を保存
+- FrontendはRequirement保存時に既存の下流Draftを消さず、stale表示として「再確認が必要」を表示
+- Playwright happy pathで、Issue/OpenAPI Draft生成後のRequirement再編集により両Draftが「再確認が必要」になることを確認
+- `PATH=/Users/kazuya/.rbenv/versions/3.2.2/bin:$PATH bundle exec rspec spec/services/requirement_revision_service_spec.rb spec/requests/api/v1/requirements_spec.rb spec/requests/api/v1/issue_drafts_spec.rb spec/requests/api/v1/open_api_drafts_spec.rb`: 52 examples, 0 failures
+- `PATH=/Users/kazuya/.rbenv/versions/3.2.2/bin:$PATH bundle exec ruby bin/rails zeitwerk:check`: All is good
+- `npm run api:verify`: 成功
+- `npm run display:check`: 成功
+- `npm run frontend:build`: 成功
+- `npm run frontend:e2e -- --grep "creates a project, saves a Discord log, generates minutes, and requests review"`: 1 passed
+- 判定: Requirement差し戻し時の下流Issue/OpenAPI Draft stale化は完了。ただし差分履歴、stale後の再生成UX、OpenAI provider比較が残るためIssue #3は継続
+
 未完了:
 
 - OpenAI providerによるRequirement生成
 - Requirement Workspaceの差分、未決事項、リスク強調UX
-- Requirement差し戻し時の下流Issue/OpenAPI draft stale化
 - Requirement差分履歴
 
 ## 次アクション
 
-- PR CIでRequirement承認ブロッカー表示導線を確認する
-- Requirement差し戻し時の下流Issue/OpenAPI draft stale化を設計する
+- Requirement差分履歴とstale後の再生成UXを設計する
 - OpenAI providerを導入する場合は、同じfixtureでdeterministic providerと比較する

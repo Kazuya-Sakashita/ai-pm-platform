@@ -104,6 +104,8 @@ RSpec.describe "API V1 Requirements", type: :request do
         approval_note: "承認済み"
       )
       authorize_project(requirement.minute.meeting.project)
+      issue_draft = create(:issue_draft, requirement: requirement, status: "approved")
+      open_api_draft = create(:open_api_draft, requirement: requirement, status: "approved")
 
       patch "/api/v1/requirements/#{requirement.id}", params: {
         goal: "承認後に変更した目的"
@@ -119,9 +121,15 @@ RSpec.describe "API V1 Requirements", type: :request do
       expect(requirement.approved_at).to be_nil
       expect(requirement.approved_by).to be_nil
       expect(requirement.approval_note).to be_nil
+      expect(issue_draft.reload.status).to eq("stale")
+      expect(open_api_draft.reload.status).to eq("stale")
       expect(requirement.minute.meeting.project.audit_logs.last.metadata).to include(
         "approval_reset" => true,
-        "changed_fields" => ["goal"]
+        "changed_fields" => ["goal"],
+        "stale_issue_draft_ids" => [issue_draft.id],
+        "stale_issue_draft_count" => 1,
+        "stale_open_api_draft_ids" => [open_api_draft.id],
+        "stale_open_api_draft_count" => 1
       )
     end
 

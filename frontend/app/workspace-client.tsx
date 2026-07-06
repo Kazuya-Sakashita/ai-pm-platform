@@ -89,6 +89,11 @@ type RequirementApprovalBlocker = {
   detail: string;
 };
 
+type ApplyRequirementOptions = {
+  resetDownstream?: boolean;
+  staleDownstream?: boolean;
+};
+
 type ApiErrorPayload = {
   error?: {
     code?: string;
@@ -1378,7 +1383,7 @@ export default function MeetingWorkspace() {
       return;
     }
 
-    applyRequirement(requirementResult.data.data);
+    applyRequirement(requirementResult.data.data, { resetDownstream: true });
     await loadRequirementReviews(requirementResult.data.data.id);
     setStatusMessage("要件定義を生成しました");
   }
@@ -1412,7 +1417,7 @@ export default function MeetingWorkspace() {
       return;
     }
 
-    applyRequirement(data.data);
+    applyRequirement(data.data, { staleDownstream: requirement.status === "approved" && data.data.status === "needs_changes" });
     await loadRequirementReviews(data.data.id);
     setStatusMessage("要件定義を保存しました");
   }
@@ -2134,10 +2139,8 @@ export default function MeetingWorkspace() {
     setActionsDraft(linesToText(nextMinutes.action_items.map((action) => action.text)));
   }
 
-  function applyRequirement(nextRequirement: Requirement) {
+  function applyRequirement(nextRequirement: Requirement, options: ApplyRequirementOptions = {}) {
     setRequirement(nextRequirement);
-    setIssueDraft(null);
-    setOpenApiDraft(null);
     setRequirementReviews([]);
     setRequirementBackgroundDraft(nextRequirement.background);
     setRequirementGoalDraft(nextRequirement.goal);
@@ -2149,8 +2152,21 @@ export default function MeetingWorkspace() {
     setRequirementOpenQuestionsDraft(linesToText(nextRequirement.open_questions ?? []));
     setRisksDraft(linesToText(nextRequirement.risks ?? []));
     setRequirementApprovalNote(nextRequirement.approval_note ?? defaultRequirementApprovalNote);
-    clearIssueDrafts();
-    clearOpenApiDrafts();
+
+    if (options.resetDownstream) {
+      setIssueDraft(null);
+      setOpenApiDraft(null);
+      clearIssueDrafts();
+      clearOpenApiDrafts();
+      return;
+    }
+
+    if (options.staleDownstream) {
+      setIssueDraft((current) => (current ? { ...current, status: "stale" } : current));
+      setOpenApiDraft((current) => (current ? { ...current, status: "stale" } : current));
+      setOpenApiValidation(null);
+      setOpenApiReview(null);
+    }
   }
 
   function applyIssueDraft(nextIssueDraft: IssueDraft) {
