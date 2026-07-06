@@ -37,7 +37,7 @@ RSpec.describe "API V1 Requirements", type: :request do
       body = JSON.parse(response.body)
       expect(body.dig("error", "code")).to eq("review_required")
       expect(body.dig("error", "details", "status")).to eq("generated")
-      expect(Job.where(target_type: "requirement")).to be_empty
+      expect(Job.where(project: minutes.meeting.project, target_type: "requirement")).to be_empty
     end
 
     it "requires authentication before checking minutes status" do

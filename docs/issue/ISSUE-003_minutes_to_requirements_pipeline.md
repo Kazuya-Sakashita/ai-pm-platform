@@ -56,6 +56,8 @@ AI議事録ツールとの差別化には、会議内容を実装可能な要件
 - `docs/review/20260707_requirement_followup_issue_split_review.md`
 - `docs/review/20260707_requirement_stale_regeneration_ux_design_review.md`
 - `docs/review/20260707_requirement_stale_regeneration_ux_implementation_review.md`
+- `docs/review/20260707_requirement_history_timeline_design_review.md`
+- `docs/review/20260707_requirement_history_timeline_implementation_review.md`
 
 ## レビュー結果
 
@@ -228,14 +230,30 @@ AI議事録ツールとの差別化には、会議内容を実装可能な要件
 - 既存stale Draftを上書きせず保持することをRequest specで確認
 - 判定: ISSUE-051の中核要件は完了。Issue #3はISSUE-050、ISSUE-052、ISSUE-053完了状況を見て最終クローズ判断する
 
+2026-07-07 07:42 JST追加:
+
+- ISSUE-050 / GitHub #67でRequirement差分履歴とレビュー履歴タイムラインを実装
+- `GET /api/v1/requirements/{requirement_id}/history` を追加し、Requirement更新、承認、レビュー依頼、レビュー解決を時系列で取得できるようにした
+- 差分履歴は `RequirementRevisionService` で安全な短いプレビューに限定し、secret、個人情報、法務・金融情報などの検知時は本文を保存しないようにした
+- `RequirementHistoryQuery` を追加し、AuditLogとReviewの統合をControllerから分離した
+- Requirement Workspaceに `Requirement履歴タイムライン` を追加し、承認差し戻し、レビュー依頼、レビュー解決、下流Draft stale化を同じ流れで確認できるようにした
+- Review状態遷移の厳密監査はISSUE-054 / GitHub #73として分離
+- `PATH=/Users/kazuya/.rbenv/versions/3.2.2/bin:$PATH bundle exec rspec spec/services/requirement_revision_service_spec.rb spec/requests/api/v1/requirements_spec.rb`: 20 examples, 0 failures
+- `PATH=/Users/kazuya/.rbenv/versions/3.2.2/bin:$PATH bundle exec ruby bin/rails zeitwerk:check`: All is good
+- `npm run api:verify`: 成功
+- `npm run display:check`: 成功
+- `npm run frontend:build`: 成功
+- `npm run frontend:e2e -- --grep "creates a project, saves a Discord log, generates minutes, and requests review"`: 1 passed
+- 判定: ISSUE-050のMVP要件は完了。PR CI通過後にGitHub #67をクローズし、Issue #3はISSUE-052、ISSUE-053、ISSUE-054の完了状況を見て最終クローズ判断する
+
 未完了:
 
-- ISSUE-050: Requirement差分履歴とレビュー履歴タイムライン
 - ISSUE-052: Requirement生成OpenAI provider比較
 - ISSUE-053: Requirement Workspaceの未決事項、リスク、差分強調UX
+- ISSUE-054: Review状態遷移の厳密監査
 
 ## 次アクション
 
-- ISSUE-050から差分保存方式とPII/secret除外方針を設計する
-- ISSUE-052は既存provider実装を読み、OpenAI provider設計レビューから始める
-- ISSUE-053はP1作業と衝突しない範囲で画面改善を進める
+- ISSUE-052は既存provider実装を読み、OpenAI provider比較の設計レビューから始める
+- ISSUE-053はRequirement履歴タイムラインと衝突しない範囲で画面改善を進める
+- ISSUE-054はReview状態遷移イベントのDB/API設計レビューから始める
