@@ -9,6 +9,10 @@ ISSUE-037
 https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/37
 
 登録日: 2026-07-05
+状態: Closed
+クローズ日: 2026-07-06
+関連PR: https://github.com/Kazuya-Sakashita/ai-pm-platform/pull/57
+マージコミット: `b8db24d`
 
 ## 背景
 
@@ -87,7 +91,8 @@ P1
 
 ## 次アクション
 
-1. PRを作成し、GitHub Actionsの結果を確認する。
-2. GitHub Issue #37へ実装内容と検証結果をコメントする。
-3. CIが通ったらPRをマージし、Issue #37をクローズする。
-4. 後続改善としてレビュー履歴一覧と解決理由入力のIssue化を検討する。
+1. PR #57作成: 完了
+2. GitHub Actions `verify`: 成功
+3. PR #57マージ: 完了
+4. GitHub Issue #37クローズ: 完了
+5. 後続改善としてレビュー履歴一覧と解決理由入力のIssue化を検討する。
