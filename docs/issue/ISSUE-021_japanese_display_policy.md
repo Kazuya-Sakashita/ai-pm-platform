@@ -8,6 +8,16 @@ ISSUE-021
 
 https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/21
 
+状態: Closed
+
+クローズ日: 2026-07-06
+
+完了PR: https://github.com/Kazuya-Sakashita/ai-pm-platform/pull/58
+
+クローズコメント: https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/21#issuecomment-4891935610
+
+main CI: https://github.com/Kazuya-Sakashita/ai-pm-platform/actions/runs/28785979266
+
 登録理由: ユーザーから「このプロジェクトの表示は、基本的に日本語でお願いしたい」と明示要望があったため。
 
 ## 登録日
@@ -119,6 +129,8 @@ AI PM Platformは日本語で運用されるプロジェクト管理・議事録
 - 2026-07-06 backend safe detail / AI template: `npm run frontend:build`: success
 - 2026-07-06 backend safe detail / AI template: `bundle exec rspec spec/services/issue_draft_generation_service_spec.rb spec/services/requirement_generation_service_spec.rb spec/services/open_api_draft_generation_service_spec.rb spec/services/minutes_generation/openai_provider_spec.rb spec/services/conversation_summary_generation/openai_provider_spec.rb`: 15 examples、0 failures
 - 2026-07-06 backend safe detail / AI template: `bundle exec rspec spec/services/issue_draft_publish_gate_spec.rb spec/requests/api/v1/issue_drafts_spec.rb spec/services/github_issue_publish/manual_reconciliation_service_spec.rb spec/services/github_issue_publish/github_app_provider_spec.rb spec/services/github_integration/installation_verifier_spec.rb`: 48 examples、0 failures
+- 2026-07-06 PR #58 CI verify: success
+- 2026-07-06 main CI verify: success
 
 ## 優先度
 
@@ -132,8 +144,7 @@ P1
 
 ## 次アクション
 
-- PR CIで `display:check`、Backendテスト、Frontendビルドの成功を確認する
-- CI成功後にGitHub Issue #21をクローズする
+- 完了済み。GitHub Issue #21はクローズ済み。
 - 日本語UIのスクリーンショット/狭幅表示確認はP2継続改善として別Issue候補にする
 - 日本語表示レビューの外部AIレビュー結果が追加された場合は差分を追記する
 
