@@ -4,6 +4,16 @@
 
 https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/2
 
+状態: Closed
+
+クローズ日: 2026-07-06
+
+クローズレビュー: `docs/review/20260706_discord_meeting_minutes_mvp_closure_review.md`
+
+クローズコメント: https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/2#issuecomment-4891975713
+
+main CI: https://github.com/Kazuya-Sakashita/ai-pm-platform/actions/runs/28786247024
+
 登録日: 2026-06-30
 同期方法: `scripts/sync-github-issues.rb --apply`
 
@@ -50,6 +60,7 @@ https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/2
 - `docs/review/20260630_ci_frontend_e2e_review.md`
 - `docs/review/20260630_frontend_failure_path_e2e_review.md`
 - `docs/review/20260630_openai_failure_contract_review.md`
+- `docs/review/20260706_discord_meeting_minutes_mvp_closure_review.md`
 
 ## レビュー結果
 
@@ -57,14 +68,12 @@ P0として妥当。ただし、いきなりBot実装へ進むと権限と運用
 
 ## 次アクション
 
-- OpenAI-backed minutes generation providerを追加する
-- Meeting Workspace UIからMeeting作成とMinutes生成を呼び出す
-- 生成結果のレビュー依頼導線をFrontendへ接続する
-- OpenAI実装後にGitHub #2のclose可否を再評価する
+- 完了済み。GitHub Issue #2はクローズ済み。
+- live OpenAI smokeと議事録品質評価はrelease/stagingまたは品質評価Issueで継続追跡する。
 
 ## 進捗
 
-進行中。
+完了。
 
 2026-06-30 07:51 JST確認:
 
@@ -144,10 +153,9 @@ P0として妥当。ただし、いきなりBot実装へ進むと権限と運用
 - `npm run api:verify`: 成功。OpenAPI contract warningなし
 - `npm audit --omit=dev`: 0 vulnerabilities
 
-未完了:
+残リスク:
 
-- 本番OpenAI API keyでのlive generation検証
-- Review Center本体との統合
-- timeout / auth / quota failureの分類とUI表示
-- rate limit時のRetry UI / backoff guidance
-- branch protection / required checks設定
+- 本番OpenAI API keyでのlive generation検証はrelease/staging gateで扱う。
+- rate limit時のRetry UI / backoff guidanceはP2 UX改善として扱う。
+- 議事録品質のgolden datasetと自動採点は品質評価Issueで扱う。
+- Discord Bot自動取り込み、音声文字起こし、Slack対応はMVP後ロードマップで扱う。
