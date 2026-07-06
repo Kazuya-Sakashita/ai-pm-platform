@@ -181,6 +181,9 @@ AI議事録ツールとの差別化には、会議内容を実装可能な要件
 - `npm run display:check`: 成功
 - `npm run api:verify`: 成功
 - `PATH=/Users/kazuya/.rbenv/versions/3.2.2/bin:$PATH bundle exec rspec spec/requests/api/v1/reviews_spec.rb spec/requests/api/v1/requirements_spec.rb`: 22 examples, 0 failures
+- PR CI初回でGitHub照合系E2Eのモック未追従を検知し、Requirement reviews取得の空配列モックを追加
+- `npm run frontend:e2e -- --grep "GitHub reconciliation|GitHub Issue candidate|linking an existing GitHub Issue|GitHub Issue from another repository"`: 7 passed
+- `npm run frontend:e2e -- --grep "links an existing GitHub Issue from pending reconciliation"`: 1 passed
 - 判定: Requirement Workspaceでの承認ブロッカー詳細表示は完了。ただし下流draft stale化、差分履歴、OpenAI provider比較が残るためIssue #3は継続
 
 未完了:

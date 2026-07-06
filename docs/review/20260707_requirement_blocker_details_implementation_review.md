@@ -65,6 +65,9 @@ Issue #3のRequirement Workspaceで、未決事項、未解決レビュー、期
 - `npm run display:check`: Display labels OK: 86 messages, 53 statuses, 5 targets
 - `npm run api:verify`: OpenAPI OK、Redocly valid、型生成成功。Redocly CLIのNode version warningは既存警告
 - `PATH=/Users/kazuya/.rbenv/versions/3.2.2/bin:$PATH bundle exec rspec spec/requests/api/v1/reviews_spec.rb spec/requests/api/v1/requirements_spec.rb`: 22 examples, 0 failures
+- PR CI初回でGitHub照合系E2Eのモック未追従を検知。Requirement reviews取得の空配列モックを追加して修正
+- `npm run frontend:e2e -- --grep "GitHub reconciliation|GitHub Issue candidate|linking an existing GitHub Issue|GitHub Issue from another repository"`: 7 passed
+- `npm run frontend:e2e -- --grep "links an existing GitHub Issue from pending reconciliation"`: 1 passed
 
 ## G-STACK
 

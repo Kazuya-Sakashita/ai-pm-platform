@@ -698,6 +698,10 @@ test.describe("Meeting Workspace", () => {
     await page.route(`**/api/v1/requirements/${requirement.id}`, async (route) => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: requirement }) });
     });
+
+    await page.route(/\/api\/v1\/reviews\?.*/, async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [], meta: { total_count: 0 } }) });
+    });
   }
 
   async function openPendingGitHubReconciliationDraft(page: Page) {
