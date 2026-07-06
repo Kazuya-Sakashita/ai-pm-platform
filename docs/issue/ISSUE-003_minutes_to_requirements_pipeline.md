@@ -53,6 +53,7 @@ AI議事録ツールとの差別化には、会議内容を実装可能な要件
 - `docs/review/20260707_requirement_blocker_details_implementation_review.md`
 - `docs/review/20260707_downstream_draft_stale_design_review.md`
 - `docs/review/20260707_downstream_draft_stale_implementation_review.md`
+- `docs/review/20260707_requirement_followup_issue_split_review.md`
 
 ## レビュー結果
 
@@ -205,13 +206,26 @@ AI議事録ツールとの差別化には、会議内容を実装可能な要件
 - `npm run frontend:e2e -- --grep "creates a project, saves a Discord log, generates minutes, and requests review"`: 1 passed
 - 判定: Requirement差し戻し時の下流Issue/OpenAPI Draft stale化は完了。ただし差分履歴、stale後の再生成UX、OpenAI provider比較が残るためIssue #3は継続
 
+2026-07-07 07:05 JST追加:
+
+- 残課題を並行実施できる単位へ分割Issue化
+- ISSUE-050 / GitHub #67: Requirement差分履歴とレビュー履歴タイムライン
+- ISSUE-051 / GitHub #68: stale後の下流Draft再生成UX
+- ISSUE-052 / GitHub #69: Requirement生成OpenAI provider比較
+- ISSUE-053 / GitHub #70: Requirement Workspaceの未決事項、リスク、差分強調UX
+- 分割レビューを `docs/review/20260707_requirement_followup_issue_split_review.md` に保存
+- 判定: Issue #3は親Issueとして継続し、子Issueの完了状況を見て最終クローズ判断する
+
 未完了:
 
-- OpenAI providerによるRequirement生成
-- Requirement Workspaceの差分、未決事項、リスク強調UX
-- Requirement差分履歴
+- ISSUE-050: Requirement差分履歴とレビュー履歴タイムライン
+- ISSUE-051: stale後の下流Draft再生成UX
+- ISSUE-052: Requirement生成OpenAI provider比較
+- ISSUE-053: Requirement Workspaceの未決事項、リスク、差分強調UX
 
 ## 次アクション
 
-- Requirement差分履歴とstale後の再生成UXを設計する
-- OpenAI providerを導入する場合は、同じfixtureでdeterministic providerと比較する
+- ISSUE-050から差分保存方式とPII/secret除外方針を設計する
+- ISSUE-051でstale後の再生成と再承認のAPI駆動フローを設計する
+- ISSUE-052は既存provider実装を読み、OpenAI provider設計レビューから始める
+- ISSUE-053はP1作業と衝突しない範囲で画面改善を進める
