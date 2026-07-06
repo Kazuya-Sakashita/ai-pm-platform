@@ -20,7 +20,8 @@
     "frontend:e2e": "playwright test -c frontend/playwright.config.ts",
     "github:issues:dry-run": "ruby scripts/sync-github-issues.rb --dry-run",
     "github:issues:sync": "ruby scripts/sync-github-issues.rb --apply",
-    "jwt:keyring:validate": "ruby scripts/validate-jwt-keyring.rb"
+    "jwt:keyring:validate": "ruby scripts/validate-jwt-keyring.rb",
+    "requirements:evaluate": "cd backend && bundle exec ruby ../scripts/evaluate-requirement-generation.rb"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",

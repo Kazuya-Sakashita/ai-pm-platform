@@ -5,7 +5,7 @@
 - Issue番号: GitHub Issue #3
 - 対象: 承認済みMinutesから生成されるRequirement draft
 - 評価担当: Codex as AI Architect / Product Manager / QA / Security Engineer
-- ステータス: v0.1 文書化完了。自動採点fixture化は未実装。
+- ステータス: v0.3 fixture化、採点自動化、deterministic provider改善後baseline取得済み。現行fixture上はP0未達0件。
 - 前提: 生成結果は人間承認前提とし、レビューなしでIssue生成、OpenAPI設計、実装へ進めない。
 
 ## 評価目的
@@ -199,14 +199,59 @@ Critical failure:
 
 ## 今後の自動化案
 
-1. `docs/evaluation/fixtures/requirements/` にサンプルMinutes、期待Requirement、rubric scoreをYAMLまたはJSONで保存する。
-2. 現行Requirement生成providerをfixtureに対して実行し、scorecardを保存する。
-3. OpenAPIのRequirement schemaに対する構造チェックを自動化する。
-4. LLM judgeと人間レビューの2段階評価にし、外部AIレビュー待ちの場合は明記する。
-5. CIでは初期はwarningとして実行し、3回連続で安定したらblocking gateへ昇格する。
-6. provider、model、prompt version、score差分をartifactとして保存する。
-7. レビューUIで人間の修正差分を収集し、golden datasetの更新候補として扱う。
+1. OpenAPIのRequirement schemaに対する構造チェックを自動化する。
+2. LLM judgeと人間レビューの2段階評価にし、外部AIレビュー待ちの場合は明記する。
+3. CIでは初期はwarningとして実行し、3回連続で安定したらblocking gateへ昇格する。
+4. provider、model、prompt version、score差分をartifactとして保存する。
+5. レビューUIで人間の修正差分を収集し、golden datasetの更新候補として扱う。
+
+## 2026-07-06 baseline結果
+
+2026-07-06に、サンプルMinutes、期待語、最小件数、禁止pattern、P0カテゴリを `docs/evaluation/fixtures/requirement_generation/cases.json` としてfixture化した。
+
+`scripts/evaluate-requirement-generation.rb` により、現行deterministic providerを同一条件で採点できるようにした。実行コマンドは以下である。
+
+```bash
+npm run requirements:evaluate -- --output docs/evaluation/20260706_requirement_generation_baseline.md --quiet
+```
+
+初回baselineは以下である。
+
+| 指標 | 結果 |
+| --- | --- |
+| Provider | deterministic |
+| 平均点 | 91.0 / 100 |
+| ケース別最低点 | 79.2 / 100 |
+| Critical failure | 0件 |
+| P0基準未達 | 6件 |
+| 判定 | 基準未達 |
+
+P0未達の中心は、スコープ制御と非機能要件である。特に、SSO、Backend、Frontend、実装、CI警告、監査性、PII、secret、権限といった会議内の制約を、`out_of_scope` と `non_functional_requirements` へ安定して反映できていない。
+
+provider改善後のbaselineは以下である。
+
+```bash
+npm run requirements:evaluate -- --output docs/evaluation/20260706_requirement_generation_provider_rules_baseline.md --quiet
+```
+
+| 指標 | 結果 |
+| --- | --- |
+| Provider | deterministic |
+| 平均点 | 100.0 / 100 |
+| ケース別最低点 | 100.0 / 100 |
+| Critical failure | 0件 |
+| P0基準未達 | 0件 |
+| 判定 | 合格 |
+
+改善では、非スコープ抽出と非機能要件抽出を強化した。あわせて、providerインスタンス再利用時に前回Minutesのsource textが残る不具合を修正した。
 
 ## 運用判定
 
-この評価セットはIssue #3の「Requirement生成品質評価セット」P0未完了項目を文書化するものである。ただし、自動採点、golden fixture化、実生成結果の初回採点は未完了であり、Issue #3全体の完了条件には含め続ける。
+この評価セットはIssue #3の「Requirement生成品質評価セット」を実行可能な状態にしたものである。fixture化、採点自動化、実生成結果の初回baseline取得、deterministic provider改善後baseline取得は完了した。
+
+現行fixture上ではP0基準未達は0件である。ただし、Issue #3全体の完了条件には以下を含め続ける。
+
+- approved RequirementとIssue/OpenAPI生成条件の接続
+- Review Centerのresolved状態とRequirement承認条件の接続
+- OpenAI provider導入時の同fixture比較
+- fixture外の実データでの追加検証

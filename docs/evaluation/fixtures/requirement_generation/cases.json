@@ -1,0 +1,242 @@
+{
+  "version": "2026-07-06.requirement-generation.v1",
+  "issue": "ISSUE-003",
+  "thresholds": {
+    "average_score": 85,
+    "case_score": 78,
+    "p0_ratio": 0.8,
+    "p0_categories": [
+      "fidelity",
+      "ambiguity",
+      "acceptance",
+      "scope",
+      "non_functional"
+    ]
+  },
+  "cases": [
+    {
+      "id": "CASE-RQ-001",
+      "title": "標準的なMVP要件化",
+      "minutes": {
+        "summary": "CSチームはDiscord会議ログから議事録を作り、承認済みMinutesからRequirement draftを生成したい。MVPではGitHub Issue化は次フェーズでよい。",
+        "decisions": [
+          {
+            "text": "承認済みMinutesのみRequirement draftを生成できるようにする。"
+          },
+          {
+            "text": "背景、目的、受け入れ条件、未決事項を保存する。"
+          }
+        ],
+        "open_questions": [
+          "Requirement reviewの承認者を誰にするか。"
+        ],
+        "action_items": [
+          {
+            "text": "Requirement draft編集画面を用意する。",
+            "status": "open"
+          }
+        ]
+      },
+      "expectations": {
+        "source_terms": ["承認済みMinutes", "Requirement draft", "背景", "未決事項"],
+        "open_question_terms": ["承認者"],
+        "acceptance_terms": ["承認済み", "保存"],
+        "out_of_scope_terms": ["GitHub Issue", "自動"],
+        "non_functional_terms": ["監査", "OpenAPI"],
+        "min_counts": {
+          "functional_requirements": 2,
+          "acceptance_criteria": 2,
+          "out_of_scope": 1,
+          "risks": 1
+        },
+        "forbidden_patterns": ["GitHub Issueを自動作成する", "レビューなしで実装"]
+      }
+    },
+    {
+      "id": "CASE-RQ-002",
+      "title": "矛盾と未決事項の抽出",
+      "minutes": {
+        "summary": "Product OwnerはRequirementの自動承認を提案したが、Tech LeadとSecurity EngineerはレビューなしでIssue生成へ進めない方針を主張し、最終決定は保留になった。",
+        "decisions": [
+          {
+            "text": "レビューなしでIssue生成へ進めない方針を維持する。"
+          }
+        ],
+        "open_questions": [
+          "Requirement承認方法をどうするか。",
+          "承認者とブロック条件を誰が決めるか。"
+        ],
+        "action_items": [
+          {
+            "text": "自動承認案のリスクをレビューする。",
+            "status": "open"
+          }
+        ]
+      },
+      "expectations": {
+        "source_terms": ["レビューなし", "Issue生成", "自動承認"],
+        "open_question_terms": ["承認方法", "承認者", "ブロック条件"],
+        "acceptance_terms": ["レビュー", "生成"],
+        "out_of_scope_terms": ["完全自動承認"],
+        "non_functional_terms": ["監査", "レビュー"],
+        "min_counts": {
+          "functional_requirements": 2,
+          "acceptance_criteria": 2,
+          "open_questions": 2,
+          "risks": 1
+        },
+        "forbidden_patterns": ["自動承認を確定", "レビューなしでIssue生成へ進める"]
+      }
+    },
+    {
+      "id": "CASE-RQ-003",
+      "title": "セキュリティと機微情報",
+      "minutes": {
+        "summary": "Discordログにはメールアドレス、個人名、API keyらしき文字列が含まれる可能性がある。Requirementには機微情報を直接残さず、監査ログは保持したい。SSOはMVP外とする。",
+        "decisions": [
+          {
+            "text": "Requirement本文に機微情報を直接残さない。"
+          },
+          {
+            "text": "監査ログは保持する。"
+          }
+        ],
+        "open_questions": [
+          "PIIマスキングの承認者を誰にするか。"
+        ],
+        "action_items": [
+          {
+            "text": "secret scanとPIIマスキングを生成前後で確認する。",
+            "status": "open"
+          }
+        ]
+      },
+      "expectations": {
+        "source_terms": ["機微情報", "監査ログ", "SSO"],
+        "open_question_terms": ["PII", "承認者"],
+        "acceptance_terms": ["機微情報", "残さない"],
+        "out_of_scope_terms": ["SSO"],
+        "non_functional_terms": ["secret", "PII", "マスキング", "監査", "権限"],
+        "min_counts": {
+          "functional_requirements": 2,
+          "acceptance_criteria": 2,
+          "non_functional_requirements": 3,
+          "out_of_scope": 1,
+          "risks": 2
+        },
+        "forbidden_patterns": ["sk-[A-Za-z0-9]", "API keyをRequirement本文に残す"]
+      }
+    },
+    {
+      "id": "CASE-RQ-004",
+      "title": "API駆動開発への接続",
+      "minutes": {
+        "summary": "要件定義が承認されたらOpenAPI案を作る。OpenAPIと実装が乖離したら完了扱いにしない。今回の議論はRequirement品質までで、Backend/Frontend実装は次工程とする。",
+        "decisions": [
+          {
+            "text": "approved RequirementをOpenAPI生成条件にする。"
+          },
+          {
+            "text": "OpenAPIと実装が乖離した状態を完了扱いにしない。"
+          }
+        ],
+        "open_questions": [
+          "OpenAPI draftのレビュー担当者を決める。"
+        ],
+        "action_items": [
+          {
+            "text": "OpenAPI生成前にRequirement review完了を確認する。",
+            "status": "open"
+          }
+        ]
+      },
+      "expectations": {
+        "source_terms": ["approved Requirement", "OpenAPI", "乖離"],
+        "open_question_terms": ["レビュー担当者"],
+        "acceptance_terms": ["Requirement", "OpenAPI"],
+        "out_of_scope_terms": ["Backend", "Frontend", "実装"],
+        "non_functional_terms": ["監査", "レビュー", "OpenAPI"],
+        "min_counts": {
+          "functional_requirements": 2,
+          "acceptance_criteria": 2,
+          "out_of_scope": 1,
+          "risks": 1
+        },
+        "forbidden_patterns": ["IssueなしでBackend", "OpenAPIを省略"]
+      }
+    },
+    {
+      "id": "CASE-RQ-005",
+      "title": "情報不足の短い会議",
+      "minutes": {
+        "summary": "AIで要件を作りたい。次回までに案を見たい。予算、利用者、入力データ、承認者、成功条件は未定。",
+        "decisions": [],
+        "open_questions": [
+          "主な利用者は誰か。",
+          "入力データ形式は何か。",
+          "成功指標は何か。",
+          "承認者は誰か。",
+          "MVPの非スコープは何か。"
+        ],
+        "action_items": [
+          {
+            "text": "次回までに要件案を作る。",
+            "status": "open"
+          }
+        ]
+      },
+      "expectations": {
+        "source_terms": ["要件", "次回"],
+        "open_question_terms": ["利用者", "入力データ", "成功指標", "承認者", "非スコープ"],
+        "acceptance_terms": ["要件", "生成"],
+        "out_of_scope_terms": ["未設定", "完全自動承認"],
+        "non_functional_terms": ["監査", "レビュー"],
+        "min_counts": {
+          "functional_requirements": 1,
+          "acceptance_criteria": 1,
+          "open_questions": 5,
+          "risks": 1
+        },
+        "forbidden_patterns": ["予算は", "利用者は管理者", "成功指標は売上"]
+      }
+    },
+    {
+      "id": "CASE-RQ-006",
+      "title": "UXと運用要件が強い会議",
+      "minutes": {
+        "summary": "レビュー担当はRequirement差分、未決事項、リスクを短時間で確認したい。CI上で品質低下を検知し、合格しない生成結果はIssue化しない。ただし初期MVPでは自動採点は警告扱いでよい。",
+        "decisions": [
+          {
+            "text": "初期MVPでは自動採点を警告扱いにする。"
+          },
+          {
+            "text": "合格しない生成結果はIssue化前にレビューする。"
+          }
+        ],
+        "open_questions": [
+          "品質低下をCIでどの閾値から通知するか。"
+        ],
+        "action_items": [
+          {
+            "text": "Requirement差分、未決事項、リスクをレビュー画面で見やすくする。",
+            "status": "open"
+          }
+        ]
+      },
+      "expectations": {
+        "source_terms": ["Requirement差分", "CI", "警告"],
+        "open_question_terms": ["閾値", "通知"],
+        "acceptance_terms": ["Issue化", "レビュー"],
+        "out_of_scope_terms": ["完全自動", "ブロック"],
+        "non_functional_terms": ["UX", "CI", "監査", "品質", "警告"],
+        "min_counts": {
+          "functional_requirements": 2,
+          "acceptance_criteria": 2,
+          "non_functional_requirements": 3,
+          "risks": 1
+        },
+        "forbidden_patterns": ["初期MVPから絶対ブロック", "レビューなしでIssue化"]
+      }
+    }
+  ]
+}

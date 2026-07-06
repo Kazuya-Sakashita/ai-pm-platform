@@ -44,6 +44,8 @@ AI議事録ツールとの差別化には、会議内容を実装可能な要件
 - `docs/review/20260630_requirements_generation_mvp_review.md`
 - `docs/review/20260630_requirement_quality_evaluation_review.md`
 - `docs/review/20260630_requirement_approval_gate_review.md`
+- `docs/review/20260706_requirement_generation_quality_baseline_review.md`
+- `docs/review/20260706_requirement_generation_provider_rules_review.md`
 
 ## レビュー結果
 
@@ -86,9 +88,29 @@ AI議事録ツールとの差別化には、会議内容を実装可能な要件
 - `npm run frontend:e2e`: 6 passed
 - `npm audit --omit=dev`: 0 vulnerabilities
 
+2026-07-06 20:06 JST追加:
+
+- Requirement生成品質評価を `docs/evaluation/fixtures/requirement_generation/cases.json` としてfixture化
+- `scripts/evaluate-requirement-generation.rb` を追加し、現行providerの採点を自動化
+- `npm run requirements:evaluate` を追加
+- baseline reportを `docs/evaluation/20260706_requirement_generation_baseline.md` に保存
+- 評価器のRSpecを `backend/spec/scripts/evaluate_requirement_generation_spec.rb` に追加
+- `PATH=/Users/kazuya/.rbenv/versions/3.2.2/bin:$PATH bundle exec rspec spec/scripts/evaluate_requirement_generation_spec.rb spec/services/requirement_generation_service_spec.rb`: 4 examples, 0 failures
+- baseline結果: 平均91.0点、ケース別最低79.2点、Critical failure 0件、P0基準未達6件
+- 判定: 評価基盤は完了。ただしP0基準未達が残るためIssue #3は継続
+
+2026-07-06 20:10 JST追加:
+
+- deterministic providerに非スコープ抽出ruleを追加
+- Security/PII/secret/監査/権限/CI/UXを含む非機能要件抽出ruleを追加
+- provider再利用時に前回Minutesのsource textが残る不具合を修正
+- provider単体RSpecを `backend/spec/services/requirement_generation_deterministic_provider_spec.rb` に追加
+- 改善後baseline reportを `docs/evaluation/20260706_requirement_generation_provider_rules_baseline.md` に保存
+- 改善後baseline結果: 平均100.0点、ケース別最低100.0点、Critical failure 0件、P0基準未達0件
+- 判定: deterministic providerのfixture上の品質改善は完了。ただしIssue #3は次工程接続が残るため継続
+
 未完了:
 
-- Requirement生成品質評価のfixture化、採点自動化、baseline score取得
 - OpenAI providerによるRequirement生成
 - Issue/OpenAPI生成条件とのapproved Requirement接続
 - Requirement Workspaceの差分、未決事項、リスク強調UX
@@ -96,6 +118,6 @@ AI議事録ツールとの差別化には、会議内容を実装可能な要件
 
 ## 次アクション
 
-- 生成品質評価セットをfixture化し、現行providerのbaseline scoreを保存する
 - Issue #4に進む前にRequirement approved状態をIssue/OpenAPI生成条件へ接続する
 - Review Centerのresolved状態とRequirement承認条件を接続する
+- OpenAI providerを導入する場合は、同じfixtureでdeterministic providerと比較する
