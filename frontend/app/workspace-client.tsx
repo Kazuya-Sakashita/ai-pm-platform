@@ -41,6 +41,9 @@ type Project = components["schemas"]["Project"];
 type Meeting = components["schemas"]["Meeting"];
 type Minutes = components["schemas"]["Minutes"];
 type Requirement = components["schemas"]["Requirement"];
+type RequirementHistoryItem = components["schemas"]["RequirementHistoryItem"];
+type RequirementHistoryChange = components["schemas"]["RequirementHistoryChange"];
+type RequirementHistoryValue = components["schemas"]["RequirementHistoryValue"];
 type IssueDraft = components["schemas"]["IssueDraft"];
 type OpenApiDraft = components["schemas"]["OpenApiDraft"];
 type OpenApiValidationResult = components["schemas"]["OpenApiValidationResponse"]["data"];
@@ -321,6 +324,52 @@ function reconciliationHistorySummary(entry: GitHubReconciliationHistoryItem) {
   return "照合履歴を記録済み";
 }
 
+function requirementFieldLabel(field: string) {
+  const labels: Record<string, string> = {
+    background: "背景",
+    goal: "目的",
+    user_stories: "ユーザーストーリー",
+    functional_requirements: "機能要件",
+    non_functional_requirements: "非機能要件",
+    acceptance_criteria: "受け入れ条件",
+    out_of_scope: "スコープ外",
+    open_questions: "未解決事項",
+    risks: "リスク",
+  };
+
+  return labels[field] ?? field;
+}
+
+function requirementHistoryValueLabel(value: RequirementHistoryValue) {
+  if (value.redacted) return value.preview ?? "機密情報を含むため非表示";
+  if (value.preview) return value.preview;
+  if (value.item_count > 0) return `${value.item_count}件`;
+  return "空";
+}
+
+function requirementHistoryChangeLabel(change: RequirementHistoryChange) {
+  return `${requirementFieldLabel(change.field)}: ${requirementHistoryValueLabel(change.before)} から ${requirementHistoryValueLabel(change.after)}`;
+}
+
+function requirementHistoryMeta(item: RequirementHistoryItem) {
+  if (item.source_type === "review") {
+    return `${statusLabel(item.review_status)} / ${item.reviewer_role ?? "-"}`;
+  }
+
+  if (item.approval_reset) return "承認差し戻し";
+  if (item.changed_fields?.length) return `変更 ${item.changed_fields.map(requirementFieldLabel).join("、")}`;
+  if (item.actor_id) return `担当 ${item.actor_id}`;
+  return item.action ?? "-";
+}
+
+function requirementHistoryTone(item: RequirementHistoryItem) {
+  if (item.event_type === "updated" && item.approval_reset) return "warning";
+  if (item.event_type === "review_requested") return "review";
+  if (item.event_type === "review_risk_accepted") return "warning";
+  if (item.event_type === "generated" || item.event_type === "approved" || item.event_type === "review_resolved") return "success";
+  return statusTone(item.review_status ?? item.event_type);
+}
+
 function formatDateTime(value?: string) {
   if (!value) return "-";
   return new Intl.DateTimeFormat("ja-JP", {
@@ -404,6 +453,7 @@ export default function MeetingWorkspace() {
   const [queueHealthLoading, setQueueHealthLoading] = useState(false);
   const [lastReview, setLastReview] = useState<Review | null>(null);
   const [requirementReviews, setRequirementReviews] = useState<Review[]>([]);
+  const [requirementHistory, setRequirementHistory] = useState<RequirementHistoryItem[]>([]);
   const [openApiReview, setOpenApiReview] = useState<Review | null>(null);
   const [integrationAccounts, setIntegrationAccounts] = useState<IntegrationAccount[]>([]);
   const [projectMemberships, setProjectMemberships] = useState<ProjectMembership[]>([]);
@@ -1385,6 +1435,7 @@ export default function MeetingWorkspace() {
 
     applyRequirement(requirementResult.data.data, { resetDownstream: true });
     await loadRequirementReviews(requirementResult.data.data.id);
+    await loadRequirementHistory(requirementResult.data.data.id);
     setStatusMessage("要件定義を生成しました");
   }
 
@@ -1419,6 +1470,7 @@ export default function MeetingWorkspace() {
 
     applyRequirement(data.data, { staleDownstream: requirement.status === "approved" && data.data.status === "needs_changes" });
     await loadRequirementReviews(data.data.id);
+    await loadRequirementHistory(data.data.id);
     setStatusMessage("要件定義を保存しました");
   }
 
@@ -1450,6 +1502,7 @@ export default function MeetingWorkspace() {
 
     applyRequirement(data.data);
     await loadRequirementReviews(data.data.id);
+    await loadRequirementHistory(data.data.id);
     setStatusMessage("要件定義を承認しました");
   }
 
@@ -1931,6 +1984,19 @@ export default function MeetingWorkspace() {
     setRequirementReviews(data.data);
   }
 
+  async function loadRequirementHistory(requirementId: string) {
+    const { data, error: apiError } = await apiClient.GET("/requirements/{requirement_id}/history", {
+      params: { path: { requirement_id: requirementId } },
+    });
+
+    if (apiError) {
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    setRequirementHistory(data.data);
+  }
+
   async function requestConversationSummaryReview() {
     if (!conversationSummaryDraft) {
       setApiError("レビュー対象のDM整理ドラフトがありません。");
@@ -2050,6 +2116,7 @@ export default function MeetingWorkspace() {
 
     setLastReview(data.data);
     setRequirementReviews((current) => [data.data, ...current.filter((review) => review.id !== data.data.id)]);
+    await loadRequirementHistory(requirement.id);
     setStatusMessage("要件レビューを依頼しました");
   }
 
@@ -2074,6 +2141,7 @@ export default function MeetingWorkspace() {
 
     setLastReview(data.data);
     setRequirementReviews((current) => current.map((review) => (review.id === data.data.id ? data.data : review)));
+    await loadRequirementHistory(requirement.id);
     setStatusMessage("要件レビューを解決しました");
   }
 
@@ -2142,6 +2210,7 @@ export default function MeetingWorkspace() {
   function applyRequirement(nextRequirement: Requirement, options: ApplyRequirementOptions = {}) {
     setRequirement(nextRequirement);
     setRequirementReviews([]);
+    setRequirementHistory([]);
     setRequirementBackgroundDraft(nextRequirement.background);
     setRequirementGoalDraft(nextRequirement.goal);
     setUserStoriesDraft(linesToText(nextRequirement.user_stories ?? []));
@@ -2221,6 +2290,7 @@ export default function MeetingWorkspace() {
     setRisksDraft("");
     setRequirementApprovalNote(defaultRequirementApprovalNote);
     setRequirementReviews([]);
+    setRequirementHistory([]);
   }
 
   function clearIssueDrafts() {
@@ -3215,6 +3285,46 @@ export default function MeetingWorkspace() {
                 <span>{requirement.approval_note ?? "-"}</span>
                 <strong>最新レビュー</strong>
                 <span>{latestRequirementReview ? `${statusLabel(latestRequirementReview.status)} / ${latestRequirementReview.reviewer_role}` : "-"}</span>
+              </div>
+            ) : null}
+            {requirement ? (
+              <div className="validation-panel requirement-history-panel" aria-label="Requirement履歴タイムライン">
+                <div className="panel-header">
+                  <h3>履歴タイムライン</h3>
+                  <span className="chip neutral">{requirementHistory.length}件</span>
+                </div>
+                {requirementHistory.length ? (
+                  <div className="history-list">
+                    {requirementHistory.map((item) => (
+                      <div className="history-item" key={item.id}>
+                        <span className={`history-marker ${requirementHistoryTone(item)}`}>
+                          <Activity size={14} />
+                        </span>
+                        <div className="history-content">
+                          <div className="history-heading">
+                            <strong>{item.title}</strong>
+                            <span>{formatDateTime(item.occurred_at)}</span>
+                          </div>
+                          <p>{requirementHistoryMeta(item)}</p>
+                          {item.changes?.length ? (
+                            <ul className="history-changes">
+                              {item.changes.map((change) => (
+                                <li key={`${item.id}-${change.field}`}>{requirementHistoryChangeLabel(change)}</li>
+                              ))}
+                            </ul>
+                          ) : null}
+                          {item.stale_issue_draft_count || item.stale_open_api_draft_count ? (
+                            <p>
+                              再確認対象: Issue {item.stale_issue_draft_count ?? 0}件 / OpenAPI {item.stale_open_api_draft_count ?? 0}件
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p>履歴はまだありません。</p>
+                )}
               </div>
             ) : null}
             <div className="requirement-editor-grid">

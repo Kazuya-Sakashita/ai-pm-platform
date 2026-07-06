@@ -15,6 +15,23 @@ RSpec.describe RequirementRevisionService do
 
     expect(result.approval_reset).to be(true)
     expect(result.changed_fields).to eq(["goal"])
+    expect(result.field_changes).to eq(
+      [
+        {
+          field: "goal",
+          before: {
+            item_count: 1,
+            redacted: false,
+            preview: "会議で合意した内容を実装可能な成果物にする。"
+          },
+          after: {
+            item_count: 1,
+            redacted: false,
+            preview: "変更後の目的"
+          }
+        }
+      ]
+    )
     expect(requirement.reload.status).to eq("needs_changes")
     expect(requirement.goal).to eq("変更後の目的")
     expect(requirement.approved_at).to be_nil
@@ -75,5 +92,23 @@ RSpec.describe RequirementRevisionService do
     expect(requirement.approval_note).to eq("承認済み")
     expect(issue_draft.reload.status).to eq("approved")
     expect(open_api_draft.reload.status).to eq("approved")
+  end
+
+  it "差分プレビューにsecretや個人情報を保存しない" do
+    requirement = create(:requirement)
+    leaked_goal = "連携確認用 api_key=abcdefghijklmnopqrstuvwxyz123456 を使う。"
+
+    result = described_class.new(requirement, { goal: leaked_goal }).call
+
+    change = result.field_changes.first
+    expect(change[:field]).to eq("goal")
+    expect(change[:after]).to include(
+      item_count: 1,
+      redacted: true,
+      preview: "機密情報を含むため非表示"
+    )
+    expect(change[:after][:finding_categories]).to include("credential")
+    expect(result.field_changes.to_json).not_to include("abcdefghijklmnopqrstuvwxyz123456")
+    expect(requirement.reload.goal).to eq(leaked_goal)
   end
 end

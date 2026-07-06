@@ -33,6 +33,7 @@ Rails.application.routes.draw do
         post "generate-requirement", to: "requirements#generate", on: :member
       end
       resources :requirements, only: %i[show update] do
+        get "history", on: :member
         post "approve", on: :member
         post "generate-issue-draft", to: "issue_drafts#generate", on: :member
         post "generate-openapi-draft", to: "open_api_drafts#generate", on: :member

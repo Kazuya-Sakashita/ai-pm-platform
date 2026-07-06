@@ -57,6 +57,13 @@ module Api
         render json: { data: requirement.api_json }
       end
 
+      def history
+        return unless require_actor!(action: "requirement_history_read")
+        return unless authorize_project_role!(project_for(requirement.minute), action: "requirement_history_read", allowed_roles: project_read_roles)
+
+        render json: { data: RequirementHistoryQuery.new(requirement).call }
+      end
+
       def update
         return unless require_actor!(action: "requirement_update")
         return unless authorize_project_role!(project_for(requirement.minute), action: "requirement_update", allowed_roles: project_write_roles)
@@ -78,6 +85,7 @@ module Api
           actor_id: current_actor_id,
           metadata: {
             changed_fields: revision.changed_fields,
+            field_changes: revision.field_changes,
             approval_reset: revision.approval_reset,
             stale_issue_draft_ids: revision.stale_issue_draft_ids,
             stale_issue_draft_count: revision.stale_issue_draft_ids.size,

@@ -14,11 +14,14 @@ class RequirementRevisionService
   Result = Struct.new(
     :requirement,
     :changed_fields,
+    :field_changes,
     :approval_reset,
     :stale_issue_draft_ids,
     :stale_open_api_draft_ids,
     keyword_init: true
   )
+  PREVIEW_LIMIT = 120
+  REDACTED_PREVIEW = "機密情報を含むため非表示".freeze
 
   def initialize(requirement, attributes)
     @requirement = requirement
@@ -27,6 +30,7 @@ class RequirementRevisionService
 
   def call
     changed_fields = reviewed_changed_fields
+    field_changes = build_field_changes(changed_fields)
     approval_reset = requirement.status == "approved" && changed_fields.any?
     update_attributes = attributes.dup
     stale_issue_draft_ids = []
@@ -51,6 +55,7 @@ class RequirementRevisionService
     Result.new(
       requirement: requirement,
       changed_fields: changed_fields,
+      field_changes: field_changes,
       approval_reset: approval_reset,
       stale_issue_draft_ids: stale_issue_draft_ids,
       stale_open_api_draft_ids: stale_open_api_draft_ids
@@ -65,6 +70,49 @@ class RequirementRevisionService
     REVIEWED_FIELDS.select do |field|
       attributes.key?(field) && requirement.public_send(field) != attributes[field]
     end
+  end
+
+  def build_field_changes(changed_fields)
+    changed_fields.map do |field|
+      {
+        field: field,
+        before: safe_value_snapshot(requirement.public_send(field)),
+        after: safe_value_snapshot(attributes[field])
+      }
+    end
+  end
+
+  def safe_value_snapshot(value)
+    items = normalized_items(value)
+    scan_result = SensitiveContentScanner.scan(items.join("\n"))
+    snapshot = {
+      item_count: items.size,
+      redacted: scan_result.blocked?
+    }
+
+    if scan_result.blocked?
+      snapshot[:preview] = REDACTED_PREVIEW
+      snapshot[:finding_categories] = scan_result.finding_categories
+    elsif items.any?
+      snapshot[:preview] = preview_text(items)
+    end
+
+    snapshot
+  end
+
+  def normalized_items(value)
+    raw_items = value.is_a?(Array) ? value : [value]
+    raw_items.filter_map do |item|
+      text = item.to_s.strip
+      text.presence
+    end
+  end
+
+  def preview_text(items)
+    text = items.first(2).join(" / ")
+    return text if text.length <= PREVIEW_LIMIT
+
+    "#{text[0, PREVIEW_LIMIT]}..."
   end
 
   def stale_issue_drafts
