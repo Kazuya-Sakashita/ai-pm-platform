@@ -5,21 +5,22 @@ RSpec.describe RequirementGenerationService do
     minutes = create(
       :minute,
       status: "approved",
-      summary: "Review gates must be enforced.",
-      decisions: [{ "text" => "Generate requirements only after approval." }],
-      open_questions: ["Who owns requirement review?"],
-      action_items: [{ "text" => "Create a requirement editor.", "status" => "open" }]
+      summary: "レビューゲートを強制する必要がある。",
+      decisions: [{ "text" => "承認後のみ要件定義を生成する。" }],
+      open_questions: ["要件レビューの責任者は誰か。"],
+      action_items: [{ "text" => "要件エディタを作成する。", "status" => "open" }]
     )
 
     requirement = described_class.new(minutes).call
 
     expect(requirement).to be_persisted
     expect(requirement.status).to eq("generated")
-    expect(requirement.background).to include("Review gates")
-    expect(requirement.goal).to include("Generate requirements only after approval")
-    expect(requirement.functional_requirements).to include(/Generate requirements only after approval/)
-    expect(requirement.acceptance_criteria.first).to include("Given approved minutes")
-    expect(requirement.open_questions).to include("Who owns requirement review?")
+    expect(requirement.background).to include("レビューゲート")
+    expect(requirement.goal).to include("承認後のみ要件定義を生成")
+    expect(requirement.user_stories.first).to include("プロジェクトメンバーとして")
+    expect(requirement.functional_requirements).to include(/承認後のみ要件定義を生成/)
+    expect(requirement.acceptance_criteria.first).to include("承認済み議事録から要件定義を生成")
+    expect(requirement.open_questions).to include("要件レビューの責任者は誰か。")
     expect(requirement.generated_by_model).to eq("deterministic-requirements-placeholder-v1")
   end
 

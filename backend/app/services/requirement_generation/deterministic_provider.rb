@@ -37,7 +37,7 @@ module RequirementGeneration
 
     def user_stories
       source_items.first(3).map do |item|
-        "As a project member, I want #{item} so that the team can move from minutes to implementation with review gates."
+        "プロジェクトメンバーとして、#{item} を実現し、チームがレビューゲートを通過して実装へ進めるようにしたい。"
       end
     end
 
@@ -57,7 +57,7 @@ module RequirementGeneration
 
     def acceptance_criteria
       functional_requirements.map do |requirement|
-        "Given approved minutes, when requirements are generated, then #{requirement.sub(/\AFR-\d+:\s*/, '')} is represented as an editable requirement item."
+        "承認済み議事録から要件定義を生成したとき、#{requirement.sub(/\AFR-\d+:\s*/, '')} が編集可能な要件項目として表現されている。"
       end
     end
 

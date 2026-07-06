@@ -16,9 +16,9 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
         :requirement,
         status: "approved",
         open_questions: [],
-        goal: "Generate GitHub Issue drafts from approved requirements.",
-        functional_requirements: ["FR-001: Generate issue drafts."],
-        acceptance_criteria: ["Given an approved requirement, when generation runs, then an issue draft is stored."]
+        goal: "承認済み要件からGitHub Issueドラフトを生成する。",
+        functional_requirements: ["FR-001: Issueドラフトを生成する。"],
+        acceptance_criteria: ["承認済み要件から生成したとき、Issueドラフトが保存されている。"]
       )
       authorize_requirement_project(requirement)
 
@@ -30,8 +30,8 @@ RSpec.describe "API V1 Issue Drafts", type: :request do
       issue_draft = IssueDraft.find(job.target_id)
       expect(job.status).to eq("succeeded")
       expect(job.target_type).to eq("issue_draft")
-      expect(issue_draft.title).to include("Generate GitHub Issue drafts")
-      expect(issue_draft.body).to include("## Acceptance Criteria")
+      expect(issue_draft.title).to include("GitHub Issueドラフトを生成")
+      expect(issue_draft.body).to include("## 完了条件")
       expect(issue_draft.labels).to include("ai-generated", "requirement")
       expect(requirement.minute.meeting.project.audit_logs.last.action).to eq("issue_draft.generated")
     end

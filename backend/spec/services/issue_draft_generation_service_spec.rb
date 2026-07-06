@@ -6,19 +6,20 @@ RSpec.describe IssueDraftGenerationService do
       :requirement,
       status: "approved",
       open_questions: [],
-      goal: "Generate GitHub Issue drafts from approved requirements.",
-      functional_requirements: ["FR-001: Generate a GitHub Issue draft."],
-      acceptance_criteria: ["Given an approved requirement, when issue draft generation runs, then a draft is stored."]
+      goal: "承認済み要件からGitHub Issueドラフトを生成する。",
+      functional_requirements: ["FR-001: GitHub Issueドラフトを生成する。"],
+      acceptance_criteria: ["承認済み要件からIssueドラフトを生成したとき、編集可能なドラフトが保存されている。"]
     )
 
     issue_draft = described_class.new(requirement).call
 
     expect(issue_draft).to be_persisted
     expect(issue_draft.status).to eq("draft")
-    expect(issue_draft.title).to include("Generate GitHub Issue drafts")
-    expect(issue_draft.body).to include("## Functional Requirements")
-    expect(issue_draft.body).to include("FR-001: Generate a GitHub Issue draft.")
-    expect(issue_draft.acceptance_criteria).to include(/Given an approved requirement/)
+    expect(issue_draft.title).to include("GitHub Issueドラフトを生成")
+    expect(issue_draft.body).to include("## 機能要件")
+    expect(issue_draft.body).to include("FR-001: GitHub Issueドラフトを生成する。")
+    expect(issue_draft.body).to include("## レビューゲート")
+    expect(issue_draft.acceptance_criteria).to include(/承認済み要件/)
     expect(issue_draft.labels).to include("ai-generated", "needs-review")
   end
 

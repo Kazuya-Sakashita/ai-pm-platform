@@ -47,7 +47,7 @@ module OpenApiDraftGeneration
               },
               "responses" => {
                 "201" => {
-                  "description" => "Created",
+                  "description" => "作成済み",
                   "content" => {
                     "application/json" => {
                       "schema" => { "$ref" => "#/components/schemas/GeneratedResponse" }
@@ -82,7 +82,7 @@ module OpenApiDraftGeneration
       base = requirement.goal.to_s.squish
       base = primary_functional_requirement if base.blank?
 
-      "OpenAPI draft: #{base}".truncate(120)
+      "OpenAPIドラフト: #{base}".truncate(120)
     end
 
     def path_name
@@ -102,7 +102,7 @@ module OpenApiDraftGeneration
     end
 
     def primary_functional_requirement
-      functional_requirements.first || "Create an API endpoint for the approved requirement."
+      functional_requirements.first || "承認済み要件向けのAPIエンドポイントを作成する。"
     end
 
     def functional_requirements

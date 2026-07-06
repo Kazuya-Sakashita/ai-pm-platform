@@ -6,18 +6,20 @@ RSpec.describe OpenApiDraftGenerationService do
       :requirement,
       status: "approved",
       open_questions: [],
-      goal: "Expose approved requirements as implementation-ready API drafts.",
-      functional_requirements: ["FR-001: Create OpenAPI draft from approved requirement."],
-      acceptance_criteria: ["Given an approved requirement, then an OpenAPI draft is stored."]
+      goal: "承認済み要件を実装可能なAPIドラフトとして公開する。",
+      functional_requirements: ["FR-001: 承認済み要件からOpenAPIドラフトを作成する。"],
+      acceptance_criteria: ["承認済み要件からOpenAPIドラフトを生成したとき、ドラフトが保存されている。"]
     )
 
     open_api_draft = described_class.new(requirement).call
 
     expect(open_api_draft).to be_persisted
     expect(open_api_draft.status).to eq("draft")
-    expect(open_api_draft.title).to include("Expose approved requirements")
+    expect(open_api_draft.title).to include("OpenAPIドラフト")
+    expect(open_api_draft.title).to include("承認済み要件")
     expect(open_api_draft.content).to include("openapi: 3.1.0")
     expect(open_api_draft.content).to include("paths:")
+    expect(open_api_draft.content).to include("description: 作成済み")
     expect(open_api_draft.validation_errors).to eq([])
     expect(open_api_draft.generated_by_model).to eq("deterministic-openapi-draft-placeholder-v1")
   end
