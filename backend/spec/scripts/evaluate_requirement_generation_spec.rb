@@ -24,7 +24,7 @@ RSpec.describe RequirementGenerationQuality::CaseEvaluator do
     }
   end
 
-  it "scores a reviewable requirement output without critical failures" do
+  it "レビュー可能なRequirement出力をCritical failureなしで採点する" do
     output = {
       background: "議事録サマリー: 承認済みMinutesからRequirement draftを作る。",
       goal: "承認済みMinutesからRequirement draftを生成する。",
@@ -44,7 +44,7 @@ RSpec.describe RequirementGenerationQuality::CaseEvaluator do
     expect(result.critical_failures).to eq([])
   end
 
-  it "records critical failures for forbidden generated content" do
+  it "禁止された生成内容をCritical failureとして記録する" do
     output = {
       background: "議事録サマリー: 承認済みMinutesからRequirement draftを作る。",
       goal: "レビューなしで実装へ進める。",

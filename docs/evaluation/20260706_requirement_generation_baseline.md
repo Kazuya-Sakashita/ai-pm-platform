@@ -1,4 +1,4 @@
-# Requirement生成品質 baseline
+# Requirement生成品質ベースライン
 
 ## メタデータ
 
@@ -11,7 +11,7 @@
 
 ## ケース別スコア
 
-| Case | タイトル | Score | Critical failures |
+| ケース | タイトル | 点数 | Critical failure |
 | --- | --- | ---: | --- |
 | CASE-RQ-001 | 標準的なMVP要件化 | 100.0 | なし |
 | CASE-RQ-002 | 矛盾と未決事項の抽出 | 100.0 | なし |
@@ -33,9 +33,9 @@
 
 ### CASE-RQ-001: 標準的なMVP要件化
 
-Score: 100.0
+点数: 100.0
 
-| Category | Score | Max |
+| 評価カテゴリ | 点数 | 満点 |
 | --- | ---: | ---: |
 | fidelity | 15.0 | 15 |
 | structure | 10.0 | 10 |
@@ -48,7 +48,7 @@ Score: 100.0
 | readability | 5.0 | 5 |
 | generated_by_model | 2.0 | 2 |
 
-Findings:
+検出結果:
 
 - 入力Minutesの重要語: 4/4
 - 構造: 必須項目 10/10、最小件数 4/4
@@ -63,9 +63,9 @@ Findings:
 
 ### CASE-RQ-002: 矛盾と未決事項の抽出
 
-Score: 100.0
+点数: 100.0
 
-| Category | Score | Max |
+| 評価カテゴリ | 点数 | 満点 |
 | --- | ---: | ---: |
 | fidelity | 15.0 | 15 |
 | structure | 10.0 | 10 |
@@ -78,7 +78,7 @@ Score: 100.0
 | readability | 5.0 | 5 |
 | generated_by_model | 2.0 | 2 |
 
-Findings:
+検出結果:
 
 - 入力Minutesの重要語: 3/3
 - 構造: 必須項目 10/10、最小件数 4/4
@@ -93,9 +93,9 @@ Findings:
 
 ### CASE-RQ-003: セキュリティと機微情報
 
-Score: 79.2
+点数: 79.2
 
-| Category | Score | Max |
+| 評価カテゴリ | 点数 | 満点 |
 | --- | ---: | ---: |
 | fidelity | 15.0 | 15 |
 | structure | 9.2 | 10 |
@@ -108,7 +108,7 @@ Score: 79.2
 | readability | 5.0 | 5 |
 | generated_by_model | 2.0 | 2 |
 
-Findings:
+検出結果:
 
 - 入力Minutesの重要語: 3/3
 - 構造: 必須項目 10/10、最小件数 4/5
@@ -123,9 +123,9 @@ Findings:
 
 ### CASE-RQ-004: API駆動開発への接続
 
-Score: 88.0
+点数: 88.0
 
-| Category | Score | Max |
+| 評価カテゴリ | 点数 | 満点 |
 | --- | ---: | ---: |
 | fidelity | 15.0 | 15 |
 | structure | 10.0 | 10 |
@@ -138,7 +138,7 @@ Score: 88.0
 | readability | 5.0 | 5 |
 | generated_by_model | 2.0 | 2 |
 
-Findings:
+検出結果:
 
 - 入力Minutesの重要語: 3/3
 - 構造: 必須項目 10/10、最小件数 4/4
@@ -153,9 +153,9 @@ Findings:
 
 ### CASE-RQ-005: 情報不足の短い会議
 
-Score: 94.0
+点数: 94.0
 
-| Category | Score | Max |
+| 評価カテゴリ | 点数 | 満点 |
 | --- | ---: | ---: |
 | fidelity | 15.0 | 15 |
 | structure | 10.0 | 10 |
@@ -168,7 +168,7 @@ Score: 94.0
 | readability | 5.0 | 5 |
 | generated_by_model | 2.0 | 2 |
 
-Findings:
+検出結果:
 
 - 入力Minutesの重要語: 2/2
 - 構造: 必須項目 10/10、最小件数 4/4
@@ -183,9 +183,9 @@ Findings:
 
 ### CASE-RQ-006: UXと運用要件が強い会議
 
-Score: 85.0
+点数: 85.0
 
-| Category | Score | Max |
+| 評価カテゴリ | 点数 | 満点 |
 | --- | ---: | ---: |
 | fidelity | 15.0 | 15 |
 | structure | 9.0 | 10 |
@@ -198,7 +198,7 @@ Score: 85.0
 | readability | 5.0 | 5 |
 | generated_by_model | 2.0 | 2 |
 
-Findings:
+検出結果:
 
 - 入力Minutesの重要語: 3/3
 - 構造: 必須項目 10/10、最小件数 3/4
@@ -210,4 +210,3 @@ Findings:
 - 非機能要件: 1/5
 - Issue/OpenAPI readiness: FR形式 3/3
 - レビュー容易性: 180文字以内 16/16、重複 0
-
