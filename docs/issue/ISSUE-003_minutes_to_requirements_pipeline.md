@@ -49,6 +49,8 @@ AI議事録ツールとの差別化には、会議内容を実装可能な要件
 - `docs/review/20260706_requirement_approval_review_center_gate_review.md`
 - `docs/review/20260707_requirement_accepted_risk_expiry_gate_review.md`
 - `docs/review/20260707_requirement_approval_audit_metadata_review.md`
+- `docs/review/20260707_requirement_blocker_details_design_review.md`
+- `docs/review/20260707_requirement_blocker_details_implementation_review.md`
 
 ## レビュー結果
 
@@ -117,21 +119,21 @@ AI議事録ツールとの差別化には、会議内容を実装可能な要件
 - `RequirementApprovalGate` を追加し、Requirement承認条件をService Objectへ分離
 - Requirement対象のReviewに `open` または `action_required` が残る場合、Requirement承認を409 `review_required` でブロック
 - `resolved` と `accepted_risk` のReviewは承認可能状態として扱う
-- Requirement Workspaceに `要件レビュー対応済み` 導線を追加し、Review Centerの対象レビューをresolvedへ更新できるようにした
+- Requirement Workspaceに `要件レビュー対応済み` 導線を追加し、レビューセンターの対象レビューをresolvedへ更新できるようにした
 - Playwright happy pathを、要件レビュー依頼、要件レビュー解決、Requirement承認の順番に更新
 - Issue/OpenAPI生成条件は既存実装で `requirement.status == "approved"` を要求していることを確認
 - `PATH=/Users/kazuya/.rbenv/versions/3.2.2/bin:$PATH bundle exec rspec spec/services/requirement_approval_gate_spec.rb spec/requests/api/v1/requirements_spec.rb spec/requests/api/v1/issue_drafts_spec.rb spec/requests/api/v1/open_api_drafts_spec.rb`: 48 examples, 0 failures
 - `npm run frontend:build`: success
 - `npm run display:check`: success
-- 判定: Review Center resolved状態とRequirement承認条件の接続は完了。ただし承認メタデータとrisk acceptance期限管理が残るためIssue #3は継続
+- 判定: レビューセンターのresolved状態とRequirement承認条件の接続は完了。ただし承認メタデータとリスク受容期限管理が残るためIssue #3は継続
 
 2026-07-07 04:39 JST追加:
 
 - `RequirementApprovalGate` で `accepted_risk.expires_at` を評価するようにした
-- 期限内のrisk acceptanceはRequirement承認可能、期限切れ、期限未設定、不正日時は409 `review_required` で承認ブロック
+- 期限内のリスク受容はRequirement承認可能、期限切れ、期限未設定、不正日時は409 `review_required` で承認ブロック
 - API error detailsへ `expired_accepted_risk_review_ids` と `accepted_risk_expires_at` を含める
 - `PATH=/Users/kazuya/.rbenv/versions/3.2.2/bin:$PATH bundle exec rspec spec/services/requirement_approval_gate_spec.rb spec/requests/api/v1/requirements_spec.rb spec/requests/api/v1/issue_drafts_spec.rb spec/requests/api/v1/open_api_drafts_spec.rb`: 51 examples, 0 failures
-- 判定: accepted_risk期限切れblockerは完了。ただし承認メタデータとOpenAI provider比較が残るためIssue #3は継続
+- 判定: `accepted_risk` 期限切れブロッカーは完了。ただし承認メタデータとOpenAI provider比較が残るためIssue #3は継続
 
 2026-07-07 05:10 JST追加:
 
@@ -147,7 +149,7 @@ AI議事録ツールとの差別化には、会議内容を実装可能な要件
 - `npm run api:verify`: 成功
 - `npm run frontend:build`: 成功
 - `npm run display:check`: 成功
-- 判定: 承認者、承認日時、承認コメントのDB/API/UI接続は完了。ただし再編集時の状態戻しとblocker詳細表示が残るためIssue #3は継続
+- 判定: 承認者、承認日時、承認コメントのDB/API/UI接続は完了。ただし再編集時の状態戻しとブロッカー詳細表示が残るためIssue #3は継続
 
 2026-07-07 05:20 JST追加:
 
@@ -162,19 +164,37 @@ AI議事録ツールとの差別化には、会議内容を実装可能な要件
 - `npm run display:check`: 成功
 - `npm run frontend:build`: 成功
 - `npm run frontend:e2e -- --grep "creates a project, saves a Discord log, generates minutes, and requests review"`: 1 passed
-- 判定: 承認済みRequirement再編集時の状態戻しは完了。ただしPR CI、blocker詳細表示、下流draft stale化が残るためIssue #3は継続
+- 判定: 承認済みRequirement再編集時の状態戻しは完了。ただしPR CI、ブロッカー詳細表示、下流draft stale化が残るためIssue #3は継続
+
+2026-07-07 06:38 JST追加:
+
+- Requirement Workspaceに承認ブロッカーパネルを追加
+- Requirement専用の `requirementReviews` stateを追加し、`GET /reviews?target_type=requirement&target_id=...` で対象レビューを取得
+- Requirement生成、保存、承認、レビュー依頼、レビュー解決後にRequirement reviewsを同期
+- 未決事項、未解決レビュー、期限切れリスク受容を件数表示
+- 未解決レビュー、期限切れリスク受容、承認コメント不足を詳細ブロッカーとして表示
+- `要件レビュー対応済み` はRequirement対象の未解決レビューを解決するように変更
+- 承認ボタンは未決事項、未解決レビュー、期限切れリスク受容、承認コメント不足がある場合に無効化
+- E2Eで未決事項件数、未解決レビュー件数、レビュー詳細、承認ボタン無効化、解決後の復帰を確認
+- `npm run frontend:e2e -- --grep "creates a project, saves a Discord log, generates minutes, and requests review"`: 1 passed
+- `npm run frontend:build`: 成功
+- `npm run display:check`: 成功
+- `npm run api:verify`: 成功
+- `PATH=/Users/kazuya/.rbenv/versions/3.2.2/bin:$PATH bundle exec rspec spec/requests/api/v1/reviews_spec.rb spec/requests/api/v1/requirements_spec.rb`: 22 examples, 0 failures
+- PR CI初回でGitHub照合系E2Eのモック未追従を検知し、Requirement reviews取得の空配列モックを追加
+- `npm run frontend:e2e -- --grep "GitHub reconciliation|GitHub Issue candidate|linking an existing GitHub Issue|GitHub Issue from another repository"`: 7 passed
+- `npm run frontend:e2e -- --grep "links an existing GitHub Issue from pending reconciliation"`: 1 passed
+- 判定: Requirement Workspaceでの承認ブロッカー詳細表示は完了。ただし下流draft stale化、差分履歴、OpenAI provider比較が残るためIssue #3は継続
 
 未完了:
 
 - OpenAI providerによるRequirement生成
 - Requirement Workspaceの差分、未決事項、リスク強調UX
-- Requirement Workspaceで未解決Review件数と承認blocker詳細を表示する
 - Requirement差し戻し時の下流Issue/OpenAPI draft stale化
 - Requirement差分履歴
 
 ## 次アクション
 
-- PR CIでRequirement再編集時の状態戻し導線を確認する
-- Requirement Workspaceで未解決Review件数と承認blocker詳細を表示する
+- PR CIでRequirement承認ブロッカー表示導線を確認する
 - Requirement差し戻し時の下流Issue/OpenAPI draft stale化を設計する
 - OpenAI providerを導入する場合は、同じfixtureでdeterministic providerと比較する

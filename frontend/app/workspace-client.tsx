@@ -82,6 +82,13 @@ type ConversationSummaryDraftEditForm = {
   risks: string;
 };
 
+type RequirementApprovalBlocker = {
+  key: string;
+  title: string;
+  status: string;
+  detail: string;
+};
+
 type ApiErrorPayload = {
   error?: {
     code?: string;
@@ -137,6 +144,19 @@ function editableConversationSummaryStatus(status?: ConversationSummaryDraft["st
 
 function blockingReviewStatus(status?: Review["status"]) {
   return status === "open" || status === "action_required";
+}
+
+function acceptedRiskExpiresAt(review: Review) {
+  const risk = review.accepted_risk as { expires_at?: string } | undefined;
+  return risk?.expires_at;
+}
+
+function acceptedRiskExpired(review: Review) {
+  if (review.status !== "accepted_risk") return false;
+  const expiresAt = acceptedRiskExpiresAt(review);
+  if (!expiresAt) return true;
+  const timestamp = Date.parse(expiresAt);
+  return Number.isNaN(timestamp) || timestamp <= Date.now();
 }
 
 function conversationDraftEditFormFromDraft(draft: ConversationSummaryDraft | null): ConversationSummaryDraftEditForm {
@@ -378,6 +398,7 @@ export default function MeetingWorkspace() {
   const [queueHealth, setQueueHealth] = useState<QueueHealth | null>(null);
   const [queueHealthLoading, setQueueHealthLoading] = useState(false);
   const [lastReview, setLastReview] = useState<Review | null>(null);
+  const [requirementReviews, setRequirementReviews] = useState<Review[]>([]);
   const [openApiReview, setOpenApiReview] = useState<Review | null>(null);
   const [integrationAccounts, setIntegrationAccounts] = useState<IntegrationAccount[]>([]);
   const [projectMemberships, setProjectMemberships] = useState<ProjectMembership[]>([]);
@@ -1358,6 +1379,7 @@ export default function MeetingWorkspace() {
     }
 
     applyRequirement(requirementResult.data.data);
+    await loadRequirementReviews(requirementResult.data.data.id);
     setStatusMessage("要件定義を生成しました");
   }
 
@@ -1391,6 +1413,7 @@ export default function MeetingWorkspace() {
     }
 
     applyRequirement(data.data);
+    await loadRequirementReviews(data.data.id);
     setStatusMessage("要件定義を保存しました");
   }
 
@@ -1421,6 +1444,7 @@ export default function MeetingWorkspace() {
     }
 
     applyRequirement(data.data);
+    await loadRequirementReviews(data.data.id);
     setStatusMessage("要件定義を承認しました");
   }
 
@@ -1884,6 +1908,24 @@ export default function MeetingWorkspace() {
     setConversationSummaryReview(review);
   }
 
+  async function loadRequirementReviews(requirementId: string) {
+    const { data, error: apiError } = await apiClient.GET("/reviews", {
+      params: {
+        query: {
+          target_type: "requirement",
+          target_id: requirementId,
+        },
+      },
+    });
+
+    if (apiError) {
+      setApiError(errorMessage(apiError));
+      return;
+    }
+
+    setRequirementReviews(data.data);
+  }
+
   async function requestConversationSummaryReview() {
     if (!conversationSummaryDraft) {
       setApiError("レビュー対象のDM整理ドラフトがありません。");
@@ -2002,11 +2044,12 @@ export default function MeetingWorkspace() {
     }
 
     setLastReview(data.data);
+    setRequirementReviews((current) => [data.data, ...current.filter((review) => review.id !== data.data.id)]);
     setStatusMessage("要件レビューを依頼しました");
   }
 
   async function resolveRequirementReview() {
-    if (!requirement || !lastReview || lastReview.target_type !== "requirement" || lastReview.target_id !== requirement.id) {
+    if (!requirement || !requirementReviewToResolve) {
       setApiError("解決する要件レビューがありません。");
       return;
     }
@@ -2014,7 +2057,7 @@ export default function MeetingWorkspace() {
     setLoading(true);
     setError("");
     const { data, error: apiError } = await apiClient.POST("/reviews/{review_id}/resolve-action", {
-      params: { path: { review_id: lastReview.id } },
+      params: { path: { review_id: requirementReviewToResolve.id } },
       body: { resolution_note: "要件定義レビューの指摘を確認し、未決事項を解消しました。" },
     });
     setLoading(false);
@@ -2025,6 +2068,7 @@ export default function MeetingWorkspace() {
     }
 
     setLastReview(data.data);
+    setRequirementReviews((current) => current.map((review) => (review.id === data.data.id ? data.data : review)));
     setStatusMessage("要件レビューを解決しました");
   }
 
@@ -2094,6 +2138,7 @@ export default function MeetingWorkspace() {
     setRequirement(nextRequirement);
     setIssueDraft(null);
     setOpenApiDraft(null);
+    setRequirementReviews([]);
     setRequirementBackgroundDraft(nextRequirement.background);
     setRequirementGoalDraft(nextRequirement.goal);
     setUserStoriesDraft(linesToText(nextRequirement.user_stories ?? []));
@@ -2159,6 +2204,7 @@ export default function MeetingWorkspace() {
     setRequirementOpenQuestionsDraft("");
     setRisksDraft("");
     setRequirementApprovalNote(defaultRequirementApprovalNote);
+    setRequirementReviews([]);
   }
 
   function clearIssueDrafts() {
@@ -2190,6 +2236,40 @@ export default function MeetingWorkspace() {
     conversationSummaryDraft && editableConversationSummaryStatus(conversationSummaryDraft.status)
   );
   const hasBlockingConversationSummaryReview = blockingReviewStatus(conversationSummaryReview?.status);
+  const latestRequirementReview = requirementReviews[0] ?? null;
+  const requirementReviewToResolve = requirementReviews.find((review) => blockingReviewStatus(review.status)) ?? null;
+  const unresolvedRequirementReviews = requirementReviews.filter((review) => blockingReviewStatus(review.status));
+  const expiredRequirementRiskReviews = requirementReviews.filter(acceptedRiskExpired);
+  const requirementOpenQuestionCount = requirement?.open_questions?.length ?? 0;
+  const requirementApprovalNoteMissing = Boolean(requirement) && !requirementApprovalNote.trim();
+  const requirementApprovalDetailBlockers: RequirementApprovalBlocker[] = requirement
+    ? [
+        ...unresolvedRequirementReviews.map((review) => ({
+          key: `review-${review.id}`,
+          title: "未解決レビュー",
+          status: `${statusLabel(review.status)} / ${review.reviewer_role}`,
+          detail: review.next_actions[0] ?? "レビュー対応が必要です。",
+        })),
+        ...expiredRequirementRiskReviews.map((review) => ({
+          key: `accepted-risk-${review.id}`,
+          title: "期限切れリスク受容",
+          status: `期限 ${formatDateTime(acceptedRiskExpiresAt(review))}`,
+          detail: "リスク受容の期限を更新するか、レビューを解決してください。",
+        })),
+        ...(requirementApprovalNoteMissing
+          ? [
+              {
+                key: "approval-note",
+                title: "承認コメント",
+                status: "未入力",
+                detail: "承認判断の理由を監査できるようにコメントを入力してください。",
+              },
+            ]
+          : []),
+      ]
+    : [];
+  const hasRequirementApprovalBlockers =
+    Boolean(requirement) && (requirementOpenQuestionCount > 0 || requirementApprovalDetailBlockers.length > 0);
   const canApproveConversationSummaryDraft = Boolean(
     conversationSummaryDraft && conversationSummaryDraft.status === "draft" && !hasBlockingConversationSummaryReview
   );
@@ -3058,7 +3138,7 @@ export default function MeetingWorkspace() {
                 <Save size={16} />
                 要件定義を保存
               </button>
-              <button className="button primary" type="button" onClick={approveRequirement} disabled={!requirement || !requirementApprovalNote.trim() || loading}>
+              <button className="button primary" type="button" onClick={approveRequirement} disabled={!requirement || hasRequirementApprovalBlockers || loading}>
                 <CheckCircle2 size={16} />
                 要件定義を承認
               </button>
@@ -3070,12 +3150,41 @@ export default function MeetingWorkspace() {
                 className="button secondary"
                 type="button"
                 onClick={resolveRequirementReview}
-                disabled={!requirement || !lastReview || lastReview.target_type !== "requirement" || lastReview.target_id !== requirement.id || !["open", "action_required"].includes(lastReview.status) || loading}
+                disabled={!requirement || !requirementReviewToResolve || loading}
               >
                 <CheckCircle2 size={16} />
                 要件レビュー対応済み
               </button>
             </div>
+            {requirement ? (
+              <div className={`validation-panel ${hasRequirementApprovalBlockers ? "danger" : "success"}`} aria-label="要件承認ブロッカー">
+                <h3>承認ブロッカー</h3>
+                <div className={`validation-row ${requirementOpenQuestionCount > 0 ? "warning" : "success"}`}>
+                  <strong>未決事項</strong>
+                  <span>{requirementOpenQuestionCount}件</span>
+                  <p>未解決の確認事項が承認前に残っていないかを確認します。</p>
+                </div>
+                <div className={`validation-row ${unresolvedRequirementReviews.length > 0 ? "warning" : "success"}`}>
+                  <strong>未解決レビュー</strong>
+                  <span>{unresolvedRequirementReviews.length}件</span>
+                  <p>レビューセンターで未対応または追加対応が必要な指摘を確認します。</p>
+                </div>
+                <div className={`validation-row ${expiredRequirementRiskReviews.length > 0 ? "warning" : "success"}`}>
+                  <strong>期限切れリスク受容</strong>
+                  <span>{expiredRequirementRiskReviews.length}件</span>
+                  <p>リスク受容の期限切れ、期限未設定、不正日時を確認します。</p>
+                </div>
+                {requirementApprovalDetailBlockers.slice(0, 4).map((blocker) => (
+                  <div className="validation-row warning" key={blocker.key}>
+                    <strong>{blocker.title}</strong>
+                    <span>{blocker.status}</span>
+                    <p>{blocker.detail}</p>
+                  </div>
+                ))}
+                {requirementApprovalDetailBlockers.length > 4 ? <p>ほか{requirementApprovalDetailBlockers.length - 4}件のブロッカーがあります。</p> : null}
+                {!hasRequirementApprovalBlockers ? <p>承認前に表示対象のブロッカーはありません。</p> : null}
+              </div>
+            ) : null}
             {requirement ? (
               <div className="audit-box">
                 <strong>承認者</strong>
@@ -3084,6 +3193,8 @@ export default function MeetingWorkspace() {
                 <span>{formatDateTime(requirement.approved_at)}</span>
                 <strong>承認コメント</strong>
                 <span>{requirement.approval_note ?? "-"}</span>
+                <strong>最新レビュー</strong>
+                <span>{latestRequirementReview ? `${statusLabel(latestRequirementReview.status)} / ${latestRequirementReview.reviewer_role}` : "-"}</span>
               </div>
             ) : null}
             <div className="requirement-editor-grid">
