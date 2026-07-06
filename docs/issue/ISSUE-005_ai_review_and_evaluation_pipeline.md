@@ -45,14 +45,18 @@ https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/5
 - `docs/review/20260630_screen_design_review.md`
 - `docs/review/20260630_api_design_review.md`
 - `docs/review/20260630_db_design_review.md`
+- `docs/review/20260705_expert_subagent_governance_review.md`
+- `docs/review/20260705_expert_subagent_pilot_issue_039_review.md`
+- `docs/review/20260706_ai_review_pipeline_closure_review.md`
 
 ## レビュー結果
 
 プロダクトの中核でありP0。ただし、レビューが形式化すると価値を失うため、必ず改善Issueへ接続する必要がある。
 
+2026-07-06にクローズ判定レビューを実施した。Review model/API/OpenAPI contract、Review Center連動、OpenAPI validation/GitHub publish reconciliationのReview blocker、専門家サブエージェント運用文書、expert review schema、ISSUE-039パイロットにより、ISSUE-005のMVP完了条件を満たした。Agent別UI、外部AI比較、フェーズ横断の未レビュー検出ダッシュボードはP1/P2後続改善として分離する。
+
 ## 次アクション
 
-- レビューデータモデル初稿は `docs/architecture/20260630_db_design.md` に作成済み
-- レビュー未実施ゲートの初期状態は `docs/product/20260630_mvp_screen_design.md` に作成済み
-- 複数AIレビュー比較のデータ構造を検討する
-- ISSUE-007としてReview blocker UXを詳細化する
+- GitHub Issue #5へクローズコメントを投稿し、Issueをクローズする。
+- CI成功後にClosed状態、クローズ日、クローズコメント、main CI証跡を追記する。
+- Agent別レビュー表示、外部AI比較、フェーズ横断review gateは後続Issue候補として扱う。
