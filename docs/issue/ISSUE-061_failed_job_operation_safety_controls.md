@@ -65,6 +65,7 @@ P2。ISSUE-056のMVP完了後に取り組むべき運用品質改善である。
 - discard操作は `discard_safety_confirmed: true` がない場合に拒否するようにした。
 - Queue health responseへ24時間のretry/discard/rejected件数とsafe操作履歴を追加した。
 - Frontendで再実行理由、破棄理由、破棄リスク確認チェックを分離した。
+- Queue health responseの古いモックや旧レスポンスで新規操作メトリクス、履歴が欠落しても、Frontend側で安全な既定値へ正規化するようにした。
 - SLO候補を `docs/evaluation/20260707_failed_job_operation_slo_candidates.md` に保存した。
 
 ## 検証結果
@@ -76,9 +77,10 @@ P2。ISSUE-056のMVP完了後に取り組むべき運用品質改善である。
 - 2026-07-07: `npm run display:check`: 成功
 - 2026-07-07: `npm run frontend:build`: 成功
 - 2026-07-07: `npm run frontend:e2e -- --grep "Queue health operations panel"`: 1 passed
+- 2026-07-07: PR #97 CIで旧queue-health mock由来のFrontendクラッシュを検出し、payload正規化で修正。`npm run frontend:e2e -- e2e/auth-session.spec.ts e2e/meeting-workspace.spec.ts e2e/queue-health.spec.ts` は20 passed、6 failed。失敗6件はローカルRails API未起動による接続不可で、今回の互換修正とは別要因。
 
 ## 次アクション
 
-1. PRを作成し、GitHub Actions `verify` を確認する。
+1. PR #97へ互換修正を追加し、GitHub Actions `verify` を再確認する。
 2. CI成功後、GitHub Issue #90へ検証結果をコメントし、PR mergeでクローズする。
 3. Slack通知、外部監視、二人承認、retry後再失敗率はISSUE-063 / GitHub Issue #96で継続する。

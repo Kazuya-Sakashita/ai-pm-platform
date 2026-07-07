@@ -153,6 +153,9 @@ const failedJobOperationReasonLabels: Record<FailedJobOperationReasonTemplate, s
   unsafe_to_retry: "再実行せず破棄",
 };
 
+const defaultFailedJobRetryReasonTemplates: FailedJobRetryReasonTemplate[] = ["operator_confirmed_safe_retry", "transient_failure_recovered"];
+const defaultFailedJobDiscardReasonTemplates: FailedJobDiscardReasonTemplate[] = ["manually_resolved", "unsafe_to_retry"];
+
 const failedJobOperationActionLabels: Record<FailedJobOperationHistoryItem["action"], string> = {
   retry: "再実行",
   discard: "破棄",
@@ -304,6 +307,59 @@ function errorJobId(error: unknown) {
   const payload = error as ApiErrorPayload;
   const value = payload.error?.details?.job_id;
   return typeof value === "string" ? value : undefined;
+}
+
+type LegacyFailedJobSample = Omit<FailedJobSample, "operations"> & {
+  operations: Omit<FailedJobSample["operations"], "retry_reason_templates" | "discard_reason_templates"> &
+    Partial<Pick<FailedJobSample["operations"], "retry_reason_templates" | "discard_reason_templates">>;
+};
+
+type LegacyQueueHealth = Omit<QueueHealth, "failed_job_samples" | "failed_job_operation_metrics" | "failed_job_operation_history"> & {
+  failed_job_samples?: LegacyFailedJobSample[];
+  failed_job_operation_metrics?: QueueHealth["failed_job_operation_metrics"];
+  failed_job_operation_history?: QueueHealth["failed_job_operation_history"];
+};
+
+function defaultFailedJobOperationMetrics(): QueueHealth["failed_job_operation_metrics"] {
+  return {
+    recent_window_hours: 24,
+    retry_count: 0,
+    discard_count: 0,
+    rejected_count: 0,
+  };
+}
+
+function normalizeFailedJobSample(job: LegacyFailedJobSample): FailedJobSample {
+  const retryReasonTemplates =
+    job.operations.retry_reason_templates && job.operations.retry_reason_templates.length > 0
+      ? job.operations.retry_reason_templates
+      : defaultFailedJobRetryReasonTemplates;
+  const discardReasonTemplates =
+    job.operations.discard_reason_templates && job.operations.discard_reason_templates.length > 0
+      ? job.operations.discard_reason_templates
+      : defaultFailedJobDiscardReasonTemplates;
+  const reasonTemplates: FailedJobOperationReasonTemplate[] = [...retryReasonTemplates, ...discardReasonTemplates];
+
+  return {
+    ...job,
+    operations: {
+      ...job.operations,
+      retry_reason_templates: retryReasonTemplates,
+      discard_reason_templates: discardReasonTemplates,
+      reason_templates: job.operations.reason_templates ?? reasonTemplates,
+    },
+  };
+}
+
+function normalizeQueueHealth(queueHealth: QueueHealth): QueueHealth {
+  const legacyQueueHealth = queueHealth as LegacyQueueHealth;
+
+  return {
+    ...queueHealth,
+    failed_job_samples: (legacyQueueHealth.failed_job_samples ?? []).map(normalizeFailedJobSample),
+    failed_job_operation_metrics: legacyQueueHealth.failed_job_operation_metrics ?? defaultFailedJobOperationMetrics(),
+    failed_job_operation_history: legacyQueueHealth.failed_job_operation_history ?? [],
+  };
 }
 
 const authRecoveryMessages: Record<string, string> = {
@@ -964,7 +1020,7 @@ export default function MeetingWorkspace() {
         return;
       }
 
-      setQueueHealth(data.data);
+      setQueueHealth(normalizeQueueHealth(data.data));
       if (announce) setStatusMessage("運用状態を更新しました");
     } catch {
       setQueueHealthLoading(false);
