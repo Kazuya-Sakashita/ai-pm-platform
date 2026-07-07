@@ -13,6 +13,7 @@ test.describe("Queue health operations panel", () => {
       updated_at: now,
     };
     let queueHealthRequests = 0;
+    let operationRequests = 0;
 
     await page.route("**/api/v1/projects", async (route) => {
       await route.fulfill({
@@ -27,6 +28,14 @@ test.describe("Queue health operations panel", () => {
     });
 
     await page.route(`**/api/v1/projects/${project.id}/integrations`, async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [] }) });
+    });
+
+    await page.route(`**/api/v1/projects/${project.id}/memberships**`, async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [], meta: { total_count: 0 } }) });
+    });
+
+    await page.route(`**/api/v1/projects/${project.id}/conversation-imports**`, async (route) => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [] }) });
     });
 
@@ -59,10 +68,17 @@ test.describe("Queue health operations panel", () => {
               ? []
               : [
                   {
+                    failed_job_id: 456,
+                    job_id: 123,
                     queue_name: "github_reconciliation",
                     class_name: "GithubIssuePublish::ReconciliationRetryJob",
                     active_job_id: "active-job-queue-health",
                     failed_at: now,
+                    operations: {
+                      retryable: true,
+                      discardable: true,
+                      reason_templates: ["operator_confirmed_safe_retry", "manually_resolved", "unsafe_to_retry"],
+                    },
                   },
                 ],
             recurring_tasks: [{ key: "cleanup_expired_github_connection_states", class_name: "GithubConnectionStateCleanupJob", queue_name: "default", schedule: "*/10 * * * *" }],
@@ -82,6 +98,27 @@ test.describe("Queue health operations panel", () => {
       });
     });
 
+    await page.route("**/api/v1/operations/failed-jobs/456/retry**", async (route) => {
+      operationRequests += 1;
+      const body = route.request().postDataJSON();
+      expect(body.reason_template).toBe("operator_confirmed_safe_retry");
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: {
+            failed_job_id: 456,
+            job_id: 123,
+            action: "retry",
+            queue_name: "github_reconciliation",
+            class_name: "GithubIssuePublish::ReconciliationRetryJob",
+            reason_template: "operator_confirmed_safe_retry",
+            operated_at: now,
+          },
+        }),
+      });
+    });
+
     await page.goto("/");
 
     const panel = page.getByLabel("運用監視");
@@ -91,6 +128,15 @@ test.describe("Queue health operations panel", () => {
     const failedJobs = panel.getByLabel("直近失敗ジョブ");
     await expect(failedJobs).toContainText("GithubIssuePublish::ReconciliationRetryJob");
     await expect(failedJobs).toContainText("github_reconciliation");
+    await expect(failedJobs.getByLabel("操作理由")).toBeVisible();
+    await failedJobs.getByRole("button", { name: "再実行" }).click();
+    await expect(page.getByText("失敗ジョブを再実行しました")).toBeVisible();
+    expect(operationRequests).toBe(1);
+    await expect(panel.getByText("正常")).toBeVisible();
+
+    queueHealthRequests = 0;
+    await panel.getByRole("button", { name: "運用状態更新" }).click();
+    await expect(panel.getByText("要確認")).toBeVisible();
     await expect(panel.getByText("failed executionが1件あります。")).toBeVisible();
     await expect(panel).not.toContainText("DATABASE_URL");
     await expect(panel).not.toContainText("backtrace");

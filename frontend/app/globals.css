@@ -746,7 +746,7 @@ textarea {
 .failed-job-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 2px;
+  gap: 8px;
   align-items: start;
   min-height: 34px;
   padding: 7px 8px;
@@ -763,6 +763,32 @@ textarea {
 
 .failed-job-row span {
   color: var(--muted);
+}
+
+.failed-job-actions {
+  display: grid;
+  gap: 6px;
+}
+
+.failed-job-actions label {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.failed-job-actions select {
+  min-width: 0;
+}
+
+.failed-job-action-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.failed-job-action-buttons .button {
+  min-height: 34px;
 }
 
 .warning-list {

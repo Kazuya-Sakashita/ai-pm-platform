@@ -29,11 +29,47 @@ target:
   summary: string
 frameworks:
   - string
+execution:
+  status: completed | partial | skipped | timed_out | failed
+  elapsed_time: string
+  fallback_reason: string
+  missing_required_agents:
+    - string
+  partial_result: boolean
+data_handling:
+  data_classification: public | internal | confidential | restricted | unknown
+  redaction_status: not_needed | redacted | pending | failed | unknown
+  secret_scan_status: clear | warning | blocked | not_run | unknown
+  allowed_tools_or_permissions:
+    - string
+  risk_acceptance:
+    status: not_applicable | requested | accepted | rejected
+    approver: string
+    reason: string
 verdict:
   status: pass | warning | conditional_pass | action_required | blocked | fail
   confidence: low | medium | high
   rationale: string
   blocking_status: blocking | non_blocking | needs_investigation
+value_axis_assessment:
+  security:
+    status: pass | warning | action_required | blocked | cannot_assess
+    notes: string
+  technical_quality:
+    status: pass | warning | action_required | blocked | cannot_assess
+    notes: string
+  user_experience:
+    status: pass | warning | action_required | blocked | cannot_assess
+    notes: string
+  continued_engagement:
+    status: pass | warning | action_required | blocked | cannot_assess
+    notes: string
+  business_value:
+    status: pass | warning | action_required | blocked | cannot_assess
+    notes: string
+  long_term_operations:
+    status: pass | warning | action_required | blocked | cannot_assess
+    notes: string
 strengths:
   - id: string
     description: string
@@ -93,6 +129,7 @@ external_review:
 - target versionまたはcommit
 - 判定
 - confidence
+- 6価値軸の評価
 - reproducibility steps
 - 良かった点
 - 改善点
@@ -101,6 +138,22 @@ external_review:
 - 次アクション
 - Issue番号
 - 制約または未確認事項
+
+## 推奨監査項目
+
+既存レビューとの後方互換性を保つため、以下は新規または重要Issueで優先的に記録する推奨項目とする。
+
+- `execution.status`: completed、partial、skipped、timed_out、failed
+- `execution.fallback_reason`: L1 fallback、任意Agent skip、外部AI未実施などの理由
+- `execution.missing_required_agents`: 欠落した必須Agent
+- `execution.partial_result`: 部分結果かどうか
+- `data_handling.data_classification`: public、internal、confidential、restricted、unknown
+- `data_handling.redaction_status`: redactionの状態
+- `data_handling.secret_scan_status`: clear、warning、blocked、not_run、unknown
+- `data_handling.allowed_tools_or_permissions`: Agentへ許可したツールや権限
+- `data_handling.risk_acceptance`: リスク受容の有無、承認者、理由
+
+`secret_scan_status` が `blocked` の場合は、`risk_acceptance.status` が `accepted` でも次工程へ進めない。
 
 ## 判定基準
 
@@ -112,6 +165,21 @@ external_review:
 | action_required | 次工程前に修正が必要 | 進めない |
 | blocked | 必須情報、必須Agent、P0判断が不足している | 進めない |
 | fail | 目的や完成条件を満たしていない | 進めない |
+
+## 6価値軸の評価
+
+すべてのAgentは、専門領域に応じた濃淡を付けながら以下6項目を確認する。
+
+| 価値軸 | 確認内容 |
+| --- | --- |
+| security | 個人情報、認証情報、機密情報、Security by Design、OWASP Top 10、最小権限、認証、認可、入力値検証、監査ログ、秘密情報管理 |
+| technical_quality | 保守性、拡張性、可読性、テスト容易性、パフォーマンス、責務分離 |
+| user_experience | 直感的な操作、ストレスの少ないUI/UX、アクセシビリティ、日本語表示品質 |
+| continued_engagement | 毎日使いたくなる価値、習慣化、エンゲージメント、再訪導線 |
+| business_value | ユーザー課題、競合差別化、導入価値、成長可能性 |
+| long_term_operations | 将来拡張、技術的負債、安定運用、監査性、障害対応 |
+
+`security` が `blocked` またはP0 findingを含む場合は、明示的なリスク受容または修正なしに次工程へ進めない。
 
 ## Severity
 

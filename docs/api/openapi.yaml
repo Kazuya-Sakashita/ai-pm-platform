@@ -1483,6 +1483,70 @@ paths:
         "429":
           $ref: "#/components/responses/RateLimited"
 
+  /operations/failed-jobs/{failed_job_id}/retry:
+    post:
+      tags: [Operations]
+      summary: Retry a failed queue job
+      operationId: retryFailedJob
+      parameters:
+        - $ref: "#/components/parameters/FailedJobId"
+        - $ref: "#/components/parameters/ProjectIdQuery"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FailedJobOperationRequest"
+      responses:
+        "200":
+          description: Failed job retried
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FailedJobOperationResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /operations/failed-jobs/{failed_job_id}/discard:
+    post:
+      tags: [Operations]
+      summary: Discard a failed queue job
+      operationId: discardFailedJob
+      parameters:
+        - $ref: "#/components/parameters/FailedJobId"
+        - $ref: "#/components/parameters/ProjectIdQuery"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FailedJobOperationRequest"
+      responses:
+        "200":
+          description: Failed job discarded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FailedJobOperationResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
   /projects/{project_id}/audit-logs:
     get:
       tags: [AuditLogs]
@@ -1614,6 +1678,13 @@ components:
       schema:
         type: string
         format: uuid
+    FailedJobId:
+      name: failed_job_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
     Page:
       name: page
       in: query
@@ -3469,8 +3540,14 @@ components:
 
     FailedJobSample:
       type: object
-      required: [queue_name, class_name, failed_at]
+      required: [failed_job_id, queue_name, class_name, failed_at, operations]
       properties:
+        failed_job_id:
+          type: integer
+          minimum: 1
+        job_id:
+          type: integer
+          minimum: 1
         queue_name:
           type: string
         class_name:
@@ -3480,6 +3557,65 @@ components:
         failed_at:
           type: string
           format: date-time
+        operations:
+          type: object
+          required: [retryable, discardable]
+          properties:
+            retryable:
+              type: boolean
+            discardable:
+              type: boolean
+            reason_templates:
+              type: array
+              items:
+                $ref: "#/components/schemas/FailedJobOperationReasonTemplate"
+
+    FailedJobOperationReasonTemplate:
+      type: string
+      enum:
+        - transient_failure_recovered
+        - operator_confirmed_safe_retry
+        - manually_resolved
+        - unsafe_to_retry
+
+    FailedJobOperationRequest:
+      type: object
+      required: [reason_template]
+      properties:
+        reason_template:
+          $ref: "#/components/schemas/FailedJobOperationReasonTemplate"
+
+    FailedJobOperationResult:
+      type: object
+      required: [failed_job_id, job_id, action, reason_template, operated_at]
+      properties:
+        failed_job_id:
+          type: integer
+          minimum: 1
+        job_id:
+          type: integer
+          minimum: 1
+        action:
+          type: string
+          enum: [retry, discard]
+        queue_name:
+          type: string
+        class_name:
+          type: string
+        active_job_id:
+          type: string
+        reason_template:
+          $ref: "#/components/schemas/FailedJobOperationReasonTemplate"
+        operated_at:
+          type: string
+          format: date-time
+
+    FailedJobOperationResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/FailedJobOperationResult"
 
     RecurringTaskSummary:
       type: object
