@@ -14,7 +14,7 @@ ISSUE-063ではQueue health API/UIに `failed_job_release_gate` とnotification 
 
 ## 目的
 
-release gate warning/block、failed job操作実行、通知失敗を運用者へ確実に知らせ、検知遅れを減らす。
+release gate warning/blocked、failed job操作実行、通知失敗を運用者へ確実に知らせ、検知遅れを減らす。
 
 ## 完了条件
 
