@@ -338,7 +338,7 @@ module RequirementGenerationQuality
       parser = OptionParser.new do |opts|
         opts.banner = "使い方: ruby scripts/evaluate-requirement-generation.rb [options]"
         opts.on("--fixtures PATH", "評価fixture JSON") { |value| options[:fixture_path] = value }
-        opts.on("--provider NAME", "provider名。現在はdeterministicのみ") { |value| options[:provider] = value }
+        opts.on("--provider NAME", "provider名。deterministicまたはopenai") { |value| options[:provider] = value }
         opts.on("--output PATH", "Markdown baseline reportを書き出す") { |value| options[:output_path] = value }
         opts.on("--enforce", "基準未達ならexit 1") { options[:enforce] = true }
         opts.on("--quiet", "標準出力はsummaryだけにする") { options[:quiet] = true }
@@ -379,6 +379,12 @@ module RequirementGenerationQuality
         require "active_support/core_ext/object/blank"
         require File.join(ROOT, "backend/app/services/requirement_generation/deterministic_provider")
         RequirementGeneration::DeterministicProvider.new
+      when "openai"
+        require "active_support/core_ext/object/blank"
+        require "active_support/core_ext/string/filters"
+        require File.join(ROOT, "backend/app/services/requirement_generation/provider_error")
+        require File.join(ROOT, "backend/app/services/requirement_generation/openai_provider")
+        RequirementGeneration::OpenaiProvider.new
       else
         raise ArgumentError, "未対応のproviderです: #{name}"
       end

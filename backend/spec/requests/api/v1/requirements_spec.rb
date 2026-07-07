@@ -1,6 +1,12 @@
 require "rails_helper"
 
 RSpec.describe "API V1 Requirements", type: :request do
+  around do |example|
+    with_env("REQUIREMENT_GENERATION_PROVIDER" => "deterministic", "OPENAI_API_KEY" => nil) do
+      example.run
+    end
+  end
+
   describe "POST /api/v1/minutes/:id/generate-requirement" do
     it "generates a requirement draft from approved minutes" do
       minutes = create(
@@ -25,6 +31,107 @@ RSpec.describe "API V1 Requirements", type: :request do
       expect(requirement.functional_requirements).to include(/Generate requirements after minutes approval/)
       expect(requirement.open_questions).to include("Who reviews requirements?")
       expect(minutes.meeting.project.audit_logs.last.action).to eq("requirement.generated")
+    end
+
+    it "generates requirements through the OpenAI provider when configured" do
+      minutes = create(
+        :minute,
+        status: "approved",
+        summary: "OpenAI providerでRequirementを生成する。",
+        decisions: [{ "text" => "Requirement OpenAI providerを使う。" }]
+      )
+      authorize_project(minutes.meeting.project)
+      provider = instance_double(
+        RequirementGeneration::OpenaiProvider,
+        generate: {
+          status: "generated",
+          background: "OpenAI generated background.",
+          goal: "OpenAI generated goal.",
+          functional_requirements: ["FR-001: Generate requirements through OpenAI."],
+          acceptance_criteria: ["OpenAI providerでRequirementが保存される。"],
+          generated_by_model: "gpt-test"
+        }
+      )
+      allow(RequirementGeneration::OpenaiProvider).to receive(:new).and_return(provider)
+
+      with_env("REQUIREMENT_GENERATION_PROVIDER" => "openai", "OPENAI_API_KEY" => "test-openai-key") do
+        post "/api/v1/minutes/#{minutes.id}/generate-requirement", headers: auth_headers("dm-editor")
+      end
+
+      expect(response).to have_http_status(:accepted)
+      body = JSON.parse(response.body)
+      job = Job.find(body.dig("data", "job_id"))
+      requirement = Requirement.find(job.target_id)
+      expect(job.status).to eq("succeeded")
+      expect(requirement.background).to eq("OpenAI generated background.")
+      expect(requirement.generated_by_model).to eq("gpt-test")
+    end
+
+    it "stores a failed job when OpenAI requirement provider is forced but not connected" do
+      minutes = create(:minute, status: "approved")
+      authorize_project(minutes.meeting.project)
+
+      with_env("REQUIREMENT_GENERATION_PROVIDER" => "openai", "OPENAI_API_KEY" => nil) do
+        post "/api/v1/minutes/#{minutes.id}/generate-requirement", headers: auth_headers("dm-editor")
+      end
+
+      expect(response).to have_http_status(:failed_dependency)
+      body = JSON.parse(response.body)
+      job = Job.find(body.dig("error", "details", "job_id"))
+      expect(job.status).to eq("failed")
+      expect(job.error_code).to eq("integration_not_connected")
+      expect(job.safe_error_detail).to eq("OpenAI API key is not configured.")
+      expect(minutes.meeting.project.audit_logs.last.action).to eq("requirement.generation_failed")
+    end
+
+    it "stores a failed job with request metadata when the OpenAI provider fails" do
+      minutes = create(:minute, status: "approved")
+      authorize_project(minutes.meeting.project)
+      provider = instance_double(RequirementGeneration::OpenaiProvider)
+      allow(provider).to receive(:generate).and_raise(
+        RequirementGeneration::ProviderError.new(
+          code: "rate_limit_exceeded",
+          message: "OpenAI request failed with HTTP 429",
+          safe_detail: "OpenAI request was rate limited. Retry after the provider limit resets.",
+          http_status: :too_many_requests,
+          request_id: "req_requirement_rate"
+        )
+      )
+      allow(RequirementGeneration::OpenaiProvider).to receive(:new).and_return(provider)
+
+      with_env("REQUIREMENT_GENERATION_PROVIDER" => "openai", "OPENAI_API_KEY" => "test-openai-key") do
+        post "/api/v1/minutes/#{minutes.id}/generate-requirement", headers: auth_headers("dm-editor")
+      end
+
+      expect(response).to have_http_status(:too_many_requests)
+      body = JSON.parse(response.body)
+      job = Job.find(body.dig("error", "details", "job_id"))
+      audit_log = minutes.meeting.project.audit_logs.last
+      expect(job.status).to eq("failed")
+      expect(job.error_code).to eq("rate_limit_exceeded")
+      expect(job.safe_error_detail).to eq("OpenAI request was rate limited. Retry after the provider limit resets.")
+      expect(body.dig("error", "details", "request_id")).to eq("req_requirement_rate")
+      expect(audit_log.action).to eq("requirement.generation_failed")
+      expect(audit_log.metadata).to include("request_id" => "req_requirement_rate", "provider_error_code" => "rate_limit_exceeded")
+    end
+
+    it "blocks sensitive requirement source before constructing the OpenAI provider" do
+      minutes = create(:minute, status: "approved", summary: "password=super-secret-value を使う。")
+      authorize_project(minutes.meeting.project)
+
+      expect(RequirementGeneration::OpenaiProvider).not_to receive(:new)
+      with_env("REQUIREMENT_GENERATION_PROVIDER" => "openai", "OPENAI_API_KEY" => "test-openai-key") do
+        post "/api/v1/minutes/#{minutes.id}/generate-requirement", headers: auth_headers("dm-editor")
+      end
+
+      expect(response).to have_http_status(422)
+      body = JSON.parse(response.body)
+      job = Job.find(body.dig("error", "details", "job_id"))
+      expect(body.dig("error", "code")).to eq("sensitive_content_blocked")
+      expect(job.status).to eq("failed")
+      expect(job.error_code).to eq("sensitive_content_blocked")
+      expect(job.safe_error_detail).to eq("要件定義生成に使う議事録に機密性の高い内容が含まれています。AI生成前にレビューしてください。")
+      expect(minutes.requirements).to be_empty
     end
 
     it "requires approved minutes before requirement generation" do

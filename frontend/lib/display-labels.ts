@@ -1,8 +1,10 @@
 const messageLabels: Record<string, string> = {
   "AI response did not include generated DM summary.": "AI応答に生成済みDM整理が含まれていませんでした。",
   "AI response did not include generated minutes.": "AI応答に生成済み議事録が含まれていませんでした。",
+  "AI response did not include generated requirements.": "AI応答に生成済み要件定義が含まれていませんでした。",
   "AI response did not match the expected DM summary schema.": "AI応答が想定されたDM整理形式に一致しませんでした。",
   "AI response did not match the expected minutes schema.": "AI応答が想定された議事録形式に一致しませんでした。",
+  "AI response did not match the expected requirement schema.": "AI応答が想定された要件定義形式に一致しませんでした。",
   "A resolution note is required for manual GitHub reconciliation.": "GitHub照合の解決メモを入力してください。",
   "A valid GitHub reconciliation action is required.": "GitHub照合の操作を選択してください。",
   "GitHub integration is not connected.": "GitHub連携が未接続です。",
@@ -49,6 +51,7 @@ const messageLabels: Record<string, string> = {
   "Repository does not match the project GitHub repository.": "リポジトリがプロジェクトのGitHubリポジトリと一致していません。",
   "Requirement must be approved before generating an OpenAPI draft.": "OpenAPIドラフト生成前に要件定義を承認してください。",
   "Requirement must be approved before generating issue drafts.": "Issueドラフト生成前に要件定義を承認してください。",
+  "Requirement generation provider is not supported.": "要件定義生成providerがサポートされていません。",
   "Requirement open questions must be resolved before approval.": "要件定義の未決事項を解決してから承認してください。",
   "Resource not found": "対象のリソースが見つかりません。",
   "Review target must belong to a project-scoped workflow resource.": "レビュー対象はプロジェクト配下のワークフローリソースである必要があります。",

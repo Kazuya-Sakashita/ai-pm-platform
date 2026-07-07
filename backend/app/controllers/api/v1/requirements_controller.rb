@@ -44,10 +44,10 @@ module Api
           action: "requirement.generation_failed",
           target: job,
           actor_id: current_actor_id,
-          metadata: { minutes_id: minutes.id, provider_error_code: e.code }
+          metadata: { minutes_id: minutes.id, provider_error_code: e.code, request_id: e.request_id }.compact
         ) if job && minutes
 
-        render_error(e.code, e.safe_detail, e.http_status, { job_id: job&.id }.compact)
+        render_error(e.code, e.safe_detail, e.http_status, { job_id: job&.id, request_id: e.request_id }.compact)
       end
 
       def show

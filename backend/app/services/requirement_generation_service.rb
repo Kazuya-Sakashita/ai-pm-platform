@@ -1,10 +1,11 @@
 class RequirementGenerationService
-  def initialize(minutes, provider: RequirementGeneration::DeterministicProvider.new)
+  def initialize(minutes, provider: nil)
     @minutes = minutes
     @provider = provider
   end
 
   def call
+    block_sensitive_content!
     attributes = provider.generate(minutes)
 
     minutes.requirements.create!(
@@ -24,5 +25,36 @@ class RequirementGenerationService
 
   private
 
-  attr_reader :minutes, :provider
+  attr_reader :minutes
+
+  def provider
+    @provider ||= RequirementGeneration::ProviderFactory.build
+  end
+
+  def block_sensitive_content!
+    result = SensitiveContentScanner.scan(requirement_source_text)
+    return unless result.blocked?
+
+    raise RequirementGeneration::ProviderError.new(
+      code: "sensitive_content_blocked",
+      message: "Requirement生成入力にブロック対象の機密情報が含まれています: #{result.finding_types.join(', ')}",
+      safe_detail: "要件定義生成に使う議事録に機密性の高い内容が含まれています。AI生成前にレビューしてください。",
+      http_status: :unprocessable_entity
+    )
+  end
+
+  def requirement_source_text
+    [
+      minutes.summary,
+      normalized_items(minutes.decisions),
+      minutes.open_questions,
+      normalized_items(minutes.action_items)
+    ].flatten.compact.join("\n")
+  end
+
+  def normalized_items(items)
+    Array(items).map do |item|
+      item.is_a?(Hash) ? item["text"] || item[:text] : item
+    end
+  end
 end

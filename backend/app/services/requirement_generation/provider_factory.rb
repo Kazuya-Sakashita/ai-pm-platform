@@ -1,0 +1,37 @@
+module RequirementGeneration
+  class ProviderFactory
+    DEFAULT_PROVIDER = "deterministic"
+
+    def self.build
+      new.build
+    end
+
+    def build
+      case configured_provider
+      when "deterministic"
+        DeterministicProvider.new
+      when "openai"
+        OpenaiProvider.new
+      when "auto"
+        openai_configured? ? OpenaiProvider.new : DeterministicProvider.new
+      else
+        raise ProviderError.new(
+          code: "requirement_provider_not_supported",
+          message: "Unsupported requirement generation provider: #{configured_provider}",
+          safe_detail: "Requirement generation provider is not supported.",
+          http_status: :unprocessable_entity
+        )
+      end
+    end
+
+    private
+
+    def configured_provider
+      ENV.fetch("REQUIREMENT_GENERATION_PROVIDER", DEFAULT_PROVIDER).to_s.downcase
+    end
+
+    def openai_configured?
+      ENV["OPENAI_API_KEY"].present?
+    end
+  end
+end

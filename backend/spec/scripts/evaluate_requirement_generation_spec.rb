@@ -63,3 +63,11 @@ RSpec.describe RequirementGenerationQuality::CaseEvaluator do
     expect(result.critical_failures).to include("禁止patternに一致: レビューなしで実装")
   end
 end
+
+RSpec.describe RequirementGenerationQuality::Cli do
+  it "OpenAI providerを評価providerとしてbuildできる" do
+    provider = described_class.build_provider("openai")
+
+    expect(provider).to be_a(RequirementGeneration::OpenaiProvider)
+  end
+end
