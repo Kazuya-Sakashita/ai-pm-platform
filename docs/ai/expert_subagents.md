@@ -6,6 +6,23 @@
 
 この運用は「専門家名を付けた感想」ではない。各Agentに責務、対象外、使用フレームワーク、合否基準、出力schemaを持たせ、Review Orchestratorが差分、衝突、優先順位、Issue化を統合する。
 
+## 全Agent共通の6価値軸
+
+すべての専門家サブエージェントは、自身の専門領域だけでなく、以下6項目への影響を評価する。これは既存の専門責務を置き換えるものではなく、レビューの最低共通軸である。
+
+| 価値軸 | 確認観点 | 代表Agent |
+| --- | --- | --- |
+| 強固なセキュリティ | Security by Design、OWASP Top 10、STRIDE、最小権限、認証、認可、入力値検証、監査ログ、秘密情報管理 | Security, Backend, DevOps, QA |
+| 高い技術品質 | 保守性、拡張性、可読性、テスト容易性、パフォーマンス、責務分離 | CTO, Tech Lead, Backend, Frontend, QA |
+| 優れたユーザー体験 | 直感的な操作、ストレスの少ないUI/UX、アクセシビリティ、日本語表示品質 | UI/UX, Frontend, Product Owner, QA |
+| 継続して利用したくなる体験 | 習慣化、再訪価値、エンゲージメント、通知やレビュー導線の妥当性 | Product Owner, Product Manager, UI/UX |
+| 事業としての価値 | ユーザー課題、差別化、導入価値、収益性、成長可能性 | Product Owner, Business, Startup Advisor |
+| 長期運用できる設計 | 将来拡張、技術的負債、安定運用、監査性、障害対応、運用コスト | CTO, DevOps, Security, QA |
+
+技術的に実装可能であることだけを合格条件にしてはならない。Review Orchestratorは、ユーザー、開発者、運営者の三者にとって長期的に価値があるかを統合判定に含める。
+
+セキュリティは共通軸の中でも最優先事項の一つとして扱う。Security Engineer AgentまたはQA AgentがP0 blockerを出した場合、明示的なリスク受容または修正なしに次工程へ進めない。
+
 ## 運用レベル
 
 | Level | 名称 | 内容 | 利用条件 |
@@ -25,6 +42,7 @@
 - OpenAPI、DB schema、API contract、ジョブ基盤を変更する
 - リリース、production smoke、運用手順に関わる
 - Review Center、Issue生成、要件化などAI PM中核workflowに関わる
+- ユーザー導線、継続利用、主要業務フロー、導入価値に強く影響する
 - 仕様が曖昧で、プロダクト価値と技術実現性の両方を判断する必要がある
 
 軽微な文言修正、誤字修正、すでにレビュー済みの台帳同期だけの場合は、L1または通常レビューでよい。
@@ -103,12 +121,44 @@ stale reviewの目安:
 
 1. Review OrchestratorがIssue、対象ファイル、前提、レビュー観点、必須Agentを決める。
 2. 各Agentへ、対象、責務、非責務、出力schema、参照すべきIssue/ADR/reviewを渡す。
-3. 各Agentは独立してレビューし、良かった点、改善点、重大リスク、合否、次アクションを返す。
+3. 各Agentは独立してレビューし、良かった点、改善点、重大リスク、6価値軸への影響、合否、次アクションを返す。
 4. Review Orchestratorは指摘を統合し、重複、衝突、採用、保留、却下、追加調査を分類する。
 5. 統合レビューを `docs/review/YYYYMMDD_xxx_review.md` に保存する。
 6. 採用した改善は `docs/issue/` またはGitHub Issueへ接続する。
 7. 重要判断はADRへ保存する。
 8. 外部AIレビューが未実施の場合は、未実施理由と将来比較観点を残す。
+
+## 入力境界とデータ保護
+
+サブエージェントまたは外部AIへ渡す情報は、レビューに必要な最小範囲に限定する。
+
+- 原則として対象Issue、対象ファイル、差分、関連ADR、関連レビューだけを渡す。
+- secret、token、Authorization header、OAuth code、private key、cookie、database URL、webhook secretを渡さない。
+- raw DM全文、不要PII、raw prompt、raw provider response、raw chain-of-thoughtを渡さない。
+- 必要に応じてredaction済みの要約、safe metadata、対象行番号で代替する。
+- 外部AIやL2レビューで機密性が高い情報を扱う場合は、data classification、redaction status、secret scan status、allowed tools/permissionsを記録する。
+- 高信頼secret検出が `blocked` の場合は、リスク受容で通さず、AI送信、GitHub publish、exportを止める。
+- Agent名や自己申告ロールだけを監査上の本人性として扱わない。将来DBやReview Centerへ保存する場合は、認証済みactor、対象commit、入力範囲、実行modeを記録する。
+
+## 実行制御
+
+サブエージェントレビューが遅い、途中で止まる、部分結果しか返らない場合でも、Security/QAのP0 blockerを迂回してはならない。
+
+- Orchestratorは必須Agentと任意Agentを事前に分ける。
+- 任意Agentが遅い場合は、理由を記録したうえでskipできる。
+- 必須Agentが欠ける場合は、L1 fallbackで代替できるか、blockerにするかを記録する。
+- 部分結果で進める場合は、欠落観点、fallback理由、残リスク、後続Issueを記録する。
+- 外部AIレビュー未実施は、常にblockerにはしない。ただし、外部AI必須と定義したIssueでは未実施理由と判断を残す。
+
+## 作業分割と停止防止
+
+サブエージェント運用は品質を上げるための手段であり、作業を長時間停止させる目的ではない。Review Orchestratorは、以下を守る。
+
+- すべてのIssueで全Agentを呼ばず、リスクに応じて必須Agentを選ぶ。
+- P0/P1リスクが想定される領域を優先し、軽微な文言修正はL1で扱う。
+- サブエージェントに渡す対象ファイル、責務、出力形式を小さく限定する。
+- 並行できるレビューは並行し、統合判断だけをReview Orchestratorが行う。
+- サブエージェントが失敗した場合は、L1 fallback、未実施理由、後続Issueのいずれかを記録する。
 
 ## ISSUE-005との接続
 
