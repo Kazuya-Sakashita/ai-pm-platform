@@ -25,8 +25,9 @@ module Operations
       "operations.failed_job_project_boundary_rejected"
     ].freeze
 
-    def initialize(project: nil)
+    def initialize(project: nil, failed_job_notification_service: FailedJobNotificationService.new)
       @project = project
+      @failed_job_notification_service = failed_job_notification_service
     end
 
     def call
@@ -41,6 +42,7 @@ module Operations
         warnings << "Solid Queue tableを確認できません。queue schema setupを確認してください。"
         data[:status] = "unavailable"
         data[:failed_job_release_gate] = FailedJobReleaseGate.unavailable
+        notify_release_gate(data[:failed_job_release_gate])
         return data
       end
 
@@ -50,6 +52,7 @@ module Operations
       data[:failed_executions] = failed_execution_summary(warnings, data[:failed_job_samples])
       data[:recurring_tasks] = recurring_task_summaries(warnings)
       data[:failed_job_release_gate] = FailedJobReleaseGate.new(data: data).call
+      notify_release_gate(data[:failed_job_release_gate])
 
       recent_failed_count = data.dig(:product_jobs, :recent_failed_count).to_i
       warnings << "Product jobsに直近24時間の失敗が#{recent_failed_count}件あります。" if recent_failed_count.positive?
@@ -62,7 +65,7 @@ module Operations
 
     private
 
-    attr_reader :project
+    attr_reader :project, :failed_job_notification_service
 
     def base_data(checked_at, warnings)
       {
@@ -89,7 +92,18 @@ module Operations
       data[:product_jobs] = product_jobs_summary(checked_at)
       data[:status] = "unavailable"
       data[:failed_job_release_gate] = FailedJobReleaseGate.unavailable
+      notify_release_gate(data[:failed_job_release_gate])
       data
+    end
+
+    def notify_release_gate(release_gate)
+      return unless project
+
+      failed_job_notification_service.notify_release_gate(
+        project: project,
+        release_gate: release_gate,
+        actor_id: "system"
+      )
     end
 
     def solid_queue_available?

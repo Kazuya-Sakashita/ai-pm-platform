@@ -16,13 +16,22 @@ module Operations
 
     Result = Struct.new(:success?, :data, :code, :message, :http_status, :details, keyword_init: true)
 
-    def initialize(project:, actor_id:, failed_job_id:, action:, reason_template:, discard_safety_confirmed: false)
+    def initialize(
+      project:,
+      actor_id:,
+      failed_job_id:,
+      action:,
+      reason_template:,
+      discard_safety_confirmed: false,
+      notification_service: FailedJobNotificationService.new
+    )
       @project = project
       @actor_id = actor_id
       @failed_job_id = failed_job_id
       @action = action.to_s
       @reason_template = reason_template.to_s
       @discard_safety_confirmed = ActiveModel::Type::Boolean.new.cast(discard_safety_confirmed)
+      @notification_service = notification_service
     end
 
     def call
@@ -41,6 +50,7 @@ module Operations
 
       perform_operation!(failed_execution)
       record_audit_log!(data)
+      notify_operation_executed(data)
 
       Result.new(success?: true, data: data.merge(operated_at: Time.current.iso8601))
     rescue ActiveRecord::ActiveRecordError
@@ -55,7 +65,7 @@ module Operations
 
     private
 
-    attr_reader :project, :actor_id, :failed_job_id, :action, :reason_template, :discard_safety_confirmed
+    attr_reader :project, :actor_id, :failed_job_id, :action, :reason_template, :discard_safety_confirmed, :notification_service
 
     def find_failed_execution
       SolidQueue::FailedExecution.includes(:job).find_by(id: failed_job_id)
@@ -95,6 +105,15 @@ module Operations
           operator_actor_id: actor_id,
           reason_template_label: reason_template_label
         )
+      )
+    end
+
+    def notify_operation_executed(data)
+      notification_service.notify_operation_executed(
+        project: project,
+        actor_id: actor_id,
+        operation_data: data,
+        audit_log_action: audit_action
       )
     end
 

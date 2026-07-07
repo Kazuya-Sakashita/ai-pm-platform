@@ -17,8 +17,9 @@ RSpec.describe Operations::QueueHealthQuery do
         stub_failed_job_samples(failed_at: checked_at - 30.seconds, product_job: product_job)
         stub_recurring_tasks
         record_failed_job_operation_logs(project: project, product_job: product_job, checked_at: checked_at)
+        notification_service = instance_double(Operations::FailedJobNotificationService, notify_release_gate: true)
 
-        data = described_class.new(project: project).call
+        data = described_class.new(project: project, failed_job_notification_service: notification_service).call
 
         expect(data[:status]).to eq("degraded")
         expect(data[:workers]).to contain_exactly(hash_including(kind: "worker", name: "worker-1", stale: false))
@@ -91,6 +92,11 @@ RSpec.describe Operations::QueueHealthQuery do
         expect(data.to_s).not_to include("raw solid queue error")
         expect(data.to_s).not_to include("app/services/raw_failure.rb")
         expect(data.to_s).not_to include("DATABASE_URL")
+        expect(notification_service).to have_received(:notify_release_gate).with(
+          project: project,
+          actor_id: "system",
+          release_gate: hash_including(status: "blocked")
+        )
       end
     end
 
