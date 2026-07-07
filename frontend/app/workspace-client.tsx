@@ -50,6 +50,8 @@ type OpenApiValidationResult = components["schemas"]["OpenApiValidationResponse"
 type Job = components["schemas"]["Job"];
 type QueueHealth = components["schemas"]["QueueHealth"];
 type FailedJobSample = components["schemas"]["FailedJobSample"];
+type FailedJobReleaseGate = components["schemas"]["FailedJobReleaseGate"];
+type FailedJobReleaseGateCheck = components["schemas"]["FailedJobReleaseGateCheck"];
 type FailedJobOperationReasonTemplate = components["schemas"]["FailedJobOperationReasonTemplate"];
 type FailedJobRetryReasonTemplate = components["schemas"]["FailedJobRetryReasonTemplate"];
 type FailedJobDiscardReasonTemplate = components["schemas"]["FailedJobDiscardReasonTemplate"];
@@ -166,6 +168,26 @@ const failedJobOperationActionLabels: Record<FailedJobOperationHistoryItem["acti
 const failedJobMappingSourceLabels: Record<FailedJobProductJobMappingSource, string> = {
   explicit: "明示マッピング",
   arguments: "引数復元",
+};
+
+const failedJobReleaseGateStatusLabels: Record<FailedJobReleaseGate["status"], string> = {
+  pass: "通過",
+  warning: "要判断",
+  blocked: "停止",
+  not_evaluated: "未評価",
+};
+
+const failedJobReleaseGateCheckStatusLabels: Record<FailedJobReleaseGateCheck["status"], string> = {
+  pass: "通過",
+  warning: "警告",
+  blocked: "停止",
+  not_measured: "未計測",
+};
+
+const failedJobReleaseGateSeverityLabels: Record<FailedJobReleaseGateCheck["severity"], string> = {
+  info: "情報",
+  warning: "警告",
+  critical: "重大",
 };
 
 const projectMembershipRoles: ProjectMembershipRole[] = ["owner", "admin", "editor", "reviewer", "viewer", "auditor"];
@@ -320,10 +342,14 @@ type LegacyFailedJobSample = Omit<FailedJobSample, "operations"> & {
     Partial<Pick<FailedJobSample["operations"], "retry_reason_templates" | "discard_reason_templates">>;
 };
 
-type LegacyQueueHealth = Omit<QueueHealth, "failed_job_samples" | "failed_job_operation_metrics" | "failed_job_operation_history"> & {
+type LegacyQueueHealth = Omit<
+  QueueHealth,
+  "failed_job_samples" | "failed_job_operation_metrics" | "failed_job_operation_history" | "failed_job_release_gate"
+> & {
   failed_job_samples?: LegacyFailedJobSample[];
   failed_job_operation_metrics?: QueueHealth["failed_job_operation_metrics"];
   failed_job_operation_history?: QueueHealth["failed_job_operation_history"];
+  failed_job_release_gate?: QueueHealth["failed_job_release_gate"];
 };
 
 function defaultFailedJobOperationMetrics(): QueueHealth["failed_job_operation_metrics"] {
@@ -332,6 +358,56 @@ function defaultFailedJobOperationMetrics(): QueueHealth["failed_job_operation_m
     retry_count: 0,
     discard_count: 0,
     rejected_count: 0,
+  };
+}
+
+function defaultFailedJobReleaseGate(): QueueHealth["failed_job_release_gate"] {
+  return {
+    status: "not_evaluated",
+    notification_required: false,
+    notification_channel: "operations",
+    notification_policy: {
+      channel: "operations",
+      required_for: ["release_gate_warning", "release_gate_blocked", "failed_job_operation_executed", "notification_failed"],
+      payload_fields: [
+        "project_id",
+        "failed_job_id",
+        "job_id",
+        "queue_name",
+        "class_name",
+        "action",
+        "reason_template",
+        "operator_actor_id",
+        "audit_log_action",
+        "release_gate_status",
+      ],
+      prohibited_fields: ["raw_exception", "backtrace", "serialized_arguments", "token", "database_url", "dm_body", "ai_prompt"],
+      fallback: "通知失敗時はAuditLogまたはrelease evidenceへsafe metadataのみを保存し、release ownerが手動確認します。",
+    },
+    approval_policy: {
+      retry: {
+        operation: "retry",
+        approval_required: false,
+        second_approval_required: false,
+        required_role: "admin以上",
+        next_action: "理由テンプレートと副作用確認をAuditLogに残します。",
+      },
+      discard: {
+        operation: "discard",
+        approval_required: true,
+        second_approval_required: true,
+        required_role: "ownerまたはrelease owner",
+        next_action: "本番discardは二人承認またはrelease owner承認を証跡化します。",
+      },
+      production: {
+        operation: "production_failed_job_operation",
+        approval_required: true,
+        second_approval_required: true,
+        required_role: "incident commanderまたはrelease owner",
+        next_action: "productionは観測のみを既定とし、実操作時は承認、Project特定、AuditLog確認を必須にします。",
+      },
+    },
+    checks: [],
   };
 }
 
@@ -365,6 +441,7 @@ function normalizeQueueHealth(queueHealth: QueueHealth): QueueHealth {
     failed_job_samples: (legacyQueueHealth.failed_job_samples ?? []).map(normalizeFailedJobSample),
     failed_job_operation_metrics: legacyQueueHealth.failed_job_operation_metrics ?? defaultFailedJobOperationMetrics(),
     failed_job_operation_history: legacyQueueHealth.failed_job_operation_history ?? [],
+    failed_job_release_gate: legacyQueueHealth.failed_job_release_gate ?? defaultFailedJobReleaseGate(),
   };
 }
 
@@ -505,7 +582,8 @@ function statusTone(status?: string) {
     status === "resolved" ||
     status === "local_saved" ||
     status === "ready_for_ai" ||
-    status === "healthy"
+    status === "healthy" ||
+    status === "pass"
   ) {
     return "success";
   }
@@ -518,10 +596,11 @@ function statusTone(status?: string) {
     status === "unavailable" ||
     status === "rejected" ||
     status === "blocked" ||
+    status === "block" ||
     status === "action_required"
   )
     return "danger";
-  if (status === "degraded" || status === "stale" || status === "accepted_risk") return "warning";
+  if (status === "degraded" || status === "stale" || status === "accepted_risk" || status === "warning") return "warning";
   if (status === "error" || status === "revoked") return "danger";
   if (
     status === "in_review" ||
@@ -2653,6 +2732,8 @@ export default function MeetingWorkspace() {
   const failedJobRows = queueHealth?.failed_job_samples.slice(0, 3) ?? [];
   const failedJobOperationMetrics = queueHealth?.failed_job_operation_metrics;
   const failedJobOperationHistoryRows = queueHealth?.failed_job_operation_history.slice(0, 3) ?? [];
+  const failedJobReleaseGate = queueHealth?.failed_job_release_gate;
+  const failedJobReleaseGateChecks = failedJobReleaseGate?.checks.slice(0, 4) ?? [];
   const warningRows = queueHealth?.warnings.slice(0, 3) ?? [];
   const bearerAuthAvailable = clientReady && hasBearerAuth();
   const currentAuthSession = authSessions.find((authSession) => authSession.current) ?? null;
@@ -3021,7 +3102,44 @@ export default function MeetingWorkspace() {
                       ? `再実行${failedJobOperationMetrics.retry_count}件 / 破棄${failedJobOperationMetrics.discard_count}件 / 拒否${failedJobOperationMetrics.rejected_count}件`
                       : "-"}
                   </span>
+                  <strong>リリースゲート</strong>
+                  <span>{failedJobReleaseGate ? failedJobReleaseGateStatusLabels[failedJobReleaseGate.status] : "-"}</span>
+                  <strong>通知</strong>
+                  <span>
+                    {failedJobReleaseGate
+                      ? `${failedJobReleaseGate.notification_required ? "必要" : "不要"} / ${failedJobReleaseGate.notification_channel}`
+                      : "-"}
+                  </span>
                 </div>
+                {failedJobReleaseGate ? (
+                  <div className="release-gate-list" aria-label="失敗ジョブリリースゲート">
+                    <div className="release-gate-header">
+                      <strong className="mini-heading">リリースゲート</strong>
+                      <span className={`chip ${statusTone(failedJobReleaseGate.status)}`}>
+                        {failedJobReleaseGateStatusLabels[failedJobReleaseGate.status]}
+                      </span>
+                    </div>
+                    <div className="release-gate-policy">
+                      <strong>破棄承認</strong>
+                      <span>
+                        {failedJobReleaseGate.approval_policy.discard.second_approval_required ? "二人承認" : "単独承認"} /{" "}
+                        {failedJobReleaseGate.approval_policy.discard.required_role}
+                      </span>
+                    </div>
+                    {failedJobReleaseGateChecks.map((check) => (
+                      <div className={`release-gate-row ${statusTone(check.status)}`} key={check.key}>
+                        <div>
+                          <strong>{check.label}</strong>
+                          <span>
+                            {failedJobReleaseGateSeverityLabels[check.severity]} / {check.observed_value} / 閾値 {check.threshold}
+                          </span>
+                        </div>
+                        <span className={`chip ${statusTone(check.status)}`}>{failedJobReleaseGateCheckStatusLabels[check.status]}</span>
+                        <p>{check.next_action}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
                 <div className="queue-list" aria-label="キュー状態一覧">
                   {queueRows.map((queue) => (
                     <div className="queue-row" key={queue.queue_name}>

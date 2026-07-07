@@ -708,6 +708,7 @@ textarea {
 }
 
 .queue-list,
+.release-gate-list,
 .failed-job-list,
 .warning-list {
   display: grid;
@@ -741,6 +742,74 @@ textarea {
 .queue-row span,
 .warning-list span {
   color: var(--muted);
+}
+
+.release-gate-header,
+.release-gate-policy,
+.release-gate-row {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.release-gate-header,
+.release-gate-policy {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.release-gate-policy {
+  min-height: 32px;
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-alt);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.release-gate-policy strong {
+  color: var(--text);
+}
+
+.release-gate-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-alt);
+  font-size: 12px;
+}
+
+.release-gate-row.warning {
+  border-color: #f0c38a;
+  background: #fffaf2;
+}
+
+.release-gate-row.danger {
+  border-color: #f0a5b6;
+  background: #fff6f8;
+}
+
+.release-gate-row.success {
+  border-color: #9fd5c8;
+  background: #f5fbf9;
+}
+
+.release-gate-row strong,
+.release-gate-row span,
+.release-gate-row p {
+  overflow-wrap: anywhere;
+}
+
+.release-gate-row span,
+.release-gate-row p {
+  color: var(--muted);
+}
+
+.release-gate-row p {
+  grid-column: 1 / -1;
+  margin: 0;
 }
 
 .failed-job-row {

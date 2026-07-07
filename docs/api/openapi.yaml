@@ -3794,6 +3794,115 @@ components:
           type: string
           format: date-time
 
+    FailedJobReleaseGateStatus:
+      type: string
+      enum:
+        - pass
+        - warning
+        - blocked
+        - not_evaluated
+
+    FailedJobReleaseGateCheckStatus:
+      type: string
+      enum:
+        - pass
+        - warning
+        - blocked
+        - not_measured
+
+    FailedJobReleaseGateSeverity:
+      type: string
+      enum:
+        - info
+        - warning
+        - critical
+
+    FailedJobReleaseGateCheck:
+      type: object
+      required: [key, label, status, severity, observed_value, threshold, next_action]
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        status:
+          $ref: "#/components/schemas/FailedJobReleaseGateCheckStatus"
+        severity:
+          $ref: "#/components/schemas/FailedJobReleaseGateSeverity"
+        observed_value:
+          type: string
+        threshold:
+          type: string
+        next_action:
+          type: string
+
+    FailedJobApprovalPolicyRule:
+      type: object
+      required: [operation, approval_required, second_approval_required, required_role, next_action]
+      properties:
+        operation:
+          type: string
+        approval_required:
+          type: boolean
+        second_approval_required:
+          type: boolean
+        required_role:
+          type: string
+        next_action:
+          type: string
+
+    FailedJobApprovalPolicy:
+      type: object
+      required: [retry, discard, production]
+      properties:
+        retry:
+          $ref: "#/components/schemas/FailedJobApprovalPolicyRule"
+        discard:
+          $ref: "#/components/schemas/FailedJobApprovalPolicyRule"
+        production:
+          $ref: "#/components/schemas/FailedJobApprovalPolicyRule"
+
+    FailedJobNotificationPolicy:
+      type: object
+      required: [channel, required_for, payload_fields, prohibited_fields, fallback]
+      properties:
+        channel:
+          type: string
+          description: Logical operations notification channel. It must not contain webhook URLs or secrets.
+        required_for:
+          type: array
+          items:
+            type: string
+        payload_fields:
+          type: array
+          items:
+            type: string
+        prohibited_fields:
+          type: array
+          items:
+            type: string
+        fallback:
+          type: string
+
+    FailedJobReleaseGate:
+      type: object
+      required: [status, notification_required, notification_channel, notification_policy, approval_policy, checks]
+      properties:
+        status:
+          $ref: "#/components/schemas/FailedJobReleaseGateStatus"
+        notification_required:
+          type: boolean
+        notification_channel:
+          type: string
+        notification_policy:
+          $ref: "#/components/schemas/FailedJobNotificationPolicy"
+        approval_policy:
+          $ref: "#/components/schemas/FailedJobApprovalPolicy"
+        checks:
+          type: array
+          items:
+            $ref: "#/components/schemas/FailedJobReleaseGateCheck"
+
     QueueHealth:
       type: object
       required:
@@ -3807,6 +3916,7 @@ components:
         - failed_job_samples
         - failed_job_operation_metrics
         - failed_job_operation_history
+        - failed_job_release_gate
         - recurring_tasks
         - product_jobs
         - warnings
@@ -3842,6 +3952,8 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/FailedJobOperationHistoryItem"
+        failed_job_release_gate:
+          $ref: "#/components/schemas/FailedJobReleaseGate"
         recurring_tasks:
           type: array
           items:

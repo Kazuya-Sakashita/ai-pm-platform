@@ -40,6 +40,7 @@ module Operations
       unless solid_queue_available?
         warnings << "Solid Queue tableを確認できません。queue schema setupを確認してください。"
         data[:status] = "unavailable"
+        data[:failed_job_release_gate] = FailedJobReleaseGate.unavailable
         return data
       end
 
@@ -48,6 +49,7 @@ module Operations
       data[:failed_job_samples] = failed_job_samples
       data[:failed_executions] = failed_execution_summary(warnings, data[:failed_job_samples])
       data[:recurring_tasks] = recurring_task_summaries(warnings)
+      data[:failed_job_release_gate] = FailedJobReleaseGate.new(data: data).call
 
       recent_failed_count = data.dig(:product_jobs, :recent_failed_count).to_i
       warnings << "Product jobsに直近24時間の失敗が#{recent_failed_count}件あります。" if recent_failed_count.positive?
@@ -74,6 +76,7 @@ module Operations
         failed_job_samples: [],
         failed_job_operation_metrics: empty_failed_job_operation_metrics,
         failed_job_operation_history: [],
+        failed_job_release_gate: FailedJobReleaseGate.pending,
         recurring_tasks: [],
         product_jobs: { by_status: [], recent_failed_count: 0 },
         warnings: warnings
@@ -85,6 +88,7 @@ module Operations
       data = base_data(checked_at, warnings)
       data[:product_jobs] = product_jobs_summary(checked_at)
       data[:status] = "unavailable"
+      data[:failed_job_release_gate] = FailedJobReleaseGate.unavailable
       data
     end
 

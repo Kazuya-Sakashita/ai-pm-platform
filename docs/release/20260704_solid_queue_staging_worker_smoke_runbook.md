@@ -373,6 +373,21 @@ Recommended staging API check:
 curl -s "$APP_BASE_URL/api/v1/operations/queue-health?project_id=$PROJECT_ID"
 ```
 
+retry/discard前に `failed_job_release_gate` を記録する:
+
+- `status`: `pass`, `warning`, `blocked`, or `not_evaluated`
+- `notification_required`
+- `notification_channel`
+- blockingまたはwarningの `checks`
+- discard approval policy
+
+Gate handling:
+
+- `blocked`: release gateを停止する。Security Engineerまたはrelease ownerがrelease前に確認する。
+- `warning`: release ownerが理由、緩和策、次回確認時刻を記録する。
+- `pass`: worker smokeとAuditLog evidenceも保存されている場合のみ継続する。
+- `not_measured` のretry refailure rateは、ISSUE-062 mappingが存在し、後続の計測計画が記録されている場合だけ本Issueでは許容する。
+
 Select one failed job sample from the response. Record only:
 
 - `failed_job_id`
@@ -402,7 +417,7 @@ Discard smoke request:
 curl -s -X POST "$APP_BASE_URL/api/v1/operations/failed-jobs/$FAILED_JOB_ID/discard?project_id=$PROJECT_ID" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $OPERATOR_TOKEN" \
-  --data '{"reason_template":"manually_resolved"}'
+  --data '{"reason_template":"manually_resolved","discard_safety_confirmed":true}'
 ```
 
 Use either retry or discard for a given failed job. Do not run both on the same failed execution.
@@ -415,6 +430,7 @@ Expected:
 - AuditLog metadata contains operator, reason template, queue/class, and IDs only.
 - Queue health is refreshed after the operation.
 - The operated failed job is no longer present as an actionable failed job sample.
+- 操作後に `failed_job_release_gate` を確認し、`notification_required` の対応を記録する。
 - No raw exception, backtrace, job arguments, secret, token, database URL, DM body, or AI prompt is visible.
 
 If the operation fails:
@@ -457,6 +473,8 @@ Expected:
   - Rails log confirms scheduled cleanup at the next minute 24
   - Rails log confirms scheduled retention at the next minute 36
 - Production retry/discard is forbidden during release smoke unless release owner approval, Project ownership, reason template, side-effect review, and AuditLog inspection are all recorded.
+- `failed_job_release_gate.status` が `blocked` の場合、production releaseを停止する。
+- `failed_job_release_gate.status` が `warning` の場合、release owner reviewを必須にする。
 - If production cleanup or retention execution is observed, record only counts and timestamps. Do not copy raw state, nonce digest, state digest, DM body, or encryption key into documents.
 - If production retry/discard is executed under approval, record only safe operation fields and never save raw exception, backtrace, serialized arguments, tokens, database URLs, DM body, or AI prompt content.
 - If `QUEUE_DATABASE_URL` is missing or points to the wrong database, stop the smoke and fail the release gate.
@@ -483,6 +501,8 @@ Required fields:
 - queue health API/UI result
 - failed job count before/after
 - failed job operation status: `executed`, `not executed`, or `blocked`
+- failed job release gate status、warning/blocking checks、notification requirement、必要な場合のnotification fallback
+- discard approval policyとrelease owner approval status
 - failed job operation target safe fields
 - reason template
 - operator actor ID

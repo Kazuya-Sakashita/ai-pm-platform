@@ -99,6 +99,7 @@ const statusLabels: Record<string, string> = {
   approved: "承認済み",
   archived: "アーカイブ済み",
   auditor: "監査担当",
+  block: "停止",
   blocked: "ブロック中",
   cancelled: "キャンセル済み",
   clear: "通過",
@@ -119,8 +120,11 @@ const statusLabels: Record<string, string> = {
   needs_changes: "修正が必要",
   needs_revision: "修正が必要",
   not_connected: "未接続",
+  not_evaluated: "未評価",
+  not_measured: "未計測",
   open: "未対応",
   owner: "所有者",
+  pass: "通過",
   pending: "未対応",
   product_job_ambiguous: "管理ジョブ候補が複数",
   product_job_lookup_failed: "管理ジョブ確認失敗",
@@ -151,6 +155,7 @@ const statusLabels: Record<string, string> = {
   valid: "検証済み",
   verified: "確認済み",
   viewer: "閲覧者",
+  warning: "警告",
 };
 
 const targetLabels: Record<string, string> = {
