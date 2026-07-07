@@ -24,8 +24,16 @@ RSpec.describe GithubIntegration::WebhookSignatureVerifier do
     }
   end
 
+  it "rotation window中はprevious secretの署名も検証する" do
+    previous_secret = "previous-webhook-secret"
+    previous_signature = "sha256=#{OpenSSL::HMAC.hexdigest("SHA256", previous_secret, payload)}"
+    verifier = described_class.new(secret: secret, previous_secret: previous_secret)
+
+    expect(verifier.verify!(payload: payload, signature: previous_signature)).to eq(true)
+  end
+
   it "secret未設定では安全に失敗する" do
-    verifier = described_class.new(secret: nil)
+    verifier = described_class.new(secret: nil, previous_secret: nil)
 
     expect do
       verifier.verify!(payload: payload, signature: signature)

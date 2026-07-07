@@ -83,10 +83,22 @@ RSpec.describe "API V1 GitHub Webhooks", type: :request do
       expect(project.audit_logs.where(action: "github.webhook.installation_sync")).to be_empty
     end
 
+    it "rotation window中はprevious secret署名のdeliveryを受理する" do
+      payload = installation_payload(action: "deleted")
+
+      with_env("GITHUB_WEBHOOK_SECRET" => "new-webhook-secret", "GITHUB_WEBHOOK_PREVIOUS_SECRET" => webhook_secret) do
+        post_webhook(payload: payload, event: "installation", delivery: "delivery-previous-secret", secret: webhook_secret)
+      end
+
+      expect(response).to have_http_status(:accepted)
+      expect(account.reload.status).to eq("revoked")
+      expect(GithubWebhookDelivery.last.delivery_digest).to eq(Digest::SHA256.hexdigest("delivery-previous-secret"))
+    end
+
     it "secret未設定では検証前副作用を発生させない" do
       payload = installation_payload(action: "deleted")
 
-      with_env("GITHUB_WEBHOOK_SECRET" => nil) do
+      with_env("GITHUB_WEBHOOK_SECRET" => nil, "GITHUB_WEBHOOK_PREVIOUS_SECRET" => nil) do
         post_webhook(payload: payload, event: "installation", delivery: "delivery-secret-missing")
       end
 
@@ -212,18 +224,18 @@ RSpec.describe "API V1 GitHub Webhooks", type: :request do
     end
   end
 
-  def post_webhook(payload:, event:, delivery:)
+  def post_webhook(payload:, event:, delivery:, secret: webhook_secret)
     post "/api/v1/webhooks/github",
          params: payload,
-         headers: github_headers(payload: payload, event: event, delivery: delivery)
+         headers: github_headers(payload: payload, event: event, delivery: delivery, secret: secret)
   end
 
-  def github_headers(payload:, event:, delivery:)
+  def github_headers(payload:, event:, delivery:, secret: webhook_secret)
     {
       "CONTENT_TYPE" => "application/json",
       "X-GitHub-Event" => event,
       "X-GitHub-Delivery" => delivery,
-      "X-Hub-Signature-256" => "sha256=#{OpenSSL::HMAC.hexdigest("SHA256", webhook_secret, payload)}"
+      "X-Hub-Signature-256" => "sha256=#{OpenSSL::HMAC.hexdigest("SHA256", secret, payload)}"
     }
   end
 

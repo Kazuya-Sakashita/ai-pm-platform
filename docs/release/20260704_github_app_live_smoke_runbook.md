@@ -33,6 +33,7 @@ GITHUB_APP_SLUG=ai-pm-platform
 GITHUB_APP_PRIVATE_KEY_BASE64=base64-encoded-pem
 GITHUB_APP_INSTALLATION_URL=https://github.com/apps/ai-pm-platform/installations/new
 GITHUB_API_BASE_URL=https://api.github.com
+GITHUB_WEBHOOK_SECRET=webhook-secret-from-secret-store
 ```
 
 Prefer `GITHUB_APP_PRIVATE_KEY_BASE64` over raw PEM in shell environments to avoid newline corruption. Do not set both private key variables unless intentionally testing precedence.
@@ -41,6 +42,62 @@ Required GitHub App permissions:
 
 - Metadata: read
 - Issues: write
+
+## GitHub Webhook secret rotation
+
+関連ADR: `docs/decisions/ADR-0021_github_webhook_secret_rotation.md`
+
+webhook secret、signature、payload全文、GitHub delivery id生値は、このrepository、screenshot、review docs、log、AI chatへ保存しない。delivery証跡はdelivery digestとsafe metadataだけを使う。
+
+### 通常rotation
+
+1. 新しいwebhook secretをsecret storeへ登録する。
+2. appを以下でdeployする。
+
+```sh
+GITHUB_WEBHOOK_SECRET=new-secret
+GITHUB_WEBHOOK_PREVIOUS_SECRET=old-secret
+```
+
+3. GitHub App側のwebhook secretを新しい値へ更新する。
+4. 新secretで署名したstaging test deliveryを実行する。
+5. rotation window中にprevious secret署名のdeliveryも受理されることを確認する。
+6. 24時間以内に `GITHUB_WEBHOOK_PREVIOUS_SECRET` を削除する。
+7. `GITHUB_WEBHOOK_SECRET` のみでappをdeployする。
+8. secret値をredactした証跡を `docs/review/` へ保存する。
+
+### 緊急rotation
+
+旧secretの漏えいが疑われる場合に使う。
+
+1. `GITHUB_WEBHOOK_PREVIOUS_SECRET` を設定しない。
+2. GitHub App側のwebhook secretを即時変更する。
+3. `GITHUB_WEBHOOK_SECRET=new-secret` のみでappをdeployする。
+4. 旧secret署名deliveryが拒否されることを確認する。
+5. incident理由、影響、operator、検証結果をreview documentへ記録する。
+
+### Rollback
+
+新secretで正当なdeliveryを検証できない場合:
+
+1. GitHub App側のwebhook secretを旧値へ戻す。
+2. `GITHUB_WEBHOOK_SECRET=old-secret` でappをdeployする。
+3. `GITHUB_WEBHOOK_PREVIOUS_SECRET` を削除する。
+4. signed deliveryの受理を確認する。
+5. rollback理由、operator、開始/終了時刻、commit SHA、safe failure detailを保存する。
+
+Rotation evidenceには以下を含める:
+
+- 対象environment
+- commit SHA
+- operator / approver
+- rotation理由
+- previous secret設定時刻
+- previous secret削除期限
+- previous secret削除時刻
+- current secret署名deliveryの結果
+- rotation window中のprevious secret署名delivery結果
+- raw secret、signature、payloadを保存していない確認
 
 ## Preconditions
 
