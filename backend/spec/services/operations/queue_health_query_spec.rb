@@ -25,10 +25,17 @@ RSpec.describe Operations::QueueHealthQuery do
         expect(data[:failed_executions]).to include(count: 1, latest_failed_at: (checked_at - 30.seconds).iso8601)
         expect(data[:failed_job_samples]).to contain_exactly(
           {
+            failed_job_id: 456,
+            job_id: 123,
             queue_name: "github_reconciliation",
             class_name: "GithubIssuePublish::ReconciliationRetryJob",
             active_job_id: "active-job-123",
-            failed_at: (checked_at - 30.seconds).iso8601
+            failed_at: (checked_at - 30.seconds).iso8601,
+            operations: {
+              retryable: true,
+              discardable: true,
+              reason_templates: Operations::FailedJobOperationService::REASON_TEMPLATES.keys
+            }
           }
         )
         expect(data[:recurring_tasks]).to contain_exactly(hash_including(key: "cleanup_expired_github_connection_states"))
@@ -101,6 +108,7 @@ RSpec.describe Operations::QueueHealthQuery do
   def stub_failed_job_samples(failed_at:)
     failed_execution = double(
       "SolidQueue::FailedExecution",
+      id: 456,
       job_id: 123,
       created_at: failed_at
     )
