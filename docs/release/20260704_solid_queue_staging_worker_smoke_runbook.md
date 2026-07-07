@@ -18,6 +18,7 @@ This smoke is required before Issue #4 can treat the GitHub connection state cle
 - Safe execution evidence for `ConversationImportRetentionJob`
 - Restore-time retention/anonymization replay guidance
 - Failed job and queue latency checks
+- Failed job retry/discard operation evidence
 
 Out of scope:
 
@@ -26,6 +27,8 @@ Out of scope:
 - AI provider live calls
 - Production incident response
 - Real user DM data inspection
+- Bulk failed job retry/discard
+- Creating intentional production failures for smoke testing
 
 ## Preconditions
 
@@ -342,7 +345,88 @@ If it increases:
 2. Capture Rails log around the failed execution.
 3. Do not discard or retry the job until the failure is reviewed.
 
-### 10. Queue Latency Snapshot
+### 10. Failed Job Retry/Discard Operation Smoke
+
+This step verifies the operator-facing failed job operation path added after the first Queue health MVP.
+
+Staging rule:
+
+- Use only a staging failed execution that was created by an approved smoke scenario or a known safe test job.
+- Do not use a job that can publish external GitHub Issues, send notifications, call an AI provider, or mutate real user data unless the release owner explicitly approves it.
+- If no safe failed execution exists, record the step as `blocked` in the evidence template. Do not fabricate queue database rows by hand.
+
+Production rule:
+
+- Production is observation-only by default.
+- Do not retry or discard a production failed job during release smoke unless all of the following are true:
+  - incident commander or release owner approval is recorded
+  - affected Project is identified
+  - operator is project admin or owner
+  - reason template is selected
+  - side-effect risk has been reviewed
+  - AuditLog can be inspected after the operation
+- If these conditions are not met, record `not executed` with the reason.
+
+Recommended staging API check:
+
+```sh
+curl -s "$APP_BASE_URL/api/v1/operations/queue-health?project_id=$PROJECT_ID"
+```
+
+Select one failed job sample from the response. Record only:
+
+- `failed_job_id`
+- `job_id`
+- `queue_name`
+- `class_name`
+- `active_job_id` if present
+- `failed_at`
+- `operations.retryable`
+- `operations.discardable`
+- available `reason_templates`
+
+Do not record raw error, backtrace, serialized job arguments, database URLs, tokens, webhook payloads, DM body, or AI prompt content.
+
+Retry smoke request:
+
+```sh
+curl -s -X POST "$APP_BASE_URL/api/v1/operations/failed-jobs/$FAILED_JOB_ID/retry?project_id=$PROJECT_ID" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $OPERATOR_TOKEN" \
+  --data '{"reason_template":"operator_confirmed_safe_retry"}'
+```
+
+Discard smoke request:
+
+```sh
+curl -s -X POST "$APP_BASE_URL/api/v1/operations/failed-jobs/$FAILED_JOB_ID/discard?project_id=$PROJECT_ID" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $OPERATOR_TOKEN" \
+  --data '{"reason_template":"manually_resolved"}'
+```
+
+Use either retry or discard for a given failed job. Do not run both on the same failed execution.
+
+Expected:
+
+- API returns `200` with safe fields only.
+- Operation response contains `failed_job_id`, `job_id`, `action`, `reason_template`, and `operated_at`.
+- AuditLog contains `operations.failed_job_retried` or `operations.failed_job_discarded`.
+- AuditLog metadata contains operator, reason template, queue/class, and IDs only.
+- Queue health is refreshed after the operation.
+- The operated failed job is no longer present as an actionable failed job sample.
+- No raw exception, backtrace, job arguments, secret, token, database URL, DM body, or AI prompt is visible.
+
+If the operation fails:
+
+- Record the safe API error code.
+- Capture only safe metadata and timestamps.
+- Do not retry again until the failure is reviewed.
+- Do not manually edit Solid Queue tables as a workaround.
+
+Save this step using `docs/review/20260707_failed_job_worker_smoke_evidence_template.md`.
+
+### 11. Queue Latency Snapshot
 
 Use a read-only query:
 
@@ -369,9 +453,12 @@ Expected:
   - recurring task exists
   - failed executions count
   - queue latency
+  - failed job operation availability from Queue health
   - Rails log confirms scheduled cleanup at the next minute 24
   - Rails log confirms scheduled retention at the next minute 36
+- Production retry/discard is forbidden during release smoke unless release owner approval, Project ownership, reason template, side-effect review, and AuditLog inspection are all recorded.
 - If production cleanup or retention execution is observed, record only counts and timestamps. Do not copy raw state, nonce digest, state digest, DM body, or encryption key into documents.
+- If production retry/discard is executed under approval, record only safe operation fields and never save raw exception, backtrace, serialized arguments, tokens, database URLs, DM body, or AI prompt content.
 - If `QUEUE_DATABASE_URL` is missing or points to the wrong database, stop the smoke and fail the release gate.
 - If Active Record Encryption keys are missing, stop the smoke and fail the release gate.
 - Retention/anonymization is not meaningfully reversible. If unexpected anonymization occurs, stop the worker, disable DM import, preserve logs without body content, and follow backup restore policy from ADR-0013.
@@ -395,6 +482,12 @@ Required fields:
 - retention execution result or observation-only reason
 - queue health API/UI result
 - failed job count before/after
+- failed job operation status: `executed`, `not executed`, or `blocked`
+- failed job operation target safe fields
+- reason template
+- operator actor ID
+- AuditLog action and safe metadata confirmation
+- Queue health result after retry/discard
 - queue latency snapshot
 - restore-time retention replay status or not-applicable reason
 - pass/fail conclusion
@@ -413,6 +506,8 @@ Staging worker smoke is complete when:
 - retention job executes or is safely observed
 - Queue health API/UI confirms worker and failed job status without sensitive fields
 - failed job count is reviewed
+- failed job retry/discard operation is executed in staging with approved safe target or marked blocked with owner and next execution date
+- failed job operation evidence template is saved without sensitive fields
 - evidence review is saved under `docs/review/`
 
 Production worker smoke is complete when:
@@ -420,6 +515,7 @@ Production worker smoke is complete when:
 - production worker heartbeat is visible
 - cleanup and retention recurring tasks are loaded
 - observation-only checks pass
+- failed job retry/discard is either observation-only deferred or executed under explicit release owner approval
 - next scheduled cleanup is observed without secret exposure
 - next scheduled retention is observed without DM body exposure
 - restore-time retention replay rule is acknowledged in the release review

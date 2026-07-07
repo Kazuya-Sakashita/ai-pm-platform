@@ -46,14 +46,23 @@ staging/production worker smoke runbookと証跡テンプレートにfailed job 
 - `docs/review/20260704_queue_health_monitoring_implementation_review.md`
 - `docs/review/20260707_failed_job_retry_discard_operations_implementation_review.md`
 - `docs/review/20260707_failed_job_followup_issue_split_review.md`
+- `docs/review/20260707_failed_job_worker_smoke_evidence_template.md`
+- `docs/review/20260707_failed_job_worker_smoke_runbook_review.md`
 
 ## レビュー結果
 
 P1。実装済みの運用操作を本番運用可能と判断するには、実worker下でのsmoke証跡が必要である。ただし環境credentialが必要なため、実行そのものはrelease gateとして扱い、まずrunbookと証跡テンプレートを整備する。
 
+2026-07-07にrunbookと証跡テンプレートを整備した。stagingでは承認済みsafe failed jobのみretry/discardを実行し、productionは原則観測のみ、実行する場合はrelease owner承認、Project確認、reason template、AuditLog確認を必須とした。
+
+## 検証結果
+
+- `npm run display:check`: 成功
+- `git diff --check`: 成功
+
 ## 次アクション
 
-1. 既存のstaging worker smoke runbookとrelease checklistを確認する。
-2. failed job retry/discardの安全な確認手順を追記する。
-3. 証跡テンプレートと禁止事項を追加する。
-4. GitHub Issue #4へ接続し、release gate上の確認項目として同期する。
+1. PRを作成し、GitHub Actions `verify` を確認する。
+2. GitHub Issue #4へrelease gate更新を同期する。
+3. CI成功後にGitHub Issue #89へ検証結果をコメントする。
+4. Issue #89をクローズする。
