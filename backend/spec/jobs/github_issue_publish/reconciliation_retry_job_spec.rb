@@ -86,6 +86,49 @@ RSpec.describe GithubIssuePublish::ReconciliationRetryJob, type: :job do
     ).metadata).to include("attempt_id" => attempt.id, "job_id" => job.id)
   end
 
+  it "records the explicit mapping when a cooldown retry is rescheduled with provider_job_id" do
+    attempt = create(
+      :github_issue_publish_attempt,
+      status: "reconciliation_required",
+      next_reconciliation_retry_at: 1.minute.from_now
+    )
+    job = create(
+      :job,
+      project: attempt.project,
+      job_type: "github_reconciliation",
+      status: "queued",
+      target_type: "github_issue_publish_attempt",
+      target_id: attempt.id
+    )
+    configured_job = double("ActiveJob::ConfiguredJob")
+    enqueued_job = instance_double(
+      ActiveJob::Base,
+      provider_job_id: "654",
+      job_id: "active-job-654"
+    )
+    allow(described_class).to receive(:set).with(wait_until: attempt.next_reconciliation_retry_at).and_return(configured_job)
+    allow(configured_job).to receive(:perform_later).with(attempt.id, job.id).and_return(enqueued_job)
+
+    described_class.perform_now(attempt.id, job.id)
+
+    mapping = JobQueueMapping.find_by!(solid_queue_job_id: 654)
+    expect(mapping).to have_attributes(
+      project_id: attempt.project_id,
+      job_id: job.id,
+      active_job_id: "active-job-654",
+      queue_name: "github_reconciliation",
+      job_class_name: "GithubIssuePublish::ReconciliationRetryJob"
+    )
+    expect(attempt.project.audit_logs.find_by!(
+      action: "issue_draft.github_publish_reconciliation_retry_rescheduled"
+    ).metadata).to include(
+      "job_id" => job.id,
+      "solid_queue_job_id" => 654,
+      "active_job_id" => "active-job-654",
+      "product_job_mapping_source" => "explicit"
+    )
+  end
+
   it "marks the audit job failed when reconciliation raises a safe provider error" do
     attempt = create(
       :github_issue_publish_attempt,

@@ -25,6 +25,7 @@ RSpec.describe Operations::FailedJobOperationService do
         product_job_id: product_job.id,
         project_id: project.id,
         project_boundary_status: "verified",
+        product_job_mapping_source: "arguments",
         action: "retry",
         queue_name: "github_reconciliation",
         class_name: "GithubIssuePublish::ReconciliationRetryJob",
@@ -40,6 +41,7 @@ RSpec.describe Operations::FailedJobOperationService do
         "product_job_id" => product_job.id,
         "project_id" => project.id,
         "project_boundary_status" => "verified",
+        "product_job_mapping_source" => "arguments",
         "operator_actor_id" => "operator-1",
         "reason_template" => "operator_confirmed_safe_retry"
       )
@@ -74,6 +76,7 @@ RSpec.describe Operations::FailedJobOperationService do
         "job_id" => 123,
         "product_job_id" => product_job.id,
         "project_boundary_status" => "verified",
+        "product_job_mapping_source" => "arguments",
         "reason_template" => "manually_resolved",
         "discard_safety_confirmed" => true
       )
@@ -192,6 +195,7 @@ RSpec.describe Operations::FailedJobOperationService do
         "project_boundary_status" => "project_mismatch",
         "requested_project_id" => project.id,
         "solid_queue_job_id" => 123,
+        "product_job_mapping_source" => "arguments",
         "operator_actor_id" => "operator-1"
       )
       expect(audit_log.metadata).not_to include("product_job_id")

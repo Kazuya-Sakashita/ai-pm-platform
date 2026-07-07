@@ -2,6 +2,21 @@ require "rails_helper"
 
 RSpec.describe Operations::FailedJobProjectResolver do
   describe "#call" do
+    it "prefers an explicit mapping over Product Job ids found in arguments" do
+      project = create(:project)
+      product_job = create(:job, project: project)
+      other_product_job = create(:job)
+      create(:job_queue_mapping, product_job: product_job, solid_queue_job_id: 123, active_job_id: "active-job-123")
+      solid_queue_job = solid_queue_job_double(other_product_job.id)
+
+      result = described_class.new(solid_queue_job).call
+
+      expect(result.status).to eq("verified")
+      expect(result.product_job).to eq(product_job)
+      expect(result.product_job_mapping_source).to eq("explicit")
+      expect(result).to be_verified_for(project)
+    end
+
     it "verifies a Solid Queue job that contains one Product Job id" do
       project = create(:project)
       product_job = create(:job, project: project)
@@ -15,7 +30,8 @@ RSpec.describe Operations::FailedJobProjectResolver do
         project_boundary_status: "verified",
         product_job_id: product_job.id,
         product_job_project_id: project.id,
-        solid_queue_job_id: 123
+        solid_queue_job_id: 123,
+        product_job_mapping_source: "arguments"
       )
     end
 
@@ -32,7 +48,8 @@ RSpec.describe Operations::FailedJobProjectResolver do
       expect(result.safe_metadata(project: project)).to include(
         project_boundary_status: "project_mismatch",
         requested_project_id: project.id,
-        solid_queue_job_id: 123
+        solid_queue_job_id: 123,
+        product_job_mapping_source: "arguments"
       )
       expect(result.safe_metadata(project: project)).not_to include(:product_job_id)
       expect(result.safe_metadata(project: project)).not_to include(:product_job_project_id)
@@ -46,6 +63,7 @@ RSpec.describe Operations::FailedJobProjectResolver do
       result = described_class.new(solid_queue_job).call
 
       expect(result.status).to eq("product_job_ambiguous")
+      expect(result.product_job_mapping_source).to eq("arguments")
       expect(result).not_to be_verified_for(first_job.project)
     end
 

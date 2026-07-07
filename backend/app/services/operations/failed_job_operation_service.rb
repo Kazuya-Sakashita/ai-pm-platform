@@ -74,6 +74,7 @@ module Operations
         product_job_id: project_boundary.product_job.id,
         project_id: project.id,
         project_boundary_status: "verified",
+        product_job_mapping_source: project_boundary.product_job_mapping_source,
         action: action,
         queue_name: job&.queue_name || "unknown",
         class_name: job&.class_name || "unknown",

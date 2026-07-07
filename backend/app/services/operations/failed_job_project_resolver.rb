@@ -2,7 +2,7 @@ module Operations
   class FailedJobProjectResolver
     UUID_PATTERN = /\A[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z/i
 
-    Result = Struct.new(:status, :product_job, :solid_queue_job_id, :active_job_id, keyword_init: true) do
+    Result = Struct.new(:status, :product_job, :solid_queue_job_id, :active_job_id, :product_job_mapping_source, keyword_init: true) do
       def verified?
         status == "verified" && product_job.present?
       end
@@ -23,7 +23,8 @@ module Operations
           project_boundary_status: status_for(project),
           requested_project_id: project.id,
           solid_queue_job_id: solid_queue_job_id,
-          active_job_id: active_job_id
+          active_job_id: active_job_id,
+          product_job_mapping_source: product_job_mapping_source
         }.compact
 
         return metadata unless verified_for?(project)
@@ -43,11 +44,14 @@ module Operations
     def call
       return result("solid_queue_job_missing") unless solid_queue_job
 
+      explicit_mapping = explicit_product_job_mapping
+      return result("verified", product_job: explicit_mapping.product_job, product_job_mapping_source: "explicit") if explicit_mapping
+
       product_jobs = candidate_product_jobs
       return result("product_job_unresolved") if product_jobs.empty?
-      return result("product_job_ambiguous") if product_jobs.size > 1
+      return result("product_job_ambiguous", product_job_mapping_source: "arguments") if product_jobs.size > 1
 
-      result("verified", product_job: product_jobs.first)
+      result("verified", product_job: product_jobs.first, product_job_mapping_source: "arguments")
     rescue ActiveRecord::ActiveRecordError
       result("product_job_lookup_failed")
     end
@@ -55,6 +59,12 @@ module Operations
     private
 
     attr_reader :solid_queue_job
+
+    def explicit_product_job_mapping
+      return nil unless solid_queue_job&.id
+
+      JobQueueMapping.includes(:product_job).find_by(provider: "solid_queue", solid_queue_job_id: solid_queue_job.id)
+    end
 
     def candidate_product_jobs
       ids = candidate_product_job_ids
@@ -80,12 +90,13 @@ module Operations
       end
     end
 
-    def result(status, product_job: nil)
+    def result(status, product_job: nil, product_job_mapping_source: nil)
       Result.new(
         status: status,
         product_job: product_job,
         solid_queue_job_id: solid_queue_job&.id,
-        active_job_id: solid_queue_job&.active_job_id
+        active_job_id: solid_queue_job&.active_job_id,
+        product_job_mapping_source: product_job_mapping_source
       )
     end
   end

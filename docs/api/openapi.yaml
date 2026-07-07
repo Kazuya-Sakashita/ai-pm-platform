@@ -3551,12 +3551,14 @@ components:
         product_job_id:
           type: string
           format: uuid
-          description: Project-scoped application job id verified from Solid Queue arguments.
+          description: Project-scoped application job id verified from explicit mapping or Solid Queue arguments fallback.
         project_id:
           type: string
           format: uuid
         project_boundary_status:
           $ref: "#/components/schemas/FailedJobProjectBoundaryStatus"
+        product_job_mapping_source:
+          $ref: "#/components/schemas/FailedJobProductJobMappingSource"
         queue_name:
           type: string
         class_name:
@@ -3599,6 +3601,12 @@ components:
         - solid_queue_job_missing
         - project_mismatch
 
+    FailedJobProductJobMappingSource:
+      type: string
+      enum:
+        - explicit
+        - arguments
+
     FailedJobOperationReasonTemplate:
       type: string
       enum:
@@ -3638,7 +3646,16 @@ components:
 
     FailedJobOperationResult:
       type: object
-      required: [failed_job_id, job_id, product_job_id, project_id, project_boundary_status, action, reason_template, operated_at]
+      required:
+        - failed_job_id
+        - job_id
+        - product_job_id
+        - project_id
+        - project_boundary_status
+        - product_job_mapping_source
+        - action
+        - reason_template
+        - operated_at
       properties:
         failed_job_id:
           type: integer
@@ -3655,6 +3672,8 @@ components:
         project_boundary_status:
           type: string
           enum: [verified]
+        product_job_mapping_source:
+          $ref: "#/components/schemas/FailedJobProductJobMappingSource"
         action:
           type: string
           enum: [retry, discard]
@@ -3763,6 +3782,8 @@ components:
           format: uuid
         project_boundary_status:
           $ref: "#/components/schemas/FailedJobProjectBoundaryStatus"
+        product_job_mapping_source:
+          $ref: "#/components/schemas/FailedJobProductJobMappingSource"
         reason_template:
           $ref: "#/components/schemas/FailedJobOperationReasonTemplate"
         reason_template_label:

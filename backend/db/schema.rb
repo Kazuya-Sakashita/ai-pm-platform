@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_07_07_075900) do
+ActiveRecord::Schema[7.1].define(version: 2026_07_07_190000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pgcrypto"
   enable_extension "plpgsql"
@@ -236,6 +236,25 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_07_075900) do
     t.index ["status"], name: "index_issue_drafts_on_status"
   end
 
+  create_table "job_queue_mappings", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "project_id", null: false
+    t.uuid "job_id", null: false
+    t.string "provider", default: "solid_queue", null: false
+    t.bigint "solid_queue_job_id", null: false
+    t.string "active_job_id"
+    t.string "queue_name"
+    t.string "job_class_name"
+    t.datetime "scheduled_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["active_job_id"], name: "index_job_queue_mappings_on_active_job_id"
+    t.index ["job_id", "created_at"], name: "index_job_queue_mappings_on_job_id_and_created_at"
+    t.index ["job_id"], name: "index_job_queue_mappings_on_job_id"
+    t.index ["project_id", "created_at"], name: "index_job_queue_mappings_on_project_id_and_created_at"
+    t.index ["project_id"], name: "index_job_queue_mappings_on_project_id"
+    t.index ["provider", "solid_queue_job_id"], name: "index_job_queue_mappings_on_provider_and_solid_queue_job_id", unique: true
+  end
+
   create_table "jobs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "project_id", null: false
     t.string "job_type", null: false
@@ -417,6 +436,8 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_07_075900) do
   add_foreign_key "github_issue_publish_attempts", "projects"
   add_foreign_key "integration_accounts", "projects"
   add_foreign_key "issue_drafts", "requirements"
+  add_foreign_key "job_queue_mappings", "jobs"
+  add_foreign_key "job_queue_mappings", "projects"
   add_foreign_key "jobs", "projects"
   add_foreign_key "meetings", "projects"
   add_foreign_key "minutes", "meetings"

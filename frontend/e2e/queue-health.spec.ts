@@ -74,6 +74,7 @@ test.describe("Queue health operations panel", () => {
                     product_job_id: "18b92270-8f9f-45cb-a8d0-6f7442ce8241",
                     project_id: projectId,
                     project_boundary_status: "verified",
+                    product_job_mapping_source: "explicit",
                     queue_name: "github_reconciliation",
                     class_name: "GithubIssuePublish::ReconciliationRetryJob",
                     active_job_id: "active-job-queue-health",
@@ -106,6 +107,7 @@ test.describe("Queue health operations panel", () => {
                     job_id: 123,
                     product_job_id: "18b92270-8f9f-45cb-a8d0-6f7442ce8241",
                     project_boundary_status: "verified",
+                    product_job_mapping_source: "explicit",
                     reason_template: "operator_confirmed_safe_retry",
                     reason_template_label: "運用者が副作用リスクを確認したため再実行します。",
                     created_at: now,
@@ -154,6 +156,7 @@ test.describe("Queue health operations panel", () => {
             product_job_id: "18b92270-8f9f-45cb-a8d0-6f7442ce8241",
             project_id: projectId,
             project_boundary_status: "verified",
+            product_job_mapping_source: "explicit",
             action: "retry",
             queue_name: "github_reconciliation",
             class_name: "GithubIssuePublish::ReconciliationRetryJob",
@@ -175,6 +178,7 @@ test.describe("Queue health operations panel", () => {
     await expect(failedJobs).toContainText("github_reconciliation");
     await expect(failedJobs).toContainText("管理ジョブID: 18b92270-8f9f-45cb-a8d0-6f7442ce8241");
     await expect(failedJobs).toContainText("Project境界確認済み");
+    await expect(failedJobs).toContainText("境界根拠: 明示マッピング");
     await expect(failedJobs.getByLabel("再実行理由")).toBeVisible();
     await expect(failedJobs.getByLabel("破棄理由")).toBeVisible();
     await failedJobs.getByRole("button", { name: "破棄" }).click();
@@ -186,6 +190,7 @@ test.describe("Queue health operations panel", () => {
     await expect(panel.getByText("正常")).toBeVisible();
     await expect(panel.getByText("再実行1件 / 破棄0件 / 拒否0件")).toBeVisible();
     await expect(panel.getByLabel("失敗ジョブ操作履歴")).toContainText("失敗ジョブの再実行が要求されました。");
+    await expect(panel.getByLabel("失敗ジョブ操作履歴")).toContainText("境界根拠: 明示マッピング");
 
     queueHealthRequests = 0;
     await panel.getByRole("button", { name: "運用状態更新" }).click();
