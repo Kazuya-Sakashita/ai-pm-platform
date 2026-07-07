@@ -78,6 +78,7 @@ Minimum checks:
 - `solid_queue_failed_executions` count is not increasing
 - oldest unfinished `solid_queue_jobs.created_at` is within the expected SLA
 - application `jobs.status = failed` is reviewed
+- Queue health failed job samples expose only safe operation fields
 - queue database connection usage stays below capacity
 
 Suggested SQL checks:
@@ -117,6 +118,17 @@ When worker heartbeat is stale:
 3. Check database connectivity and connection pool saturation.
 4. Review failed executions before discarding or retrying jobs.
 
+When failed job retry/discard is considered:
+
+1. Prefer the application Queue health panel or documented API path over Rails console.
+2. Confirm the operator is project admin or owner for the target Project.
+3. Select a reason template. Do not write free-form incident details into the operation payload.
+4. Review side-effect risk before retrying jobs that can publish GitHub Issues, call external APIs, send notifications, or mutate user data.
+5. For discard, confirm the job is manually resolved or unsafe to retry.
+6. After operation, inspect `audit_logs` for `operations.failed_job_retried` or `operations.failed_job_discarded`.
+7. Refresh Queue health and record only safe IDs, queue/class, reason template, operator, AuditLog action, and timestamps.
+8. Never save raw exception, backtrace, serialized job arguments, tokens, database URLs, DM body, or AI prompt content in the incident note.
+
 When conversation import retention fails:
 
 1. Check `solid_queue_failed_executions` and application logs for `ConversationImportRetentionJob`.
@@ -147,4 +159,5 @@ Avoid `kill -9` unless the process is unrecoverable. A forced kill can turn in-f
 - `enforce_conversation_import_retention` recurring task is loaded
 - conversation import retention smoke is completed in staging or explicitly deferred with release-owner approval
 - failed job path is visible in application `jobs` and `audit_logs`
+- failed job retry/discard smoke evidence is saved or explicitly deferred with release-owner approval
 - GitHub Actions CI passed
