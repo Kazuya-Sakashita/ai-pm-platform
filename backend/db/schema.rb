@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_07_07_203500) do
+ActiveRecord::Schema[7.1].define(version: 2026_07_08_071000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pgcrypto"
   enable_extension "plpgsql"
@@ -204,7 +204,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_07_203500) do
     t.string "status", default: "started", null: false
     t.integer "github_issue_number"
     t.string "github_issue_url"
-    t.integer "github_issue_api_id"
+    t.bigint "github_issue_api_id"
     t.string "github_issue_node_id"
     t.string "safe_error_code"
     t.text "safe_error_detail"
@@ -275,7 +275,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_07_203500) do
     t.datetime "updated_at", null: false
     t.string "publish_idempotency_key"
     t.string "github_repository"
-    t.integer "github_issue_api_id"
+    t.bigint "github_issue_api_id"
     t.string "github_issue_node_id"
     t.datetime "last_publish_attempt_at"
     t.index ["github_issue_number"], name: "index_issue_drafts_on_github_issue_number"

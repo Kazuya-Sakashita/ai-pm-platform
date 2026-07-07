@@ -4360,6 +4360,7 @@ components:
           type: number
         github_issue_api_id:
           type: integer
+          format: int64
         github_issue_node_id:
           type: string
 
@@ -4397,6 +4398,7 @@ components:
           format: uri
         github_issue_api_id:
           type: integer
+          format: int64
         github_issue_node_id:
           type: string
 
