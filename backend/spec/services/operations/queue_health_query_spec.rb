@@ -15,6 +15,7 @@ RSpec.describe Operations::QueueHealthQuery do
         stub_unfinished_jobs(queue_name: "github_reconciliation", count: 2, oldest_at: checked_at - 400.seconds)
         stub_failed_job_samples(failed_at: checked_at - 30.seconds, product_job: product_job)
         stub_recurring_tasks
+        record_failed_job_operation_logs(project: project, product_job: product_job, checked_at: checked_at)
 
         data = described_class.new(project: project).call
 
@@ -36,9 +37,23 @@ RSpec.describe Operations::QueueHealthQuery do
             operations: {
               retryable: true,
               discardable: true,
+              retry_reason_templates: Operations::FailedJobOperationService::RETRY_REASON_TEMPLATES.keys,
+              discard_reason_templates: Operations::FailedJobOperationService::DISCARD_REASON_TEMPLATES.keys,
               reason_templates: Operations::FailedJobOperationService::REASON_TEMPLATES.keys
             }
           }
+        )
+        expect(data[:failed_job_operation_metrics]).to include(
+          recent_window_hours: 24,
+          retry_count: 1,
+          discard_count: 1,
+          rejected_count: 1,
+          last_operated_at: checked_at.iso8601
+        )
+        expect(data[:failed_job_operation_history]).to contain_exactly(
+          hash_including(action: "retry", outcome: "succeeded", reason_template: "operator_confirmed_safe_retry", product_job_id: product_job.id),
+          hash_including(action: "discard", outcome: "succeeded", reason_template: "manually_resolved", discard_safety_confirmed: true),
+          hash_including(action: "boundary_rejected", outcome: "rejected", project_boundary_status: "project_mismatch")
         )
         expect(data[:recurring_tasks]).to contain_exactly(hash_including(key: "cleanup_expired_github_connection_states"))
         expect(data.dig(:product_jobs, :recent_failed_count)).to eq(1)
@@ -60,6 +75,8 @@ RSpec.describe Operations::QueueHealthQuery do
       expect(data[:warnings].join(" ")).to include("Solid Queue")
       expect(data[:failed_executions]).to eq(count: 0)
       expect(data[:failed_job_samples]).to eq([])
+      expect(data[:failed_job_operation_metrics]).to include(retry_count: 0, discard_count: 0, rejected_count: 0)
+      expect(data[:failed_job_operation_history]).to eq([])
       expect(data.dig(:product_jobs, :recent_failed_count)).to eq(1)
       expect(data.to_s).not_to include("raw provider failure")
     end
@@ -164,5 +181,55 @@ RSpec.describe Operations::QueueHealthQuery do
 
     allow(SolidQueue::RecurringTask).to receive(:order).with(:key).and_return(ordered_tasks)
     allow(ordered_tasks).to receive(:limit).with(Operations::QueueHealthQuery::RECURRING_TASK_LIMIT).and_return([ task ])
+  end
+
+  def record_failed_job_operation_logs(project:, product_job:, checked_at:)
+    [
+      [
+        "operations.failed_job_retried",
+        "失敗ジョブの再実行が要求されました。",
+        {
+          failed_job_id: 456,
+          job_id: 123,
+          product_job_id: product_job.id,
+          project_boundary_status: "verified",
+          reason_template: "operator_confirmed_safe_retry",
+          reason_template_label: "運用者が副作用リスクを確認したため再実行します。"
+        }
+      ],
+      [
+        "operations.failed_job_discarded",
+        "失敗ジョブの破棄が要求されました。",
+        {
+          failed_job_id: 457,
+          job_id: 124,
+          product_job_id: product_job.id,
+          project_boundary_status: "verified",
+          reason_template: "manually_resolved",
+          reason_template_label: "手動対応済みのため破棄します。",
+          discard_safety_confirmed: true
+        }
+      ],
+      [
+        "operations.failed_job_project_boundary_rejected",
+        "失敗ジョブ操作のProject境界検証に失敗しました。",
+        {
+          failed_job_id: "458",
+          project_boundary_status: "project_mismatch",
+          requested_project_id: project.id,
+          solid_queue_job_id: 125
+        }
+      ]
+    ].each_with_index do |(action, summary, metadata), index|
+      audit_log = AuditLog.record!(
+        project: project,
+        action: action,
+        target: project,
+        actor_id: "operator-#{index + 1}",
+        summary: summary,
+        metadata: metadata
+      )
+      audit_log.update!(created_at: checked_at - index.seconds, updated_at: checked_at - index.seconds)
+    end
   end
 end

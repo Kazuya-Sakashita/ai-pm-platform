@@ -33,7 +33,8 @@ module Api
           actor_id: current_actor_id,
           failed_job_id: params[:failed_job_id],
           action: action,
-          reason_template: failed_job_operation_params[:reason_template]
+          reason_template: failed_job_operation_params[:reason_template],
+          discard_safety_confirmed: failed_job_operation_params[:discard_safety_confirmed]
         ).call
 
         if result.success?
@@ -44,7 +45,7 @@ module Api
       end
 
       def failed_job_operation_params
-        params.permit(:reason_template)
+        params.permit(:reason_template, :discard_safety_confirmed)
       end
 
       def render_project_required

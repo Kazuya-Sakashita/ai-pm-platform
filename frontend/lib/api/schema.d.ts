@@ -1591,6 +1591,12 @@ export interface components {
             operations: {
                 retryable: boolean;
                 discardable: boolean;
+                retry_reason_templates: components["schemas"]["FailedJobRetryReasonTemplate"][];
+                discard_reason_templates: components["schemas"]["FailedJobDiscardReasonTemplate"][];
+                /**
+                 * @deprecated
+                 * @description Use retry_reason_templates and discard_reason_templates instead.
+                 */
                 reason_templates?: components["schemas"]["FailedJobOperationReasonTemplate"][];
             };
         };
@@ -1598,8 +1604,17 @@ export interface components {
         FailedJobProjectBoundaryStatus: "verified" | "product_job_unresolved" | "product_job_ambiguous" | "product_job_lookup_failed" | "solid_queue_job_missing" | "project_mismatch";
         /** @enum {string} */
         FailedJobOperationReasonTemplate: "transient_failure_recovered" | "operator_confirmed_safe_retry" | "manually_resolved" | "unsafe_to_retry";
-        FailedJobOperationRequest: {
-            reason_template: components["schemas"]["FailedJobOperationReasonTemplate"];
+        /** @enum {string} */
+        FailedJobRetryReasonTemplate: "transient_failure_recovered" | "operator_confirmed_safe_retry";
+        /** @enum {string} */
+        FailedJobDiscardReasonTemplate: "manually_resolved" | "unsafe_to_retry";
+        FailedJobRetryOperationRequest: {
+            reason_template: components["schemas"]["FailedJobRetryReasonTemplate"];
+        };
+        FailedJobDiscardOperationRequest: {
+            reason_template: components["schemas"]["FailedJobDiscardReasonTemplate"];
+            /** @description Must be true after the operator confirms discard risk. */
+            discard_safety_confirmed: boolean;
         };
         FailedJobOperationResult: {
             failed_job_id: number;
@@ -1616,6 +1631,7 @@ export interface components {
             class_name?: string;
             active_job_id?: string;
             reason_template: components["schemas"]["FailedJobOperationReasonTemplate"];
+            discard_safety_confirmed?: boolean;
             /** Format: date-time */
             operated_at: string;
         };
@@ -1637,6 +1653,34 @@ export interface components {
             by_status: components["schemas"]["ProductJobStatusSummary"][];
             recent_failed_count: number;
         };
+        FailedJobOperationMetrics: {
+            recent_window_hours: number;
+            retry_count: number;
+            discard_count: number;
+            rejected_count: number;
+            /** Format: date-time */
+            last_operated_at?: string;
+        };
+        FailedJobOperationHistoryItem: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            action: "retry" | "discard" | "boundary_rejected";
+            /** @enum {string} */
+            outcome: "succeeded" | "rejected";
+            actor_id: string;
+            summary: string;
+            failed_job_id?: number | string;
+            job_id?: number;
+            /** Format: uuid */
+            product_job_id?: string;
+            project_boundary_status?: components["schemas"]["FailedJobProjectBoundaryStatus"];
+            reason_template?: components["schemas"]["FailedJobOperationReasonTemplate"];
+            reason_template_label?: string;
+            discard_safety_confirmed?: boolean;
+            /** Format: date-time */
+            created_at: string;
+        };
         QueueHealth: {
             status: components["schemas"]["QueueHealthStatus"];
             /** Format: date-time */
@@ -1647,6 +1691,8 @@ export interface components {
             queues: components["schemas"]["QueueSummary"][];
             failed_executions: components["schemas"]["FailedExecutionSummary"];
             failed_job_samples: components["schemas"]["FailedJobSample"][];
+            failed_job_operation_metrics: components["schemas"]["FailedJobOperationMetrics"];
+            failed_job_operation_history: components["schemas"]["FailedJobOperationHistoryItem"][];
             recurring_tasks: components["schemas"]["RecurringTaskSummary"][];
             product_jobs: components["schemas"]["ProductJobsSummary"];
             warnings: string[];
@@ -3598,7 +3644,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["FailedJobOperationRequest"];
+                "application/json": components["schemas"]["FailedJobRetryOperationRequest"];
             };
         };
         responses: {
@@ -3631,7 +3677,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["FailedJobOperationRequest"];
+                "application/json": components["schemas"]["FailedJobDiscardOperationRequest"];
             };
         };
         responses: {

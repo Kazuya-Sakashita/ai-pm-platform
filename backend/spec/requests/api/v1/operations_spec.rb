@@ -107,7 +107,7 @@ RSpec.describe "API V1 Operations", type: :request do
       )
 
       post "/api/v1/operations/failed-jobs/456/discard",
-           params: { project_id: project.id, reason_template: "free_text" },
+           params: { project_id: project.id, reason_template: "free_text", discard_safety_confirmed: false },
            headers: auth_headers("admin-actor"),
            as: :json
 
@@ -125,7 +125,8 @@ RSpec.describe "API V1 Operations", type: :request do
         actor_id: "admin-actor",
         failed_job_id: "456",
         action: action,
-        reason_template: instance_of(String)
+        reason_template: instance_of(String),
+        discard_safety_confirmed: anything
       )
       .and_return(service)
   end

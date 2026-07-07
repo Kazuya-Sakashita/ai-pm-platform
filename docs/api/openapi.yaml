@@ -1496,7 +1496,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/FailedJobOperationRequest"
+              $ref: "#/components/schemas/FailedJobRetryOperationRequest"
       responses:
         "200":
           description: Failed job retried
@@ -1528,7 +1528,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/FailedJobOperationRequest"
+              $ref: "#/components/schemas/FailedJobDiscardOperationRequest"
       responses:
         "200":
           description: Failed job discarded
@@ -3568,13 +3568,23 @@ components:
           format: date-time
         operations:
           type: object
-          required: [retryable, discardable]
+          required: [retryable, discardable, retry_reason_templates, discard_reason_templates]
           properties:
             retryable:
               type: boolean
             discardable:
               type: boolean
+            retry_reason_templates:
+              type: array
+              items:
+                $ref: "#/components/schemas/FailedJobRetryReasonTemplate"
+            discard_reason_templates:
+              type: array
+              items:
+                $ref: "#/components/schemas/FailedJobDiscardReasonTemplate"
             reason_templates:
+              deprecated: true
+              description: Use retry_reason_templates and discard_reason_templates instead.
               type: array
               items:
                 $ref: "#/components/schemas/FailedJobOperationReasonTemplate"
@@ -3597,12 +3607,34 @@ components:
         - manually_resolved
         - unsafe_to_retry
 
-    FailedJobOperationRequest:
+    FailedJobRetryReasonTemplate:
+      type: string
+      enum:
+        - transient_failure_recovered
+        - operator_confirmed_safe_retry
+
+    FailedJobDiscardReasonTemplate:
+      type: string
+      enum:
+        - manually_resolved
+        - unsafe_to_retry
+
+    FailedJobRetryOperationRequest:
       type: object
       required: [reason_template]
       properties:
         reason_template:
-          $ref: "#/components/schemas/FailedJobOperationReasonTemplate"
+          $ref: "#/components/schemas/FailedJobRetryReasonTemplate"
+
+    FailedJobDiscardOperationRequest:
+      type: object
+      required: [reason_template, discard_safety_confirmed]
+      properties:
+        reason_template:
+          $ref: "#/components/schemas/FailedJobDiscardReasonTemplate"
+        discard_safety_confirmed:
+          type: boolean
+          description: Must be true after the operator confirms discard risk.
 
     FailedJobOperationResult:
       type: object
@@ -3634,6 +3666,8 @@ components:
           type: string
         reason_template:
           $ref: "#/components/schemas/FailedJobOperationReasonTemplate"
+        discard_safety_confirmed:
+          type: boolean
         operated_at:
           type: string
           format: date-time
@@ -3681,6 +3715,64 @@ components:
           type: integer
           minimum: 0
 
+    FailedJobOperationMetrics:
+      type: object
+      required: [recent_window_hours, retry_count, discard_count, rejected_count]
+      properties:
+        recent_window_hours:
+          type: integer
+          minimum: 1
+        retry_count:
+          type: integer
+          minimum: 0
+        discard_count:
+          type: integer
+          minimum: 0
+        rejected_count:
+          type: integer
+          minimum: 0
+        last_operated_at:
+          type: string
+          format: date-time
+
+    FailedJobOperationHistoryItem:
+      type: object
+      required: [id, action, outcome, actor_id, summary, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        action:
+          type: string
+          enum: [retry, discard, boundary_rejected]
+        outcome:
+          type: string
+          enum: [succeeded, rejected]
+        actor_id:
+          type: string
+        summary:
+          type: string
+        failed_job_id:
+          oneOf:
+            - type: integer
+            - type: string
+        job_id:
+          type: integer
+        product_job_id:
+          type: string
+          format: uuid
+        project_boundary_status:
+          $ref: "#/components/schemas/FailedJobProjectBoundaryStatus"
+        reason_template:
+          $ref: "#/components/schemas/FailedJobOperationReasonTemplate"
+        reason_template_label:
+          type: string
+        discard_safety_confirmed:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
     QueueHealth:
       type: object
       required:
@@ -3692,6 +3784,8 @@ components:
         - queues
         - failed_executions
         - failed_job_samples
+        - failed_job_operation_metrics
+        - failed_job_operation_history
         - recurring_tasks
         - product_jobs
         - warnings
@@ -3721,6 +3815,12 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/FailedJobSample"
+        failed_job_operation_metrics:
+          $ref: "#/components/schemas/FailedJobOperationMetrics"
+        failed_job_operation_history:
+          type: array
+          items:
+            $ref: "#/components/schemas/FailedJobOperationHistoryItem"
         recurring_tasks:
           type: array
           items:

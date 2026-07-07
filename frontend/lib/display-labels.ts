@@ -87,6 +87,7 @@ const messageLabels: Record<string, string> = {
   "Project membership already exists.": "このメンバーはすでに登録されています。",
   "Project membership role is invalid.": "メンバー権限が不正です。",
   "Project membership is not active.": "このメンバーは有効ではありません。",
+  "Failed job discard confirmation is required.": "失敗ジョブを破棄する前にリスク確認が必要です。",
   "Validation failed": "入力内容の検証に失敗しました。",
 };
 
@@ -121,6 +122,10 @@ const statusLabels: Record<string, string> = {
   open: "未対応",
   owner: "所有者",
   pending: "未対応",
+  product_job_ambiguous: "管理ジョブ候補が複数",
+  product_job_lookup_failed: "管理ジョブ確認失敗",
+  product_job_unresolved: "管理ジョブ未確認",
+  project_mismatch: "Project不一致",
   publish_failed: "GitHub公開失敗",
   published: "公開済み",
   publishing: "公開中",
@@ -136,6 +141,7 @@ const statusLabels: Record<string, string> = {
   revoked: "失効済み",
   running: "実行中",
   saved: "保存済み",
+  solid_queue_job_missing: "Queue job未確認",
   started: "開始済み",
   stale: "再確認が必要",
   summarizing: "整理中",
@@ -143,6 +149,7 @@ const statusLabels: Record<string, string> = {
   succeeded: "完了",
   unavailable: "利用不可",
   valid: "検証済み",
+  verified: "確認済み",
   viewer: "閲覧者",
 };
 
