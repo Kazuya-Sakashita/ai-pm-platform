@@ -2145,6 +2145,15 @@ export interface components {
                 "application/json": components["schemas"]["ErrorResponse"];
             };
         };
+        /** @description Payload size limit exceeded */
+        PayloadTooLarge: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
         /** @description Upstream AI provider failed or returned an invalid response */
         UpstreamError: {
             headers: {
@@ -3743,6 +3752,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
+        /** @description GitHub Webhook payload。application guardの既定上限は1 MiBで、productionではupstream body size limitも併用する。 */
         requestBody: {
             content: {
                 "application/json": {
@@ -3761,7 +3771,9 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+            413: components["responses"]["PayloadTooLarge"];
             422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
         };
     };
     getJob: {

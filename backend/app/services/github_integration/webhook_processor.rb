@@ -12,9 +12,18 @@ module GithubIntegration
     REPOSITORY_ACTIONS = %w[added removed].freeze
 
     def call(event:, delivery_id:, payload:)
-      parsed_payload = parse_payload(payload)
       normalized_event = event.to_s
       delivery_digest = digest_delivery_id(delivery_id)
+      existing_delivery = GithubWebhookDelivery.find_by(delivery_digest: delivery_digest)
+      if existing_delivery
+        return Result.new(
+          status: "duplicate_ignored",
+          delivery_digest: existing_delivery.delivery_digest,
+          event: existing_delivery.event
+        )
+      end
+
+      parsed_payload = parse_payload(payload)
       installation_id = installation_id(parsed_payload)
       repository = primary_repository(parsed_payload)
 

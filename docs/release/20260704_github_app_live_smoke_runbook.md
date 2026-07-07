@@ -49,6 +49,12 @@ Webhook secret rotationの詳細手順は `docs/release/20260707_github_webhook_
 
 live smokeでは、raw webhook secret、signature、payload、GitHub delivery id生値を保存しない。証跡はdelivery digest、safe error code、環境名、commit SHA、実行時刻、結論に限定する。
 
+## GitHub Webhook Payload / Rate Limit Guard
+
+payload sizeとrate limit guardの確認手順は `docs/release/20260707_github_webhook_payload_rate_limit_guard_runbook.md` に分離する。
+
+live smokeでは、413 `github_webhook_payload_too_large` と429 `github_webhook_rate_limited` が署名検証、JSON parse、delivery保存、AuditLog作成、IntegrationAccount更新より前に安全停止することを確認する。
+
 ## Preconditions
 
 - GitHub App exists.

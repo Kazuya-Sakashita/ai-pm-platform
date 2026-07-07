@@ -1422,6 +1422,7 @@ paths:
         - $ref: "#/components/parameters/GitHubSignature256"
       requestBody:
         required: true
+        description: GitHub Webhook payload。application guardの既定上限は1 MiBで、productionではupstream body size limitも併用する。
         content:
           application/json:
             schema:
@@ -1436,8 +1437,12 @@ paths:
                 $ref: "#/components/schemas/WebhookAcceptedResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
         "422":
           $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/RateLimited"
 
   /jobs/{job_id}:
     get:
@@ -1921,6 +1926,12 @@ components:
             $ref: "#/components/schemas/ErrorResponse"
     RateLimited:
       description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    PayloadTooLarge:
+      description: Payload size limit exceeded
       content:
         application/json:
           schema:
