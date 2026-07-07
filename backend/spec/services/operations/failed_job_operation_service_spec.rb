@@ -6,6 +6,7 @@ RSpec.describe Operations::FailedJobOperationService do
       project = create(:project)
       product_job = create(:job, project: project, job_type: "github_reconciliation", target_type: "github_issue_publish_attempt")
       failed_execution = failed_execution_double(product_job: product_job)
+      notification_service = instance_double(Operations::FailedJobNotificationService, notify_operation_executed: true)
 
       stub_failed_execution_lookup(failed_execution)
 
@@ -14,7 +15,8 @@ RSpec.describe Operations::FailedJobOperationService do
         actor_id: "operator-1",
         failed_job_id: "456",
         action: "retry",
-        reason_template: "operator_confirmed_safe_retry"
+        reason_template: "operator_confirmed_safe_retry",
+        notification_service: notification_service
       ).call
 
       expect(result).to be_success
@@ -48,6 +50,17 @@ RSpec.describe Operations::FailedJobOperationService do
       expect(audit_log.metadata.to_s).not_to include("raw exception")
       expect(audit_log.metadata.to_s).not_to include("backtrace")
       expect(audit_log.metadata.to_s).not_to include("DATABASE_URL")
+      expect(notification_service).to have_received(:notify_operation_executed).with(
+        project: project,
+        actor_id: "operator-1",
+        audit_log_action: "operations.failed_job_retried",
+        operation_data: hash_including(
+          failed_job_id: 456,
+          action: "retry",
+          queue_name: "github_reconciliation",
+          class_name: "GithubIssuePublish::ReconciliationRetryJob"
+        )
+      )
     end
 
     it "discards a failed job and stores a safe audit log" do

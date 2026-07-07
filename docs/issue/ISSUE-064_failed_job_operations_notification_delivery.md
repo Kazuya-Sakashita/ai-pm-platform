@@ -49,8 +49,39 @@ release gate warning/blocked、failed job操作実行、通知失敗を運用者
 
 P1。ISSUE-063のMVPはrelease gateを可視化したが、実通知がないため運用者が画面を見ていない場合に検知遅れが残る。
 
+## 実装方針
+
+- `Operations::NotificationGateway` を追加し、webhook送信をAdapter / Gatewayとして分離する。
+- `Operations::FailedJobNotificationService` を追加し、event判定、safe payload生成、通知成功/失敗AuditLog、release gate通知cooldownを担当させる。
+- `OPERATIONS_NOTIFICATION_WEBHOOK_URL` 未設定時は安全なno-opにする。
+- `FailedJobOperationService` は操作成功後に通知Serviceへ委譲する。
+- `QueueHealthQuery` はrelease gate warning/block評価後に通知Serviceへ委譲する。
+- Controller / Model には通知処理を入れない。
+
+## 関連ADR
+
+- `docs/decisions/ADR-0019_failed_job_operations_notification_gateway.md`
+
+## 実装結果
+
+- `Operations::NotificationGateway` を追加し、Slack incoming webhook互換の通知Gatewayを実装した。
+- `Operations::FailedJobNotificationService` を追加し、safe payload allowlist、通知成功/失敗AuditLog、release gate通知cooldownを実装した。
+- failed job retry/discard操作成功時に通知を試行する。
+- Queue healthのrelease gate warning/block時に通知を試行する。
+- `OPERATIONS_NOTIFICATION_WEBHOOK_URL` 未設定時は安全なno-opにする。
+- 通知設定DB、再送job、Project別通知routingは後続課題とする。
+
+## 検証結果
+
+- `bundle exec rspec spec/services/operations/notification_gateway_spec.rb spec/services/operations/failed_job_notification_service_spec.rb spec/services/operations/failed_job_operation_service_spec.rb spec/services/operations/queue_health_query_spec.rb spec/requests/api/v1/operations_spec.rb`: 26 examples, 0 failures
+- `bundle exec ruby bin/rails zeitwerk:check`: 成功
+- `npm run api:verify`: 成功。Redocly CLIのNode version warningのみ非ブロッキング
+- `npm run display:check`: 成功
+- `npm run frontend:build`: 成功
+- `npm run frontend:e2e -- --grep "Queue health operations panel"`: 1 passed
+
 ## 次アクション
 
-1. Slack webhookまたは通知gatewayの秘密情報管理方針を設計する。
-2. safe payload schemaをOpenAPIまたは内部型で定義する。
-3. 通知失敗AuditLogとRSpecを追加する。
+1. GitHub Issue #101本文を更新する。
+2. PRを作成し、GitHub Actions `verify` を確認する。
+3. PRマージ後、#100と#99へ進む。
