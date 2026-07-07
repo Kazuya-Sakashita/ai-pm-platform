@@ -3548,6 +3548,15 @@ components:
         job_id:
           type: integer
           minimum: 1
+        product_job_id:
+          type: string
+          format: uuid
+          description: Project-scoped application job id verified from Solid Queue arguments.
+        project_id:
+          type: string
+          format: uuid
+        project_boundary_status:
+          $ref: "#/components/schemas/FailedJobProjectBoundaryStatus"
         queue_name:
           type: string
         class_name:
@@ -3570,6 +3579,16 @@ components:
               items:
                 $ref: "#/components/schemas/FailedJobOperationReasonTemplate"
 
+    FailedJobProjectBoundaryStatus:
+      type: string
+      enum:
+        - verified
+        - product_job_unresolved
+        - product_job_ambiguous
+        - product_job_lookup_failed
+        - solid_queue_job_missing
+        - project_mismatch
+
     FailedJobOperationReasonTemplate:
       type: string
       enum:
@@ -3587,7 +3606,7 @@ components:
 
     FailedJobOperationResult:
       type: object
-      required: [failed_job_id, job_id, action, reason_template, operated_at]
+      required: [failed_job_id, job_id, product_job_id, project_id, project_boundary_status, action, reason_template, operated_at]
       properties:
         failed_job_id:
           type: integer
@@ -3595,6 +3614,15 @@ components:
         job_id:
           type: integer
           minimum: 1
+        product_job_id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        project_boundary_status:
+          type: string
+          enum: [verified]
         action:
           type: string
           enum: [retry, discard]

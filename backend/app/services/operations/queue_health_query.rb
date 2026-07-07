@@ -9,6 +9,7 @@ module Operations
     WORKER_LIMIT = 20
     RECURRING_TASK_LIMIT = 20
     FAILED_JOB_SAMPLE_LIMIT = 5
+    FAILED_JOB_LOOKUP_LIMIT = 50
 
     SOLID_QUEUE_MODELS = [
       "SolidQueue::Job",
@@ -16,6 +17,10 @@ module Operations
       "SolidQueue::FailedExecution",
       "SolidQueue::RecurringTask"
     ].freeze
+
+    def initialize(project: nil)
+      @project = project
+    end
 
     def call
       checked_at = Time.current
@@ -31,8 +36,8 @@ module Operations
 
       data[:workers] = worker_summaries(checked_at, warnings)
       data[:queues] = queue_summaries(checked_at, warnings)
-      data[:failed_executions] = failed_execution_summary(warnings)
       data[:failed_job_samples] = failed_job_samples
+      data[:failed_executions] = failed_execution_summary(warnings, data[:failed_job_samples])
       data[:recurring_tasks] = recurring_task_summaries(warnings)
 
       recent_failed_count = data.dig(:product_jobs, :recent_failed_count).to_i
@@ -45,6 +50,8 @@ module Operations
     end
 
     private
+
+    attr_reader :project
 
     def base_data(checked_at, warnings)
       {
@@ -130,7 +137,18 @@ module Operations
       }.compact
     end
 
-    def failed_execution_summary(warnings)
+    def failed_execution_summary(warnings, failed_job_samples)
+      if project
+        count = failed_job_samples.size
+        latest_failed_at = failed_job_samples.filter_map { |sample| parse_time(sample[:failed_at]) }.max
+        warnings << "このProjectに関連するfailed executionが#{count}件あります。" if count.positive?
+
+        return {
+          count: count,
+          latest_failed_at: iso_time(latest_failed_at)
+        }.compact
+      end
+
       count = SolidQueue::FailedExecution.count
       latest_failed_at = SolidQueue::FailedExecution.maximum(:created_at)
       warnings << "failed executionが#{count}件あります。" if count.positive?
@@ -142,26 +160,32 @@ module Operations
     end
 
     def failed_job_samples
-      failed_executions = SolidQueue::FailedExecution.order(created_at: :desc).limit(FAILED_JOB_SAMPLE_LIMIT)
+      failed_executions = SolidQueue::FailedExecution.order(created_at: :desc).limit(FAILED_JOB_LOOKUP_LIMIT)
       job_ids = failed_executions.map(&:job_id).compact
       jobs_by_id = job_ids.empty? ? {} : SolidQueue::Job.where(id: job_ids).index_by(&:id)
 
-      failed_executions.map do |failed_execution|
+      failed_executions.filter_map do |failed_execution|
         job = jobs_by_id[failed_execution.job_id]
+        project_boundary = FailedJobProjectResolver.new(job).call
+        next if project && !project_boundary.verified_for?(project)
+
         {
           failed_job_id: failed_execution.id,
           job_id: failed_execution.job_id,
+          product_job_id: project_boundary.product_job&.id,
+          project_id: project_boundary.product_job&.project_id,
+          project_boundary_status: project_boundary.verified? ? "verified" : project_boundary.status,
           queue_name: job&.queue_name || "unknown",
           class_name: job&.class_name || "unknown",
           active_job_id: job&.active_job_id,
           failed_at: iso_time(failed_execution.created_at),
           operations: {
-            retryable: true,
-            discardable: true,
+            retryable: project ? project_boundary.verified_for?(project) : project_boundary.verified?,
+            discardable: project ? project_boundary.verified_for?(project) : project_boundary.verified?,
             reason_templates: FailedJobOperationService::REASON_TEMPLATES.keys
           }
         }.compact
-      end
+      end.first(FAILED_JOB_SAMPLE_LIMIT)
     end
 
     def recurring_task_summaries(warnings)
@@ -181,12 +205,13 @@ module Operations
     end
 
     def product_jobs_summary(checked_at)
-      counts = Job.group(:status).count
+      scope = project ? project.jobs : Job.all
+      counts = scope.group(:status).count
       {
         by_status: Job::STATUSES.map do |status|
           { status: status, count: counts.fetch(status, 0) }
         end,
-        recent_failed_count: Job.where(status: "failed").where("updated_at >= ?", checked_at - RECENT_FAILURE_WINDOW).count
+        recent_failed_count: scope.where(status: "failed").where("updated_at >= ?", checked_at - RECENT_FAILURE_WINDOW).count
       }
     end
 
@@ -203,6 +228,12 @@ module Operations
 
     def iso_time(value)
       value&.iso8601
+    end
+
+    def parse_time(value)
+      Time.iso8601(value)
+    rescue ArgumentError, TypeError
+      nil
     end
   end
 end

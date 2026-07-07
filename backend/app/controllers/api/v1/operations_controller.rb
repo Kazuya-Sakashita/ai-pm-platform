@@ -6,7 +6,7 @@ module Api
         return render_project_required if params[:project_id].blank?
         return unless authorize_project_role!(project, action: "operations_queue_health", allowed_roles: project_admin_roles)
 
-        render json: { data: Operations::QueueHealthQuery.new.call }
+        render json: { data: Operations::QueueHealthQuery.new(project: project).call }
       end
 
       def retry_failed_job

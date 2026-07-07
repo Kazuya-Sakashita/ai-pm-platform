@@ -7,17 +7,16 @@ RSpec.describe Operations::QueueHealthQuery do
     it "returns safe queue health summary when Solid Queue tables are available" do
       checked_at = Time.zone.parse("2026-07-04 12:00:00")
       project = create(:project)
-      create(:job, project: project, status: "failed", safe_error_detail: "raw provider failure")
+      product_job = create(:job, project: project, job_type: "github_reconciliation", target_type: "github_issue_publish_attempt", status: "failed", safe_error_detail: "raw provider failure")
 
       travel_to(checked_at) do
         stub_solid_queue_tables(available: true)
         stub_worker(last_heartbeat_at: checked_at - 10.seconds)
         stub_unfinished_jobs(queue_name: "github_reconciliation", count: 2, oldest_at: checked_at - 400.seconds)
-        stub_failed_executions(count: 1, latest_failed_at: checked_at - 30.seconds)
-        stub_failed_job_samples(failed_at: checked_at - 30.seconds)
+        stub_failed_job_samples(failed_at: checked_at - 30.seconds, product_job: product_job)
         stub_recurring_tasks
 
-        data = described_class.new.call
+        data = described_class.new(project: project).call
 
         expect(data[:status]).to eq("degraded")
         expect(data[:workers]).to contain_exactly(hash_including(kind: "worker", name: "worker-1", stale: false))
@@ -27,6 +26,9 @@ RSpec.describe Operations::QueueHealthQuery do
           {
             failed_job_id: 456,
             job_id: 123,
+            product_job_id: product_job.id,
+            project_id: project.id,
+            project_boundary_status: "verified",
             queue_name: "github_reconciliation",
             class_name: "GithubIssuePublish::ReconciliationRetryJob",
             active_job_id: "active-job-123",
@@ -60,6 +62,27 @@ RSpec.describe Operations::QueueHealthQuery do
       expect(data[:failed_job_samples]).to eq([])
       expect(data.dig(:product_jobs, :recent_failed_count)).to eq(1)
       expect(data.to_s).not_to include("raw provider failure")
+    end
+
+    it "hides failed job samples that do not belong to the requested project" do
+      checked_at = Time.zone.parse("2026-07-04 12:00:00")
+      project = create(:project)
+      other_project = create(:project)
+      other_product_job = create(:job, project: other_project, job_type: "github_reconciliation", target_type: "github_issue_publish_attempt")
+
+      travel_to(checked_at) do
+        stub_solid_queue_tables(available: true)
+        stub_worker(last_heartbeat_at: checked_at - 10.seconds)
+        stub_unfinished_jobs(queue_name: "github_reconciliation", count: 0, oldest_at: nil)
+        stub_failed_job_samples(failed_at: checked_at - 30.seconds, product_job: other_product_job)
+        stub_recurring_tasks
+
+        data = described_class.new(project: project).call
+
+        expect(data[:failed_executions]).to eq(count: 0)
+        expect(data[:failed_job_samples]).to eq([])
+        expect(data.to_s).not_to include(other_product_job.id)
+      end
     end
   end
 
@@ -100,12 +123,7 @@ RSpec.describe Operations::QueueHealthQuery do
     allow(grouped_scope).to receive(:minimum).with(:created_at).and_return(queue_name => oldest_at)
   end
 
-  def stub_failed_executions(count:, latest_failed_at:)
-    allow(SolidQueue::FailedExecution).to receive(:count).and_return(count)
-    allow(SolidQueue::FailedExecution).to receive(:maximum).with(:created_at).and_return(latest_failed_at)
-  end
-
-  def stub_failed_job_samples(failed_at:)
+  def stub_failed_job_samples(failed_at:, product_job:)
     failed_execution = double(
       "SolidQueue::FailedExecution",
       id: 456,
@@ -116,14 +134,18 @@ RSpec.describe Operations::QueueHealthQuery do
 
     ordered_failed_executions = instance_double(ActiveRecord::Relation)
     allow(SolidQueue::FailedExecution).to receive(:order).with(created_at: :desc).and_return(ordered_failed_executions)
-    allow(ordered_failed_executions).to receive(:limit).with(Operations::QueueHealthQuery::FAILED_JOB_SAMPLE_LIMIT).and_return([ failed_execution ])
+    allow(ordered_failed_executions).to receive(:limit).with(Operations::QueueHealthQuery::FAILED_JOB_LOOKUP_LIMIT).and_return([ failed_execution ])
 
     queue_job = double(
       "SolidQueue::Job",
       id: 123,
       queue_name: "github_reconciliation",
       class_name: "GithubIssuePublish::ReconciliationRetryJob",
-      active_job_id: "active-job-123"
+      active_job_id: "active-job-123",
+      arguments: {
+        "job_class" => "GithubIssuePublish::ReconciliationRetryJob",
+        "arguments" => [ SecureRandom.uuid, product_job.id ]
+      }
     )
     jobs_relation = instance_double(ActiveRecord::Relation)
     allow(SolidQueue::Job).to receive(:where).with(id: [ 123 ]).and_return(jobs_relation)

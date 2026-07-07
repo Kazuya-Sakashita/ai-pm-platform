@@ -1575,6 +1575,14 @@ export interface components {
         FailedJobSample: {
             failed_job_id: number;
             job_id?: number;
+            /**
+             * Format: uuid
+             * @description Project-scoped application job id verified from Solid Queue arguments.
+             */
+            product_job_id?: string;
+            /** Format: uuid */
+            project_id?: string;
+            project_boundary_status?: components["schemas"]["FailedJobProjectBoundaryStatus"];
             queue_name: string;
             class_name: string;
             active_job_id?: string;
@@ -1587,6 +1595,8 @@ export interface components {
             };
         };
         /** @enum {string} */
+        FailedJobProjectBoundaryStatus: "verified" | "product_job_unresolved" | "product_job_ambiguous" | "product_job_lookup_failed" | "solid_queue_job_missing" | "project_mismatch";
+        /** @enum {string} */
         FailedJobOperationReasonTemplate: "transient_failure_recovered" | "operator_confirmed_safe_retry" | "manually_resolved" | "unsafe_to_retry";
         FailedJobOperationRequest: {
             reason_template: components["schemas"]["FailedJobOperationReasonTemplate"];
@@ -1594,6 +1604,12 @@ export interface components {
         FailedJobOperationResult: {
             failed_job_id: number;
             job_id: number;
+            /** Format: uuid */
+            product_job_id: string;
+            /** Format: uuid */
+            project_id: string;
+            /** @enum {string} */
+            project_boundary_status: "verified";
             /** @enum {string} */
             action: "retry" | "discard";
             queue_name?: string;
