@@ -351,6 +351,144 @@ textarea {
   gap: 8px;
 }
 
+.requirement-decision-summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.requirement-metric-card {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  min-height: 148px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--muted);
+  border-radius: 8px;
+  background: white;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.requirement-metric-card.success {
+  border-left-color: var(--teal);
+}
+
+.requirement-metric-card.warning {
+  border-left-color: var(--amber);
+}
+
+.requirement-metric-card.danger {
+  border-left-color: var(--red);
+}
+
+.requirement-metric-card.review {
+  border-left-color: #3155a4;
+}
+
+.requirement-metric-card.neutral {
+  border-left-color: var(--muted);
+}
+
+.metric-heading {
+  display: grid;
+  gap: 4px;
+}
+
+.metric-heading strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.metric-heading span,
+.requirement-metric-card p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.metric-value {
+  color: var(--text);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.requirement-focus-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.focus-panel {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-alt);
+}
+
+.focus-list {
+  display: grid;
+  gap: 8px;
+}
+
+.focus-item {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 10px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: white;
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.focus-item strong {
+  color: var(--text);
+}
+
+.focus-item p {
+  margin: 4px 0;
+  color: var(--text);
+}
+
+.focus-marker {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--surface-alt);
+  color: var(--muted);
+}
+
+.focus-marker.success {
+  color: #1f7a64;
+}
+
+.focus-marker.warning {
+  color: #9a6700;
+}
+
+.focus-marker.danger {
+  color: #b42342;
+}
+
+.focus-marker.review {
+  color: #3155a4;
+}
+
+.focus-marker.neutral {
+  color: var(--muted);
+}
+
 .requirement-editor-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1063,6 +1201,10 @@ textarea {
     align-items: start;
   }
 
+  .requirement-decision-summary {
+    grid-template-columns: repeat(3, minmax(150px, 1fr));
+  }
+
   .left-rail {
     grid-column: 1;
     grid-row: 1 / span 2;
@@ -1132,6 +1274,8 @@ textarea {
 
   .form-grid,
   .editor-columns,
+  .requirement-decision-summary,
+  .requirement-focus-grid,
   .requirement-editor-grid,
   .conversation-editor-grid,
   .conversation-summary-grid,
