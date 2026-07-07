@@ -66,6 +66,18 @@ live smokeでは、413 `github_webhook_payload_too_large` と429 `github_webhook
 - `integration_accounts` can be created through the connection callback flow.
 - CI is green on the commit under test.
 
+Local backend must be started with the repository root `.env` loaded. Without this, callback verification fails safely with `github_app_not_configured`.
+
+```sh
+cd backend
+set -a
+source ../.env
+set +a
+PATH=/Users/kazuya/.rbenv/versions/3.2.2/bin:$PATH bundle exec rails server -p 3001
+```
+
+Do not paste `.env` values into terminal output, screenshots, docs, or AI chat.
+
 ## Test Data
 
 Use a clearly disposable Issue Draft title:
