@@ -10,7 +10,14 @@ RSpec.describe Operations::FailedJobReleaseGate do
       failed_job_operation_metrics: {
         retry_count: 9,
         discard_count: 4,
-        rejected_count: 0
+        rejected_count: 0,
+        retry_refailure: {
+          measured: true,
+          rate: 0.0,
+          numerator: 0,
+          denominator: 9,
+          threshold: 0.1
+        }
       }
     }
   end
@@ -29,7 +36,7 @@ RSpec.describe Operations::FailedJobReleaseGate do
         hash_including(key: "retry_count", status: "pass", observed_value: "9件"),
         hash_including(key: "discard_count", status: "pass", observed_value: "4件"),
         hash_including(key: "boundary_rejected_count", status: "pass", observed_value: "0件"),
-        hash_including(key: "retry_refailure_rate", status: "not_measured")
+        hash_including(key: "retry_refailure_rate", status: "pass", observed_value: "0.0% (0/9)")
       )
     end
 
@@ -42,7 +49,14 @@ RSpec.describe Operations::FailedJobReleaseGate do
         failed_job_operation_metrics: {
           retry_count: 10,
           discard_count: 5,
-          rejected_count: 0
+          rejected_count: 0,
+          retry_refailure: {
+            measured: true,
+            rate: 0.2,
+            numerator: 2,
+            denominator: 10,
+            threshold: 0.1
+          }
         }
       )
 
@@ -55,6 +69,7 @@ RSpec.describe Operations::FailedJobReleaseGate do
         hash_including(key: "failed_execution_count", status: "warning", observed_value: "5件"),
         hash_including(key: "retry_count", status: "warning", observed_value: "10件"),
         hash_including(key: "discard_count", status: "warning", observed_value: "5件"),
+        hash_including(key: "retry_refailure_rate", status: "warning", observed_value: "20.0% (2/10)"),
         hash_including(key: "mapping_fallback_sample_count", status: "warning", observed_value: "1件")
       )
     end
