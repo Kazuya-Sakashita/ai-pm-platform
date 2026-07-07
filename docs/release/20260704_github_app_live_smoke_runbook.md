@@ -12,10 +12,10 @@ Issue #4 cannot be closed until the GitHub App flow is verified with real creden
 - Marker search reconciliation
 - Manual link
 - Controlled retry approval
+- GitHub webhook delivery readiness and live delivery verification
 
 Out of scope:
 
-- GitHub webhook delivery verification
 - permission change synchronization
 - production incident response
 - full accessibility review
@@ -55,6 +55,28 @@ payload sizeとrate limit guardの確認手順は `docs/release/20260707_github_
 
 live smokeでは、413 `github_webhook_payload_too_large` と429 `github_webhook_rate_limited` が署名検証、JSON parse、delivery保存、AuditLog作成、IntegrationAccount更新より前に安全停止することを確認する。
 
+## GitHub Webhook Live Delivery Readiness
+
+GitHub Appのwebhook設定と直近deliveryは、secretやraw payloadを出力しない専用スクリプトで確認する。
+
+```sh
+set -a
+source .env
+set +a
+ruby scripts/github-webhook-live-smoke.rb --limit 5
+```
+
+Expected:
+
+- `app_id_configured` と `private_key_configured` が `true`
+- `webhook_secret_configured` が `true`
+- `hook_config.url` がowned staging / production URLで、`example.com` などのplaceholderではない
+- `hook_config.insecure_ssl` が `0`
+- 直近deliveryが2xxで成功している
+- 出力にraw webhook secret、signature、payload、GitHub delivery id生値が含まれない
+
+`safe_failures` が空でない場合はlive delivery未完了として扱う。
+
 ## Preconditions
 
 - GitHub App exists.
@@ -63,6 +85,8 @@ live smokeでは、413 `github_webhook_payload_too_large` と429 `github_webhook
 - Test project has `github_repo` set to the target `owner/repo`.
 - App server can reach `https://api.github.com`.
 - `GITHUB_ISSUE_PUBLISH_PROVIDER=github_app` is set.
+- `GITHUB_WEBHOOK_SECRET` is set in the app runtime and matches the GitHub App setting.
+- GitHub App webhook URL points to the reachable `/api/v1/webhooks/github` endpoint.
 - `integration_accounts` can be created through the connection callback flow.
 - CI is green on the commit under test.
 
@@ -169,6 +193,21 @@ Expected:
 - Issue Draft returns to approved status.
 - Cooldown blocks retry approval until `next_reconciliation_retry_at` has passed.
 
+### 6. Webhook Live Delivery
+
+1. Confirm `scripts/github-webhook-live-smoke.rb` returns no `safe_failures`.
+2. Trigger a harmless GitHub App event such as repository selection update or permissions acceptance in an approved test repository.
+3. Confirm GitHub delivery status is 2xx.
+4. Confirm `GithubWebhookDelivery` stores only `delivery_digest`, event, status, installation id, repository, safe metadata.
+5. Confirm `github.webhook.installation_sync` AuditLog is created when an installed repository or permission state affects a connected account.
+
+Expected:
+
+- Webhook request returns 202 from the app.
+- Raw delivery id, payload, signature, and secret are not stored in docs, logs used as evidence, or Issue comments.
+- Duplicate delivery is ignored by digest.
+- Permission downgrade, repository removal, and installation deletion update `integration_accounts` safely where applicable.
+
 ## Failure Handling
 
 Stop the smoke and record the result if any of the following occurs:
@@ -177,6 +216,9 @@ Stop the smoke and record the result if any of the following occurs:
 - GitHub returns permission denied.
 - The repository in callback does not match the Project repository.
 - A raw token or private key appears in logs.
+- GitHub App webhook URL is a placeholder or unreachable.
+- `GITHUB_WEBHOOK_SECRET` is missing locally or does not match GitHub App settings.
+- Recent GitHub webhook delivery returns non-2xx.
 - Reconciliation is required but marker search cannot confirm safe state.
 - Controlled retry is requested without a human approver and reason.
 
@@ -193,6 +235,8 @@ Save the following in the related review:
 - GitHub Issue URL created by smoke
 - related `issue_draft.id`
 - related `github_issue_publish_attempt.id`
+- webhook delivery digest and HTTP status
+- webhook safe failure codes
 - AuditLog actions observed
 - screenshots with secrets redacted
 - pass/fail conclusion
@@ -206,5 +250,6 @@ The live smoke is complete only when:
 - attempt and AuditLog are present
 - marker search can locate the AI PM marker
 - manual link or controlled retry path is verified in a safe test scenario
+- webhook live delivery succeeds with no safe failures
 - no secret leakage is observed
 - review is saved under `docs/review/`
