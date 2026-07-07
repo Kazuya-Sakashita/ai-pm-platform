@@ -80,7 +80,7 @@ Queue health APIはproject文脈を受け取り、境界確認済みのfailed jo
 
 ## 改善案
 
-- 後続IssueでProduct Job IDとSolid Queue job IDの明示マッピングを保存する。
+- ISSUE-062 / GitHub Issue #94でProduct Job IDとSolid Queue job IDの明示マッピング保存を進める。
 - Queue health responseにsample由来の件数であることを示すmetadataを追加する。
 - release runbookへ `project_mismatch`、`product_job_unresolved`、`product_job_ambiguous` の調査手順を追記する。
 - AuditLog viewerまたは運用履歴画面で境界拒否イベントを可視化する。
@@ -91,7 +91,7 @@ Queue health APIはproject文脈を受け取り、境界確認済みのfailed jo
 - P0: GitHub Issue #88へ実装内容、検証結果、残課題を同期する。
 - P0: CI成功後にGitHub Issue #88をクローズする。
 - P1: ISSUE-061で通知、SLO、二人承認、追加安全制御を進める。
-- P2: 明示マッピング保存ADRを検討する。
+- P2: 明示マッピング保存はISSUE-062 / GitHub Issue #94で検討する。
 
 ## 検証結果
 
@@ -104,11 +104,10 @@ Queue health APIはproject文脈を受け取り、境界確認済みのfailed jo
 
 ## 次アクション
 
-1. PRを作成する。
-2. GitHub Actions `verify` を確認する。
-3. GitHub Issue #88へ検証結果をコメントする。
-4. CI成功後、GitHub Issue #88をクローズする。
-5. 残る安全制御はGitHub Issue #90 / ISSUE-061で継続する。
+1. PR #93をmerge済み。GitHub Actions `verify` は成功。
+2. GitHub Issue #88はクローズ済み。
+3. 残る安全制御はGitHub Issue #90 / ISSUE-061で継続する。
+4. 明示マッピング保存はGitHub Issue #94 / ISSUE-062で継続する。
 
 ## Issue番号
 
@@ -118,4 +117,4 @@ Queue health APIはproject文脈を受け取り、境界確認済みのfailed jo
 
 ## 判定
 
-合格。Project境界検証、safe error、AuditLog、OpenAPI/型同期、RSpec、Playwrightが揃っており、PR CI成功後にIssue #88はクローズ可能である。明示マッピング保存と運用可視化は後続改善として扱う。
+合格。Project境界検証、safe error、AuditLog、OpenAPI/型同期、RSpec、Playwrightが揃っており、PR CI成功後にIssue #88はクローズ可能である。明示マッピング保存はISSUE-062、運用可視化はISSUE-061以降の後続改善として扱う。
