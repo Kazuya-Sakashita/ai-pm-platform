@@ -801,6 +801,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/operations/failed-jobs/{failed_job_id}/discard-approval-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Request two-person approval before discarding a failed queue job */
+        post: operations["requestFailedJobDiscardApproval"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/operations/failed-job-discard-approvals/{approval_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve failed queue job discard by a second actor */
+        post: operations["approveFailedJobDiscardApproval"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/operations/failed-job-discard-approvals/{approval_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject failed queue job discard approval */
+        post: operations["rejectFailedJobDiscardApproval"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/audit-logs": {
         parameters: {
             query?: never;
@@ -1594,6 +1645,7 @@ export interface components {
                 discardable: boolean;
                 retry_reason_templates: components["schemas"]["FailedJobRetryReasonTemplate"][];
                 discard_reason_templates: components["schemas"]["FailedJobDiscardReasonTemplate"][];
+                discard_approval?: components["schemas"]["FailedJobDiscardApproval"] | null;
                 /**
                  * @deprecated
                  * @description Use retry_reason_templates and discard_reason_templates instead.
@@ -1618,6 +1670,62 @@ export interface components {
             reason_template: components["schemas"]["FailedJobDiscardReasonTemplate"];
             /** @description Must be true after the operator confirms discard risk. */
             discard_safety_confirmed: boolean;
+            /**
+             * Format: uuid
+             * @description Approved two-person discard approval id for this failed job and reason template.
+             */
+            discard_approval_id: string;
+        };
+        FailedJobDiscardApprovalRequest: {
+            reason_template: components["schemas"]["FailedJobDiscardReasonTemplate"];
+            /** @description Must be true after the requester confirms discard risk before asking for approval. */
+            discard_safety_confirmed: boolean;
+        };
+        FailedJobDiscardApprovalApproveRequest: {
+            /** @description Human approval note. Stored as sensitive text in DB, but API/AuditLog expose only presence. */
+            approval_note: string;
+        };
+        FailedJobDiscardApprovalRejectRequest: {
+            /** @description Human rejection reason. Stored as sensitive text in DB, but API/AuditLog expose only presence. */
+            rejection_reason: string;
+        };
+        /** @enum {string} */
+        FailedJobDiscardApprovalStatus: "pending" | "approved" | "rejected" | "expired" | "consumed";
+        FailedJobDiscardApproval: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            project_id: string;
+            failed_job_id: number;
+            job_id: number;
+            /** Format: uuid */
+            product_job_id?: string;
+            queue_name: string;
+            class_name: string;
+            reason_template: components["schemas"]["FailedJobDiscardReasonTemplate"];
+            discard_safety_confirmed: boolean;
+            status: components["schemas"]["FailedJobDiscardApprovalStatus"];
+            requested_by_actor_id: string;
+            approved_by_actor_id?: string;
+            rejected_by_actor_id?: string;
+            consumed_by_actor_id?: string;
+            approval_note_present?: boolean;
+            rejection_reason_present?: boolean;
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: date-time */
+            approved_at?: string;
+            /** Format: date-time */
+            rejected_at?: string;
+            /** Format: date-time */
+            consumed_at?: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        FailedJobDiscardApprovalResponse: {
+            data: components["schemas"]["FailedJobDiscardApproval"];
         };
         FailedJobOperationResult: {
             failed_job_id: number;
@@ -1636,6 +1744,12 @@ export interface components {
             active_job_id?: string;
             reason_template: components["schemas"]["FailedJobOperationReasonTemplate"];
             discard_safety_confirmed?: boolean;
+            /** Format: uuid */
+            discard_approval_id?: string;
+            discard_approval_requested_by_actor_id?: string;
+            discard_approval_approved_by_actor_id?: string;
+            /** Format: date-time */
+            discard_approval_expires_at?: string;
             /** Format: date-time */
             operated_at: string;
         };
@@ -2038,6 +2152,7 @@ export interface components {
         ReviewId: string;
         JobId: string;
         FailedJobId: number;
+        FailedJobDiscardApprovalId: string;
         Page: number;
         PerPage: number;
         MembershipStatusFilter: "active" | "revoked" | "all";
@@ -3737,6 +3852,105 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FailedJobOperationResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    requestFailedJobDiscardApproval: {
+        parameters: {
+            query: {
+                project_id: components["parameters"]["ProjectIdQuery"];
+            };
+            header?: never;
+            path: {
+                failed_job_id: components["parameters"]["FailedJobId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FailedJobDiscardApprovalRequest"];
+            };
+        };
+        responses: {
+            /** @description Failed job discard approval requested */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FailedJobDiscardApprovalResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    approveFailedJobDiscardApproval: {
+        parameters: {
+            query: {
+                project_id: components["parameters"]["ProjectIdQuery"];
+            };
+            header?: never;
+            path: {
+                approval_id: components["parameters"]["FailedJobDiscardApprovalId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FailedJobDiscardApprovalApproveRequest"];
+            };
+        };
+        responses: {
+            /** @description Failed job discard approval approved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FailedJobDiscardApprovalResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    rejectFailedJobDiscardApproval: {
+        parameters: {
+            query: {
+                project_id: components["parameters"]["ProjectIdQuery"];
+            };
+            header?: never;
+            path: {
+                approval_id: components["parameters"]["FailedJobDiscardApprovalId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FailedJobDiscardApprovalRejectRequest"];
+            };
+        };
+        responses: {
+            /** @description Failed job discard approval rejected */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FailedJobDiscardApprovalResponse"];
                 };
             };
             401: components["responses"]["Unauthorized"];

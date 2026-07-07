@@ -4,6 +4,7 @@ class Project < ApplicationRecord
   has_many :meetings, dependent: :destroy
   has_many :jobs, dependent: :destroy
   has_many :audit_logs, dependent: :destroy
+  has_many :failed_job_discard_approvals, dependent: :destroy
   has_many :integration_accounts, dependent: :destroy
   has_many :github_connection_states, dependent: :destroy
   has_many :github_issue_publish_attempts, dependent: :destroy

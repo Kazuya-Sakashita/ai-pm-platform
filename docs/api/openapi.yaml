@@ -1547,6 +1547,102 @@ paths:
         "429":
           $ref: "#/components/responses/RateLimited"
 
+  /operations/failed-jobs/{failed_job_id}/discard-approval-requests:
+    post:
+      tags: [Operations]
+      summary: Request two-person approval before discarding a failed queue job
+      operationId: requestFailedJobDiscardApproval
+      parameters:
+        - $ref: "#/components/parameters/FailedJobId"
+        - $ref: "#/components/parameters/ProjectIdQuery"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FailedJobDiscardApprovalRequest"
+      responses:
+        "200":
+          description: Failed job discard approval requested
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FailedJobDiscardApprovalResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /operations/failed-job-discard-approvals/{approval_id}/approve:
+    post:
+      tags: [Operations]
+      summary: Approve failed queue job discard by a second actor
+      operationId: approveFailedJobDiscardApproval
+      parameters:
+        - $ref: "#/components/parameters/FailedJobDiscardApprovalId"
+        - $ref: "#/components/parameters/ProjectIdQuery"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FailedJobDiscardApprovalApproveRequest"
+      responses:
+        "200":
+          description: Failed job discard approval approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FailedJobDiscardApprovalResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /operations/failed-job-discard-approvals/{approval_id}/reject:
+    post:
+      tags: [Operations]
+      summary: Reject failed queue job discard approval
+      operationId: rejectFailedJobDiscardApproval
+      parameters:
+        - $ref: "#/components/parameters/FailedJobDiscardApprovalId"
+        - $ref: "#/components/parameters/ProjectIdQuery"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FailedJobDiscardApprovalRejectRequest"
+      responses:
+        "200":
+          description: Failed job discard approval rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FailedJobDiscardApprovalResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
   /projects/{project_id}/audit-logs:
     get:
       tags: [AuditLogs]
@@ -1685,6 +1781,13 @@ components:
       schema:
         type: integer
         minimum: 1
+    FailedJobDiscardApprovalId:
+      name: approval_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     Page:
       name: page
       in: query
@@ -3584,6 +3687,10 @@ components:
               type: array
               items:
                 $ref: "#/components/schemas/FailedJobDiscardReasonTemplate"
+            discard_approval:
+              oneOf:
+                - $ref: "#/components/schemas/FailedJobDiscardApproval"
+                - type: "null"
             reason_templates:
               deprecated: true
               description: Use retry_reason_templates and discard_reason_templates instead.
@@ -3636,13 +3743,131 @@ components:
 
     FailedJobDiscardOperationRequest:
       type: object
-      required: [reason_template, discard_safety_confirmed]
+      required: [reason_template, discard_safety_confirmed, discard_approval_id]
       properties:
         reason_template:
           $ref: "#/components/schemas/FailedJobDiscardReasonTemplate"
         discard_safety_confirmed:
           type: boolean
           description: Must be true after the operator confirms discard risk.
+        discard_approval_id:
+          type: string
+          format: uuid
+          description: Approved two-person discard approval id for this failed job and reason template.
+
+    FailedJobDiscardApprovalRequest:
+      type: object
+      required: [reason_template, discard_safety_confirmed]
+      properties:
+        reason_template:
+          $ref: "#/components/schemas/FailedJobDiscardReasonTemplate"
+        discard_safety_confirmed:
+          type: boolean
+          description: Must be true after the requester confirms discard risk before asking for approval.
+
+    FailedJobDiscardApprovalApproveRequest:
+      type: object
+      required: [approval_note]
+      properties:
+        approval_note:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: Human approval note. Stored as sensitive text in DB, but API/AuditLog expose only presence.
+
+    FailedJobDiscardApprovalRejectRequest:
+      type: object
+      required: [rejection_reason]
+      properties:
+        rejection_reason:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: Human rejection reason. Stored as sensitive text in DB, but API/AuditLog expose only presence.
+
+    FailedJobDiscardApprovalStatus:
+      type: string
+      enum: [pending, approved, rejected, expired, consumed]
+
+    FailedJobDiscardApproval:
+      type: object
+      required:
+        - id
+        - project_id
+        - failed_job_id
+        - job_id
+        - queue_name
+        - class_name
+        - reason_template
+        - discard_safety_confirmed
+        - status
+        - requested_by_actor_id
+        - expires_at
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        failed_job_id:
+          type: integer
+          minimum: 1
+        job_id:
+          type: integer
+          minimum: 1
+        product_job_id:
+          type: string
+          format: uuid
+        queue_name:
+          type: string
+        class_name:
+          type: string
+        reason_template:
+          $ref: "#/components/schemas/FailedJobDiscardReasonTemplate"
+        discard_safety_confirmed:
+          type: boolean
+        status:
+          $ref: "#/components/schemas/FailedJobDiscardApprovalStatus"
+        requested_by_actor_id:
+          type: string
+        approved_by_actor_id:
+          type: string
+        rejected_by_actor_id:
+          type: string
+        consumed_by_actor_id:
+          type: string
+        approval_note_present:
+          type: boolean
+        rejection_reason_present:
+          type: boolean
+        expires_at:
+          type: string
+          format: date-time
+        approved_at:
+          type: string
+          format: date-time
+        rejected_at:
+          type: string
+          format: date-time
+        consumed_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    FailedJobDiscardApprovalResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/FailedJobDiscardApproval"
 
     FailedJobOperationResult:
       type: object
@@ -3687,6 +3912,16 @@ components:
           $ref: "#/components/schemas/FailedJobOperationReasonTemplate"
         discard_safety_confirmed:
           type: boolean
+        discard_approval_id:
+          type: string
+          format: uuid
+        discard_approval_requested_by_actor_id:
+          type: string
+        discard_approval_approved_by_actor_id:
+          type: string
+        discard_approval_expires_at:
+          type: string
+          format: date-time
         operated_at:
           type: string
           format: date-time

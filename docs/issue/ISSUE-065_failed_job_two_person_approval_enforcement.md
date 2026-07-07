@@ -49,8 +49,40 @@ ISSUE-063ではdiscardに二人承認またはrelease owner承認が必要であ
 
 P1。世界レベルSaaS基準では、本番discardは不可逆性が高く、方針表示だけでは不足する。DB/API強制が必要である。
 
+## 関連ADR
+
+- `docs/decisions/ADR-0020_failed_job_discard_two_person_approval.md`
+
+## 実装方針
+
+- `failed_job_discard_approvals` tableを追加する。
+- 承認依頼、承認、却下APIを追加する。
+- 申請者と承認者が同一actorの場合は承認を拒否する。
+- discard実行時に `discard_approval_id` を必須化する。
+- Project、failed job ID、Solid Queue job ID、reason template、承認状態、期限、申請者/承認者の差分を検証する。
+- 承認note/rejection reason本文はAuditLogへ保存せず、presenceだけをsafe metadataとして残す。
+- Frontend運用監視で承認状態と承認/却下導線を表示する。
+
+## 実装結果
+
+- `FailedJobDiscardApproval` modelとmigrationを追加した。
+- `Operations::FailedJobDiscardApprovalService` を追加した。
+- `Operations::FailedJobOperationService` のdiscardに承認gateを追加した。
+- `QueueHealthQuery` のfailed job sampleへ最新承認状態を追加した。
+- OpenAPI、生成型、Frontend、Playwrightを同期した。
+- release owner単独override、承認専用通知、承認一覧APIは後続課題とする。
+
+## 検証結果
+
+- `bundle exec rspec spec/services/operations/failed_job_discard_approval_service_spec.rb spec/services/operations/failed_job_notification_service_spec.rb spec/services/operations/failed_job_operation_service_spec.rb spec/services/operations/queue_health_query_spec.rb spec/requests/api/v1/operations_spec.rb`: 33 examples, 0 failures
+- `bundle exec ruby bin/rails zeitwerk:check`: 成功
+- `npm run api:verify`: 成功。Redocly CLIのNode version warningのみ非ブロッキング
+- `npm run display:check`: 成功
+- `npm run frontend:build`: 成功
+- `npm run frontend:e2e -- --grep "Queue health operations panel"`: 1 passed
+
 ## 次アクション
 
-1. approval event table案と既存Review model活用案を比較する。
-2. OpenAPIで承認request/approve/reject/execute flowを定義する。
-3. Security/QAレビュー後にBackend、Frontend、E2Eへ進む。
+1. GitHub Issue #100本文を更新する。
+2. PRを作成し、GitHub Actions `verify` を確認する。
+3. PRマージ後、ISSUE-066 / GitHub Issue #99でretry後再失敗率の実測へ進む。

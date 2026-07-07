@@ -66,6 +66,15 @@ RSpec.describe Operations::FailedJobOperationService do
     it "discards a failed job and stores a safe audit log" do
       project = create(:project)
       product_job = create(:job, project: project, job_type: "github_reconciliation", target_type: "github_issue_publish_attempt")
+      approval = create(
+        :failed_job_discard_approval,
+        :approved,
+        project: project,
+        failed_job_id: "456",
+        solid_queue_job_id: "123",
+        product_job_id: product_job.id,
+        reason_template: "manually_resolved"
+      )
       failed_execution = failed_execution_double(product_job: product_job)
 
       stub_failed_execution_lookup(failed_execution)
@@ -76,12 +85,20 @@ RSpec.describe Operations::FailedJobOperationService do
         failed_job_id: "456",
         action: "discard",
         reason_template: "manually_resolved",
-        discard_safety_confirmed: true
+        discard_safety_confirmed: true,
+        discard_approval_id: approval.id
       ).call
 
       expect(result).to be_success
       expect(failed_execution).to have_received(:discard)
-      expect(result.data).to include(discard_safety_confirmed: true)
+      expect(result.data).to include(
+        discard_safety_confirmed: true,
+        discard_approval_id: approval.id,
+        discard_approval_requested_by_actor_id: "requester-actor",
+        discard_approval_approved_by_actor_id: "approver-actor"
+      )
+      expect(approval.reload.status).to eq("consumed")
+      expect(approval.consumed_by_actor_id).to eq("operator-1")
       audit_log = project.audit_logs.find_by!(action: "operations.failed_job_discarded")
       expect(audit_log.summary).to eq("失敗ジョブの破棄が要求されました。")
       expect(audit_log.metadata).to include(
@@ -91,7 +108,10 @@ RSpec.describe Operations::FailedJobOperationService do
         "project_boundary_status" => "verified",
         "product_job_mapping_source" => "arguments",
         "reason_template" => "manually_resolved",
-        "discard_safety_confirmed" => true
+        "discard_safety_confirmed" => true,
+        "discard_approval_id" => approval.id,
+        "discard_approval_requested_by_actor_id" => "requester-actor",
+        "discard_approval_approved_by_actor_id" => "approver-actor"
       )
     end
 
@@ -143,6 +163,59 @@ RSpec.describe Operations::FailedJobOperationService do
       expect(result.http_status).to eq(:unprocessable_entity)
       expect(result.details).to include(action: "discard", discard_safety_confirmed: false)
       expect(project.audit_logs).to be_empty
+    end
+
+    it "requires approved discard approval before discard" do
+      project = create(:project)
+      product_job = create(:job, project: project, job_type: "github_reconciliation", target_type: "github_issue_publish_attempt")
+      failed_execution = failed_execution_double(product_job: product_job)
+
+      stub_failed_execution_lookup(failed_execution)
+
+      result = described_class.new(
+        project: project,
+        actor_id: "operator-1",
+        failed_job_id: "456",
+        action: "discard",
+        reason_template: "manually_resolved",
+        discard_safety_confirmed: true
+      ).call
+
+      expect(result).not_to be_success
+      expect(result.code).to eq("failed_job_discard_approval_required")
+      expect(failed_execution).not_to have_received(:discard)
+    end
+
+    it "rejects expired discard approval before discard" do
+      project = create(:project)
+      product_job = create(:job, project: project, job_type: "github_reconciliation", target_type: "github_issue_publish_attempt")
+      approval = create(
+        :failed_job_discard_approval,
+        :expired,
+        project: project,
+        failed_job_id: "456",
+        solid_queue_job_id: "123",
+        product_job_id: product_job.id,
+        reason_template: "manually_resolved"
+      )
+      failed_execution = failed_execution_double(product_job: product_job)
+
+      stub_failed_execution_lookup(failed_execution)
+
+      result = described_class.new(
+        project: project,
+        actor_id: "operator-1",
+        failed_job_id: "456",
+        action: "discard",
+        reason_template: "manually_resolved",
+        discard_safety_confirmed: true,
+        discard_approval_id: approval.id
+      ).call
+
+      expect(result).not_to be_success
+      expect(result.code).to eq("failed_job_discard_approval_expired")
+      expect(failed_execution).not_to have_received(:discard)
+      expect(approval.reload.status).to eq("expired")
     end
 
     it "rejects a retry-only reason template for discard" do
@@ -230,7 +303,8 @@ RSpec.describe Operations::FailedJobOperationService do
         failed_job_id: "456",
         action: "discard",
         reason_template: "manually_resolved",
-        discard_safety_confirmed: true
+        discard_safety_confirmed: true,
+        discard_approval_id: SecureRandom.uuid
       ).call
 
       expect(result).not_to be_success

@@ -55,6 +55,31 @@ ISSUE-064以降は、`Operations::NotificationGateway` によりSlack incoming w
 | discard | ownerまたはrelease owner、二人承認またはrelease owner承認を証跡化 |
 | production failed job操作 | 観測のみを既定。実操作はincident commanderまたはrelease owner承認、Project特定、AuditLog確認が必須 |
 
+## discard二人承認
+
+ISSUE-065以降は、failed job discard前にDB/APIで二人承認を強制する。
+
+標準手順:
+
+1. 運用者がQueue healthでfailed jobを確認する。
+2. 破棄理由テンプレートを選び、破棄リスク確認を行う。
+3. `discard-approval-requests` APIまたはFrontendから承認依頼を作成する。
+4. 申請者とは別のowner/adminが対象、Project境界、復旧不要の根拠を確認して承認する。
+5. 承認期限内に `discard_approval_id` を指定してdiscardを実行する。
+6. 実行後、承認は `consumed` になり再利用しない。
+
+停止条件:
+
+- 申請者と承認者が同一actor
+- 承認期限切れ
+- Project不一致
+- failed job ID、Solid Queue job ID、reason template不一致
+- 未承認、却下済み、使用済み承認
+
+補足:
+
+- release owner単独overrideは未実装。必要な場合は、リスク受容とAuditLog要件を別Issueで設計する。
+
 ## 完了条件
 
 - Queue health APIが `failed_job_release_gate` を返す。

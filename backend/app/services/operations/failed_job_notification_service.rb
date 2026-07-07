@@ -17,6 +17,10 @@ module Operations
       :reason_template,
       :operator_actor_id,
       :audit_log_action,
+      :discard_approval_id,
+      :discard_approval_requested_by_actor_id,
+      :discard_approval_approved_by_actor_id,
+      :discard_approval_expires_at,
       :release_gate_status,
       :checks
     ].freeze
