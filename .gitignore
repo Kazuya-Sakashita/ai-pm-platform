@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+*.private-key.pem
 
 node_modules/
 frontend/node_modules/
