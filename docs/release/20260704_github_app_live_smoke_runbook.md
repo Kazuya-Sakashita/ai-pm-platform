@@ -103,6 +103,7 @@ Expected:
 
 - `integration_accounts` has one active GitHub connection for the Project and repository.
 - No raw private key, JWT, installation token, or state token appears in logs.
+- Rails request logs filter callback `state` as `[FILTERED]`.
 - AuditLog records connection start/callback/disconnect events where implemented.
 
 ### 2. Publish
