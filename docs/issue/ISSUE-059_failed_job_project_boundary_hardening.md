@@ -47,14 +47,40 @@ Product JobとSolid Queue jobの関連を明示的に保存または検証し、
 - `docs/review/20260707_failed_job_retry_discard_operations_design_review.md`
 - `docs/review/20260707_failed_job_retry_discard_operations_implementation_review.md`
 - `docs/review/20260707_failed_job_followup_issue_split_review.md`
+- `docs/review/20260707_failed_job_project_boundary_design_review.md`
+- `docs/review/20260707_failed_job_project_boundary_implementation_review.md`
 
 ## レビュー結果
 
 P1。ISSUE-056のMVPは合格だが、Project境界の厳密化は本番運用前に強化すべき重要課題である。Security Engineer観点では、operator UIの文脈だけに依存した境界判断は長期的に不十分である。
 
+2026-07-07追記: 設計レビューでは、既存job互換を優先してSolid Queue job argumentsからProduct Job ID候補を解決する方式をISSUE-059のMVPとして採用した。実装レビューでは、retry/discard前のProject境界検証、cross-project/unresolvedのsafe not_found拒否、Queue health sampleのProject絞り込み、AuditLog safe metadata保存を確認した。
+
+追加改善として、Project不一致時に他ProjectのProduct Job IDやProject IDを現在ProjectのAuditLogへ保存しない方針にした。監査可能性を維持しながら、テナント境界情報の露出を避ける。
+
+## 実装結果
+
+- `Operations::FailedJobProjectResolver` を追加し、Solid Queue job argumentsからProduct Job ID候補を抽出するようにした。
+- failed job retry/discard前に、Product Jobが要求Projectに属することを検証するようにした。
+- Project不一致、未解決、複数候補、lookup失敗は `failed_job_not_found` のsafe 404で拒否するようにした。
+- 境界拒否時は `operations.failed_job_project_boundary_rejected` をAuditLogへ保存し、他ProjectのIDは保存しないようにした。
+- Queue health APIはProject文脈を受け取り、境界確認済みfailed job sampleだけを返すようにした。
+- OpenAPIへ `FailedJobProjectBoundaryStatus`、`product_job_id`、`project_id`、`project_boundary_status` を追加し、Frontend型を同期した。
+- Frontendの直近失敗ジョブ表示へ「管理ジョブID」と「Project境界確認済み」を追加した。
+
+## 検証結果
+
+- 2026-07-07: `git diff --check`: 成功
+- 2026-07-07: `bundle exec rspec spec/services/operations/failed_job_project_resolver_spec.rb spec/services/operations/failed_job_operation_service_spec.rb spec/services/operations/queue_health_query_spec.rb spec/requests/api/v1/operations_spec.rb`: 19 examples, 0 failures
+- 2026-07-07: `npm run api:verify`: 成功。Redocly CLIのNode version warningのみ非ブロッキング
+- 2026-07-07: `npm run display:check`: 成功
+- 2026-07-07: `npm run frontend:build`: 成功
+- 2026-07-07: `npm run frontend:e2e -- e2e/queue-health.spec.ts`: 1 passed
+
 ## 次アクション
 
-1. 現在のProduct Job、Solid Queue job、AuditLogの関連情報を調査する。
-2. 関連ID保存または検証方式の設計レビューを作成する。
-3. OpenAPIから更新し、Backend実装とRSpecを追加する。
-4. 必要に応じてFrontend表示とPlaywrightを更新する。
+1. `git diff --check` を実行する。
+2. PRを作成し、GitHub Actions `verify` を確認する。
+3. CI成功後、GitHub Issue #88へ検証結果をコメントし、PR mergeでクローズする。
+4. 通知、SLO、二人承認、追加安全制御はGitHub Issue #90 / ISSUE-061で継続する。
+5. Product JobとSolid Queue jobの明示関連ID保存は後続ADR候補として残す。

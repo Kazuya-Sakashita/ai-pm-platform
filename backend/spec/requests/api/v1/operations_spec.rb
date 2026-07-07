@@ -53,6 +53,9 @@ RSpec.describe "API V1 Operations", type: :request do
           data: {
             failed_job_id: 456,
             job_id: 123,
+            product_job_id: SecureRandom.uuid,
+            project_id: project.id,
+            project_boundary_status: "verified",
             action: "retry",
             queue_name: "github_reconciliation",
             class_name: "GithubIssuePublish::ReconciliationRetryJob",

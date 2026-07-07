@@ -2936,6 +2936,8 @@ export default function MeetingWorkspace() {
                         <div>
                           <strong>{job.class_name}</strong>
                           <span>{job.queue_name}</span>
+                          {job.product_job_id ? <span>管理ジョブID: {job.product_job_id}</span> : null}
+                          {job.project_boundary_status === "verified" ? <span>Project境界確認済み</span> : null}
                           <span>{formatDateTime(job.failed_at)}</span>
                         </div>
                         <div className="failed-job-actions">

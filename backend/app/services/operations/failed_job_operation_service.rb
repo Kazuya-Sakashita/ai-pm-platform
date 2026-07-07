@@ -27,7 +27,10 @@ module Operations
       return failed_job_not_found unless failed_execution
 
       job = failed_execution.job
-      data = operation_data(failed_execution, job)
+      project_boundary = FailedJobProjectResolver.new(job).call
+      return failed_job_project_boundary_rejected(project_boundary) unless project_boundary.verified_for?(project)
+
+      data = operation_data(failed_execution, job, project_boundary)
 
       perform_operation!(failed_execution)
       record_audit_log!(data)
@@ -57,10 +60,13 @@ module Operations
       action == "retry" ? failed_execution.retry : failed_execution.discard
     end
 
-    def operation_data(failed_execution, job)
+    def operation_data(failed_execution, job, project_boundary)
       {
         failed_job_id: failed_execution.id,
         job_id: failed_execution.job_id,
+        product_job_id: project_boundary.product_job.id,
+        project_id: project.id,
+        project_boundary_status: "verified",
         action: action,
         queue_name: job&.queue_name || "unknown",
         class_name: job&.class_name || "unknown",
@@ -80,6 +86,25 @@ module Operations
           operator_actor_id: actor_id,
           reason_template_label: reason_template_label
         )
+      )
+    end
+
+    def failed_job_project_boundary_rejected(project_boundary)
+      record_boundary_rejection!(project_boundary)
+      failed_job_not_found
+    end
+
+    def record_boundary_rejection!(project_boundary)
+      AuditLog.record!(
+        project: project,
+        action: "operations.failed_job_project_boundary_rejected",
+        target: project,
+        actor_id: actor_id,
+        summary: "失敗ジョブ操作のProject境界検証に失敗しました。",
+        metadata: {
+          failed_job_id: failed_job_id,
+          operator_actor_id: actor_id
+        }.merge(project_boundary.safe_metadata(project: project))
       )
     end
 
