@@ -17,7 +17,10 @@ RSpec.describe "API V1 GitHub Webhooks", type: :request do
   end
 
   around do |example|
+    GithubIntegration::WebhookRateLimiter.reset_fallback_store!
     with_env("GITHUB_WEBHOOK_SECRET" => webhook_secret) { example.run }
+  ensure
+    GithubIntegration::WebhookRateLimiter.reset_fallback_store!
   end
 
   describe "POST /api/v1/webhooks/github" do
@@ -120,6 +123,55 @@ RSpec.describe "API V1 GitHub Webhooks", type: :request do
       expect(body.dig("error", "code")).to eq("github_webhook_payload_invalid")
       expect(account.reload.status).to eq("connected")
       expect(GithubWebhookDelivery.count).to eq(0)
+      expect(project.audit_logs.where(action: "github.webhook.installation_sync")).to be_empty
+    end
+
+    it "payload size超過では署名検証後の副作用を発生させない" do
+      payload = installation_payload(action: "deleted")
+
+      with_env("GITHUB_WEBHOOK_MAX_BYTES" => "8") do
+        post_webhook(payload: payload, event: "installation", delivery: "delivery-payload-too-large")
+      end
+
+      expect(response).to have_http_status(413)
+      body = JSON.parse(response.body)
+      expect(body.dig("error", "code")).to eq("github_webhook_payload_too_large")
+      expect(account.reload.status).to eq("connected")
+      expect(GithubWebhookDelivery.count).to eq(0)
+      expect(project.audit_logs.where(action: "github.webhook.installation_sync")).to be_empty
+    end
+
+    it "rate limit超過では署名検証後の副作用を発生させない" do
+      payload = JSON.generate(zen: "rate limit")
+
+      with_env("GITHUB_WEBHOOK_RATE_LIMIT_PER_MINUTE" => "1") do
+        post_webhook(payload: payload, event: "ping", delivery: "delivery-rate-limit-1")
+        expect(response).to have_http_status(:accepted)
+        deliveries_count = GithubWebhookDelivery.count
+        audit_logs_count = project.audit_logs.count
+
+        post_webhook(payload: payload, event: "ping", delivery: "delivery-rate-limit-2")
+
+        expect(response).to have_http_status(:too_many_requests)
+        expect(response.headers["Retry-After"]).to eq("60")
+        body = JSON.parse(response.body)
+        expect(body.dig("error", "code")).to eq("github_webhook_rate_limited")
+        expect(account.reload.status).to eq("connected")
+        expect(GithubWebhookDelivery.count).to eq(deliveries_count)
+        expect(project.audit_logs.count).to eq(audit_logs_count)
+      end
+    end
+
+    it "重複deliveryはJSON parse前にduplicate_ignoredにする" do
+      payload = JSON.generate(zen: "duplicate")
+
+      post_webhook(payload: payload, event: "ping", delivery: "delivery-duplicate-before-parse")
+      post_webhook(payload: "{invalid-json", event: "ping", delivery: "delivery-duplicate-before-parse")
+
+      expect(response).to have_http_status(:accepted)
+      body = JSON.parse(response.body)
+      expect(body.dig("data", "status")).to eq("duplicate_ignored")
+      expect(GithubWebhookDelivery.count).to eq(1)
       expect(project.audit_logs.where(action: "github.webhook.installation_sync")).to be_empty
     end
 
