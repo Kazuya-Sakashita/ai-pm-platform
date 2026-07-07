@@ -746,7 +746,7 @@ textarea {
 .failed-job-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 2px;
+  gap: 8px;
   align-items: start;
   min-height: 34px;
   padding: 7px 8px;
