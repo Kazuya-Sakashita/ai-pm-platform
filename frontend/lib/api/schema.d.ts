@@ -767,6 +767,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/operations/failed-jobs/{failed_job_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retry a failed queue job */
+        post: operations["retryFailedJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/operations/failed-jobs/{failed_job_id}/discard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Discard a failed queue job */
+        post: operations["discardFailedJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/audit-logs": {
         parameters: {
             query?: never;
@@ -1539,11 +1573,38 @@ export interface components {
             latest_failed_at?: string;
         };
         FailedJobSample: {
+            failed_job_id: number;
+            job_id?: number;
             queue_name: string;
             class_name: string;
             active_job_id?: string;
             /** Format: date-time */
             failed_at: string;
+            operations: {
+                retryable: boolean;
+                discardable: boolean;
+                reason_templates?: components["schemas"]["FailedJobOperationReasonTemplate"][];
+            };
+        };
+        /** @enum {string} */
+        FailedJobOperationReasonTemplate: "transient_failure_recovered" | "operator_confirmed_safe_retry" | "manually_resolved" | "unsafe_to_retry";
+        FailedJobOperationRequest: {
+            reason_template: components["schemas"]["FailedJobOperationReasonTemplate"];
+        };
+        FailedJobOperationResult: {
+            failed_job_id: number;
+            job_id: number;
+            /** @enum {string} */
+            action: "retry" | "discard";
+            queue_name?: string;
+            class_name?: string;
+            active_job_id?: string;
+            reason_template: components["schemas"]["FailedJobOperationReasonTemplate"];
+            /** Format: date-time */
+            operated_at: string;
+        };
+        FailedJobOperationResponse: {
+            data: components["schemas"]["FailedJobOperationResult"];
         };
         RecurringTaskSummary: {
             key: string;
@@ -1865,6 +1926,7 @@ export interface components {
         OpenApiDraftId: string;
         ReviewId: string;
         JobId: string;
+        FailedJobId: number;
         Page: number;
         PerPage: number;
         MembershipStatusFilter: "active" | "revoked" | "all";
@@ -3503,6 +3565,72 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    retryFailedJob: {
+        parameters: {
+            query: {
+                project_id: components["parameters"]["ProjectIdQuery"];
+            };
+            header?: never;
+            path: {
+                failed_job_id: components["parameters"]["FailedJobId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FailedJobOperationRequest"];
+            };
+        };
+        responses: {
+            /** @description Failed job retried */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FailedJobOperationResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    discardFailedJob: {
+        parameters: {
+            query: {
+                project_id: components["parameters"]["ProjectIdQuery"];
+            };
+            header?: never;
+            path: {
+                failed_job_id: components["parameters"]["FailedJobId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FailedJobOperationRequest"];
+            };
+        };
+        responses: {
+            /** @description Failed job discarded */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FailedJobOperationResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             422: components["responses"]["ValidationError"];
             429: components["responses"]["RateLimited"];
         };

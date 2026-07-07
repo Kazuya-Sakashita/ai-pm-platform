@@ -49,6 +49,8 @@ type OpenApiDraft = components["schemas"]["OpenApiDraft"];
 type OpenApiValidationResult = components["schemas"]["OpenApiValidationResponse"]["data"];
 type Job = components["schemas"]["Job"];
 type QueueHealth = components["schemas"]["QueueHealth"];
+type FailedJobSample = components["schemas"]["FailedJobSample"];
+type FailedJobOperationReasonTemplate = components["schemas"]["FailedJobOperationReasonTemplate"];
 type Review = components["schemas"]["Review"];
 type IntegrationAccount = components["schemas"]["IntegrationAccount"];
 type MeetingSourceType = components["schemas"]["MeetingSourceType"];
@@ -140,6 +142,13 @@ const retryReasonTemplates: { value: RetryReasonTemplate; label: string }[] = [
   { value: "github_search_complete_no_match", label: "GitHub Search完了後も該当Issueなし" },
   { value: "provider_transient_failure_confirmed", label: "外部APIの一時失敗を確認" },
 ];
+
+const failedJobOperationReasonLabels: Record<FailedJobOperationReasonTemplate, string> = {
+  transient_failure_recovered: "一時障害が解消済み",
+  operator_confirmed_safe_retry: "副作用リスクを確認済み",
+  manually_resolved: "手動対応済み",
+  unsafe_to_retry: "再実行せず破棄",
+};
 
 const projectMembershipRoles: ProjectMembershipRole[] = ["owner", "admin", "editor", "reviewer", "viewer", "auditor"];
 
@@ -479,6 +488,8 @@ export default function MeetingWorkspace() {
   const [lastJob, setLastJob] = useState<Job | null>(null);
   const [queueHealth, setQueueHealth] = useState<QueueHealth | null>(null);
   const [queueHealthLoading, setQueueHealthLoading] = useState(false);
+  const [failedJobOperationId, setFailedJobOperationId] = useState<number | null>(null);
+  const [failedJobReasonTemplates, setFailedJobReasonTemplates] = useState<Record<number, FailedJobOperationReasonTemplate>>({});
   const [lastReview, setLastReview] = useState<Review | null>(null);
   const [requirementReviews, setRequirementReviews] = useState<Review[]>([]);
   const [requirementHistory, setRequirementHistory] = useState<RequirementHistoryItem[]>([]);
@@ -947,6 +958,56 @@ export default function MeetingWorkspace() {
     } catch {
       setQueueHealthLoading(false);
       if (announce) setApiError("運用状態を取得できませんでした。");
+    }
+  }
+
+  function failedJobReasonTemplate(job: FailedJobSample): FailedJobOperationReasonTemplate {
+    return (
+      failedJobReasonTemplates[job.failed_job_id] ??
+      job.operations.reason_templates?.[0] ??
+      "operator_confirmed_safe_retry"
+    );
+  }
+
+  function updateFailedJobReasonTemplate(failedJobId: number, reasonTemplate: FailedJobOperationReasonTemplate) {
+    setFailedJobReasonTemplates((current) => ({ ...current, [failedJobId]: reasonTemplate }));
+  }
+
+  async function operateFailedJob(job: FailedJobSample, action: "retry" | "discard") {
+    if (!selectedProjectId) {
+      setApiError("プロジェクトを先に作成または選択してください。");
+      return;
+    }
+
+    const reasonTemplate = failedJobReasonTemplate(job);
+    const path =
+      action === "retry"
+        ? "/operations/failed-jobs/{failed_job_id}/retry"
+        : "/operations/failed-jobs/{failed_job_id}/discard";
+
+    setFailedJobOperationId(job.failed_job_id);
+    setError("");
+
+    try {
+      const { error: apiError } = await apiClient.POST(path, {
+        params: {
+          path: { failed_job_id: job.failed_job_id },
+          query: { project_id: selectedProjectId },
+        },
+        body: { reason_template: reasonTemplate },
+      });
+
+      if (apiError) {
+        setApiError(errorMessage(apiError));
+        return;
+      }
+
+      setStatusMessage(action === "retry" ? "失敗ジョブを再実行しました" : "失敗ジョブを破棄しました");
+      await loadQueueHealth({ announce: false });
+    } catch {
+      setApiError(action === "retry" ? "失敗ジョブを再実行できませんでした。" : "失敗ジョブを破棄できませんでした。");
+    } finally {
+      setFailedJobOperationId(null);
     }
   }
 
@@ -2871,10 +2932,47 @@ export default function MeetingWorkspace() {
                   <div className="failed-job-list" aria-label="直近失敗ジョブ">
                     <strong className="mini-heading">直近失敗ジョブ</strong>
                     {failedJobRows.map((job) => (
-                      <div className="failed-job-row" key={`${job.class_name}-${job.active_job_id ?? job.failed_at}`}>
-                        <strong>{job.class_name}</strong>
-                        <span>{job.queue_name}</span>
-                        <span>{formatDateTime(job.failed_at)}</span>
+                      <div className="failed-job-row" key={`${job.failed_job_id}-${job.active_job_id ?? job.failed_at}`}>
+                        <div>
+                          <strong>{job.class_name}</strong>
+                          <span>{job.queue_name}</span>
+                          <span>{formatDateTime(job.failed_at)}</span>
+                        </div>
+                        <div className="failed-job-actions">
+                          <label>
+                            操作理由
+                            <select
+                              value={failedJobReasonTemplate(job)}
+                              onChange={(event) => updateFailedJobReasonTemplate(job.failed_job_id, event.target.value as FailedJobOperationReasonTemplate)}
+                            >
+                              {job.operations.reason_templates?.map((reasonTemplate) => (
+                                <option key={reasonTemplate} value={reasonTemplate}>
+                                  {failedJobOperationReasonLabels[reasonTemplate]}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <div className="failed-job-action-buttons">
+                            <button
+                              className="button secondary"
+                              type="button"
+                              onClick={() => operateFailedJob(job, "retry")}
+                              disabled={failedJobOperationId === job.failed_job_id || queueHealthLoading || !job.operations.retryable}
+                            >
+                              {failedJobOperationId === job.failed_job_id ? <Loader2 className="spin" size={16} /> : <Play size={16} />}
+                              再実行
+                            </button>
+                            <button
+                              className="button secondary"
+                              type="button"
+                              onClick={() => operateFailedJob(job, "discard")}
+                              disabled={failedJobOperationId === job.failed_job_id || queueHealthLoading || !job.operations.discardable}
+                            >
+                              {failedJobOperationId === job.failed_job_id ? <Loader2 className="spin" size={16} /> : <Trash2 size={16} />}
+                              破棄
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>

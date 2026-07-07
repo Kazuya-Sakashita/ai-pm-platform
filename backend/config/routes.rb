@@ -54,6 +54,8 @@ Rails.application.routes.draw do
       end
       resources :jobs, only: %i[show]
       get "operations/queue-health", to: "operations#queue_health"
+      post "operations/failed-jobs/:failed_job_id/retry", to: "operations#retry_failed_job"
+      post "operations/failed-jobs/:failed_job_id/discard", to: "operations#discard_failed_job"
     end
   end
 

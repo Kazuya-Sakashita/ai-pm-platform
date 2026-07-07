@@ -149,10 +149,17 @@ module Operations
       failed_executions.map do |failed_execution|
         job = jobs_by_id[failed_execution.job_id]
         {
+          failed_job_id: failed_execution.id,
+          job_id: failed_execution.job_id,
           queue_name: job&.queue_name || "unknown",
           class_name: job&.class_name || "unknown",
           active_job_id: job&.active_job_id,
-          failed_at: iso_time(failed_execution.created_at)
+          failed_at: iso_time(failed_execution.created_at),
+          operations: {
+            retryable: true,
+            discardable: true,
+            reason_templates: FailedJobOperationService::REASON_TEMPLATES.keys
+          }
         }.compact
       end
     end
