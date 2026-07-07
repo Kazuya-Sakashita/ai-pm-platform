@@ -100,12 +100,12 @@ Queue health APIはproject文脈を受け取り、境界確認済みのfailed jo
 - `npm run api:verify`: 成功。Redocly CLIのNode version warningのみ非ブロッキング
 - `npm run display:check`: 成功
 - `npm run frontend:build`: 成功
-- `npm run frontend:e2e -- --grep "Queue health operations panel"`: 1 passed
+- `npm run frontend:e2e -- e2e/queue-health.spec.ts`: 1 passed
 
 ## 次アクション
 
 1. PR #93をmerge済み。GitHub Actions `verify` は成功。
-2. GitHub Issue #88をクローズする。
+2. GitHub Issue #88はクローズ済み。
 3. 残る安全制御はGitHub Issue #90 / ISSUE-061で継続する。
 4. 明示マッピング保存はGitHub Issue #94 / ISSUE-062で継続する。
 
