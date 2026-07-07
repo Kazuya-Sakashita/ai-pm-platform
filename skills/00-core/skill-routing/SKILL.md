@@ -25,12 +25,14 @@ description: AI PM PlatformのSkill Hubで、どのSkillをいつ読むか判断
 
 1. 最初に `AGENTS.md` の優先を確認する。
 2. 共通判断は `skills/00-core` を読む。
-3. 実装なら `skills/10-development` から最小限を選ぶ。
-4. レビューなら `skills/20-review` を選ぶ。
-5. 企画や競合なら `skills/30-product` を選ぶ。
-6. GitHubやreleaseなら `skills/40-workflow` を選ぶ。
-7. 調査、要約、資料化なら `skills/50-research` を選ぶ。
-8. `skills/90-external` は参考としてのみ扱う。
+3. AI Agent、専門家サブエージェント、外部AI比較を扱う場合は `skills/00-core/ai-agent-policy/SKILL.md` と `docs/ai/expert_subagents.md` を読む。
+4. セキュリティ、認証、認可、秘密情報、監査を扱う場合は `skills/20-review/security-review/SKILL.md` を読む。
+5. 実装なら `skills/10-development` から最小限を選ぶ。
+6. レビューなら `skills/20-review` を選ぶ。
+7. 企画や競合なら `skills/30-product` を選ぶ。
+8. GitHubやreleaseなら `skills/40-workflow` を選ぶ。
+9. 調査、要約、資料化なら `skills/50-research` を選ぶ。
+10. `skills/90-external` は参考としてのみ扱う。
 
 ## Output
 
@@ -43,6 +45,8 @@ description: AI PM PlatformのSkill Hubで、どのSkillをいつ読むか判断
 - 必要以上にSkillを読まない。
 - 外部Skillをそのまま採用しない。
 - Skillが `AGENTS.md` と矛盾したら `AGENTS.md` を優先する。
+- セキュリティやQAのP0 blockerがある場合は次工程へ進めない。
+- Skillは補助レイヤーであり、Issue、ADR、OpenAPI contract、レビュー結果を上書きしない。
 
 ## Checklist
 
@@ -50,3 +54,4 @@ description: AI PM PlatformのSkill Hubで、どのSkillをいつ読むか判断
 - [ ] 参照Skillを最小限にした。
 - [ ] 外部Skillを参考扱いにした。
 - [ ] 競合時の判断理由を残した。
+- [ ] サブエージェントが必要な場合は6価値軸を確認対象にした。
