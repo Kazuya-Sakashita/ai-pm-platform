@@ -125,6 +125,117 @@ test.describe("Queue health operations panel", () => {
                     created_at: now,
                   },
                 ],
+            failed_job_release_gate: healthy
+              ? {
+                  status: "pass",
+                  notification_required: true,
+                  notification_channel: "operations",
+                  notification_policy: {
+                    channel: "operations",
+                    required_for: ["release_gate_warning", "release_gate_blocked", "failed_job_operation_executed", "notification_failed"],
+                    payload_fields: ["project_id", "failed_job_id", "job_id", "queue_name", "class_name", "action", "reason_template", "operator_actor_id", "audit_log_action", "release_gate_status"],
+                    prohibited_fields: ["raw_exception", "backtrace", "serialized_arguments", "token", "database_url", "dm_body", "ai_prompt"],
+                    fallback: "通知失敗時はAuditLogまたはrelease evidenceへsafe metadataのみを保存し、release ownerが手動確認します。",
+                  },
+                  approval_policy: {
+                    retry: {
+                      operation: "retry",
+                      approval_required: false,
+                      second_approval_required: false,
+                      required_role: "admin以上",
+                      next_action: "理由テンプレートと副作用確認をAuditLogに残します。",
+                    },
+                    discard: {
+                      operation: "discard",
+                      approval_required: true,
+                      second_approval_required: true,
+                      required_role: "ownerまたはrelease owner",
+                      next_action: "本番discardは二人承認またはrelease owner承認を証跡化します。",
+                    },
+                    production: {
+                      operation: "production_failed_job_operation",
+                      approval_required: true,
+                      second_approval_required: true,
+                      required_role: "incident commanderまたはrelease owner",
+                      next_action: "productionは観測のみを既定とし、実操作時は承認、Project特定、AuditLog確認を必須にします。",
+                    },
+                  },
+                  checks: [
+                    {
+                      key: "boundary_rejected_count",
+                      label: "Project境界拒否件数",
+                      status: "pass",
+                      severity: "critical",
+                      observed_value: "0件",
+                      threshold: "0件",
+                      next_action: "権限境界またはmapping異常としてreleaseを止め、Security Engineerが確認します。",
+                    },
+                    {
+                      key: "retry_refailure_rate",
+                      label: "retry後再失敗率",
+                      status: "not_measured",
+                      severity: "info",
+                      observed_value: "未計測",
+                      threshold: "10%未満",
+                      next_action: "ISSUE-063後続でjob_queue_mappingsとAuditLogから計測します。",
+                    },
+                  ],
+                }
+              : {
+                  status: "blocked",
+                  notification_required: true,
+                  notification_channel: "operations",
+                  notification_policy: {
+                    channel: "operations",
+                    required_for: ["release_gate_warning", "release_gate_blocked", "failed_job_operation_executed", "notification_failed"],
+                    payload_fields: ["project_id", "failed_job_id", "job_id", "queue_name", "class_name", "action", "reason_template", "operator_actor_id", "audit_log_action", "release_gate_status"],
+                    prohibited_fields: ["raw_exception", "backtrace", "serialized_arguments", "token", "database_url", "dm_body", "ai_prompt"],
+                    fallback: "通知失敗時はAuditLogまたはrelease evidenceへsafe metadataのみを保存し、release ownerが手動確認します。",
+                  },
+                  approval_policy: {
+                    retry: {
+                      operation: "retry",
+                      approval_required: false,
+                      second_approval_required: false,
+                      required_role: "admin以上",
+                      next_action: "理由テンプレートと副作用確認をAuditLogに残します。",
+                    },
+                    discard: {
+                      operation: "discard",
+                      approval_required: true,
+                      second_approval_required: true,
+                      required_role: "ownerまたはrelease owner",
+                      next_action: "本番discardは二人承認またはrelease owner承認を証跡化します。",
+                    },
+                    production: {
+                      operation: "production_failed_job_operation",
+                      approval_required: true,
+                      second_approval_required: true,
+                      required_role: "incident commanderまたはrelease owner",
+                      next_action: "productionは観測のみを既定とし、実操作時は承認、Project特定、AuditLog確認を必須にします。",
+                    },
+                  },
+                  checks: [
+                    {
+                      key: "worker_heartbeat",
+                      label: "worker heartbeat",
+                      status: "warning",
+                      severity: "warning",
+                      observed_value: "古い応答1件",
+                      threshold: "60秒以内",
+                      next_action: "worker processとqueue database接続を確認します。",
+                    },
+                    {
+                      key: "boundary_rejected_count",
+                      label: "Project境界拒否件数",
+                      status: "blocked",
+                      severity: "critical",
+                      observed_value: "1件",
+                      threshold: "0件",
+                      next_action: "権限境界またはmapping異常としてreleaseを止め、Security Engineerが確認します。",
+                    },
+                  ],
+                },
             recurring_tasks: [{ key: "cleanup_expired_github_connection_states", class_name: "GithubConnectionStateCleanupJob", queue_name: "default", schedule: "*/10 * * * *" }],
             product_jobs: {
               by_status: [
@@ -173,6 +284,12 @@ test.describe("Queue health operations panel", () => {
     await expect(panel.getByText("要確認")).toBeVisible();
     await expect(panel.getByText("全1件 / 古い応答1件")).toBeVisible();
     await expect(panel.getByText("2件 / 420秒")).toBeVisible();
+    await expect(panel.getByText("リリースゲート").first()).toBeVisible();
+    await expect(panel.getByText("停止").first()).toBeVisible();
+    await expect(panel.getByText("通知")).toBeVisible();
+    await expect(panel.getByText("必要 / operations")).toBeVisible();
+    await expect(panel.getByLabel("失敗ジョブリリースゲート")).toContainText("Project境界拒否件数");
+    await expect(panel.getByLabel("失敗ジョブリリースゲート")).toContainText("二人承認 / ownerまたはrelease owner");
     const failedJobs = panel.getByLabel("直近失敗ジョブ");
     await expect(failedJobs).toContainText("GithubIssuePublish::ReconciliationRetryJob");
     await expect(failedJobs).toContainText("github_reconciliation");
@@ -188,6 +305,7 @@ test.describe("Queue health operations panel", () => {
     await expect(page.getByText("失敗ジョブを再実行しました")).toBeVisible();
     expect(operationRequests).toBe(1);
     await expect(panel.getByText("正常")).toBeVisible();
+    await expect(panel.getByLabel("失敗ジョブリリースゲート")).toContainText("通過");
     await expect(panel.getByText("再実行1件 / 破棄0件 / 拒否0件")).toBeVisible();
     await expect(panel.getByLabel("失敗ジョブ操作履歴")).toContainText("失敗ジョブの再実行が要求されました。");
     await expect(panel.getByLabel("失敗ジョブ操作履歴")).toContainText("境界根拠: 明示マッピング");

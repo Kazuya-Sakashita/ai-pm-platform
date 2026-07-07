@@ -17,9 +17,21 @@ RSpec.describe "API V1 Operations", type: :request do
       expect(data.fetch("warnings").join(" ")).to include("Solid Queue")
       expect(data.fetch("failed_executions")).to eq("count" => 0)
       expect(data.fetch("failed_job_samples")).to eq([])
+      expect(data.dig("failed_job_release_gate", "status")).to eq("blocked")
+      expect(data.dig("failed_job_release_gate", "notification_required")).to eq(true)
+      expect(data.dig("failed_job_release_gate", "notification_policy", "prohibited_fields")).to include(
+        "raw_exception",
+        "backtrace",
+        "serialized_arguments",
+        "token",
+        "database_url",
+        "dm_body",
+        "ai_prompt"
+      )
+      expect(data.dig("failed_job_release_gate", "approval_policy", "discard", "second_approval_required")).to eq(true)
+      expect(data.dig("failed_job_release_gate", "checks").map { |check| check.fetch("key") }).to include("queue_health_available")
       expect(data.dig("product_jobs", "recent_failed_count")).to eq(1)
       expect(response.body).not_to include("OpenAI request failed")
-      expect(response.body).not_to include("backtrace")
       expect(response.body).not_to include("DATABASE_URL")
       expect(response.body).not_to include("state_digest")
     end

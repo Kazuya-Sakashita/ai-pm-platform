@@ -124,10 +124,21 @@ When failed job retry/discard is considered:
 2. Confirm the operator is project admin or owner for the target Project.
 3. Select a reason template. Do not write free-form incident details into the operation payload.
 4. Review side-effect risk before retrying jobs that can publish GitHub Issues, call external APIs, send notifications, or mutate user data.
-5. For discard, confirm the job is manually resolved or unsafe to retry.
+5. For discard, confirm the job is manually resolved or unsafe to retry. 本番では実行前に二人承認またはrelease owner承認を記録する。
 6. After operation, inspect `audit_logs` for `operations.failed_job_retried` or `operations.failed_job_discarded`.
 7. Refresh Queue health and record only safe IDs, queue/class, reason template, operator, AuditLog action, and timestamps.
 8. Never save raw exception, backtrace, serialized job arguments, tokens, database URLs, DM body, or AI prompt content in the incident note.
+
+failed job release gateを評価する場合:
+
+1. release前にQueue healthの `failed_job_release_gate.status` を確認する。
+2. `blocked` はhard stopとして扱う。blocking checkが解消されるか、release ownerのリスク判断が文書化されるまでreleaseしない。
+3. `warning` はrelease ownerレビュー必須として扱う。理由、owner、次回確認時刻、緩和策を記録する。
+4. `pass` はsmoke証跡、AuditLog証跡、safe metadata確認が保存されている場合のみ許容する。
+5. `boundary_rejected_count >= 1`、Queue health取得不能、queue DB欠落、Solid Queue schema欠落はhard stopとする。
+6. `failed_execution_count >= 5`、24時間retry 10件以上、24時間discard 5件以上、stale worker heartbeat、古い未完了job、mapping fallback sampleはwarning review対象にする。
+7. `notification_required` がtrueの場合、operationsチャンネルまたはIssueコメントへsafe fieldsのみを記録する。例外詳細、スタックトレース、直列化job引数、認証情報、DB接続情報、DM本文、AI入力全文は含めない。
+8. 通知に失敗した場合は、AuditLogまたはrelease evidenceへfallback対応を記録し、release ownerの手動確認を必須にする。
 
 When conversation import retention fails:
 
@@ -160,4 +171,5 @@ Avoid `kill -9` unless the process is unrecoverable. A forced kill can turn in-f
 - conversation import retention smoke is completed in staging or explicitly deferred with release-owner approval
 - failed job path is visible in application `jobs` and `audit_logs`
 - failed job retry/discard smoke evidence is saved or explicitly deferred with release-owner approval
+- failed job release gate status、blocking checks、notification requirement、approval policyが記録されている
 - GitHub Actions CI passed

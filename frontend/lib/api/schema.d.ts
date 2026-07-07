@@ -1686,6 +1686,49 @@ export interface components {
             /** Format: date-time */
             created_at: string;
         };
+        /** @enum {string} */
+        FailedJobReleaseGateStatus: "pass" | "warning" | "blocked" | "not_evaluated";
+        /** @enum {string} */
+        FailedJobReleaseGateCheckStatus: "pass" | "warning" | "blocked" | "not_measured";
+        /** @enum {string} */
+        FailedJobReleaseGateSeverity: "info" | "warning" | "critical";
+        FailedJobReleaseGateCheck: {
+            key: string;
+            label: string;
+            status: components["schemas"]["FailedJobReleaseGateCheckStatus"];
+            severity: components["schemas"]["FailedJobReleaseGateSeverity"];
+            observed_value: string;
+            threshold: string;
+            next_action: string;
+        };
+        FailedJobApprovalPolicyRule: {
+            operation: string;
+            approval_required: boolean;
+            second_approval_required: boolean;
+            required_role: string;
+            next_action: string;
+        };
+        FailedJobApprovalPolicy: {
+            retry: components["schemas"]["FailedJobApprovalPolicyRule"];
+            discard: components["schemas"]["FailedJobApprovalPolicyRule"];
+            production: components["schemas"]["FailedJobApprovalPolicyRule"];
+        };
+        FailedJobNotificationPolicy: {
+            /** @description Logical operations notification channel. It must not contain webhook URLs or secrets. */
+            channel: string;
+            required_for: string[];
+            payload_fields: string[];
+            prohibited_fields: string[];
+            fallback: string;
+        };
+        FailedJobReleaseGate: {
+            status: components["schemas"]["FailedJobReleaseGateStatus"];
+            notification_required: boolean;
+            notification_channel: string;
+            notification_policy: components["schemas"]["FailedJobNotificationPolicy"];
+            approval_policy: components["schemas"]["FailedJobApprovalPolicy"];
+            checks: components["schemas"]["FailedJobReleaseGateCheck"][];
+        };
         QueueHealth: {
             status: components["schemas"]["QueueHealthStatus"];
             /** Format: date-time */
@@ -1698,6 +1741,7 @@ export interface components {
             failed_job_samples: components["schemas"]["FailedJobSample"][];
             failed_job_operation_metrics: components["schemas"]["FailedJobOperationMetrics"];
             failed_job_operation_history: components["schemas"]["FailedJobOperationHistoryItem"][];
+            failed_job_release_gate: components["schemas"]["FailedJobReleaseGate"];
             recurring_tasks: components["schemas"]["RecurringTaskSummary"][];
             product_jobs: components["schemas"]["ProductJobsSummary"];
             warnings: string[];

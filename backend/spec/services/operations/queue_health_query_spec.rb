@@ -57,11 +57,39 @@ RSpec.describe Operations::QueueHealthQuery do
           hash_including(action: "discard", outcome: "succeeded", reason_template: "manually_resolved", discard_safety_confirmed: true),
           hash_including(action: "boundary_rejected", outcome: "rejected", project_boundary_status: "project_mismatch")
         )
+        expect(data[:failed_job_release_gate]).to include(
+          status: "blocked",
+          notification_required: true,
+          notification_channel: "operations"
+        )
+        expect(data.dig(:failed_job_release_gate, :notification_policy)).to include(
+          channel: "operations",
+          fallback: "通知失敗時はAuditLogまたはrelease evidenceへsafe metadataのみを保存し、release ownerが手動確認します。"
+        )
+        expect(data.dig(:failed_job_release_gate, :notification_policy, :prohibited_fields)).to include(
+          "raw_exception",
+          "backtrace",
+          "serialized_arguments",
+          "token",
+          "database_url",
+          "dm_body",
+          "ai_prompt"
+        )
+        expect(data.dig(:failed_job_release_gate, :approval_policy, :discard)).to include(
+          approval_required: true,
+          second_approval_required: true,
+          required_role: "ownerまたはrelease owner"
+        )
+        expect(data.dig(:failed_job_release_gate, :checks)).to include(
+          hash_including(key: "oldest_unfinished_age", status: "warning", observed_value: "1 queue"),
+          hash_including(key: "boundary_rejected_count", status: "blocked", observed_value: "1件"),
+          hash_including(key: "retry_refailure_rate", status: "not_measured")
+        )
         expect(data[:recurring_tasks]).to contain_exactly(hash_including(key: "cleanup_expired_github_connection_states"))
         expect(data.dig(:product_jobs, :recent_failed_count)).to eq(1)
         expect(data.to_s).not_to include("raw provider failure")
         expect(data.to_s).not_to include("raw solid queue error")
-        expect(data.to_s).not_to include("backtrace")
+        expect(data.to_s).not_to include("app/services/raw_failure.rb")
         expect(data.to_s).not_to include("DATABASE_URL")
       end
     end
@@ -79,8 +107,39 @@ RSpec.describe Operations::QueueHealthQuery do
       expect(data[:failed_job_samples]).to eq([])
       expect(data[:failed_job_operation_metrics]).to include(retry_count: 0, discard_count: 0, rejected_count: 0)
       expect(data[:failed_job_operation_history]).to eq([])
+      expect(data[:failed_job_release_gate]).to include(status: "blocked", notification_required: true)
+      expect(data.dig(:failed_job_release_gate, :checks)).to contain_exactly(
+        hash_including(key: "queue_health_available", status: "blocked")
+      )
       expect(data.dig(:product_jobs, :recent_failed_count)).to eq(1)
       expect(data.to_s).not_to include("raw provider failure")
+    end
+
+    it "returns a passing failed job release gate when thresholds are clear" do
+      checked_at = Time.zone.parse("2026-07-04 12:00:00")
+      project = create(:project)
+
+      travel_to(checked_at) do
+        stub_solid_queue_tables(available: true)
+        stub_worker(last_heartbeat_at: checked_at - 10.seconds)
+        stub_unfinished_jobs(queue_name: "github_reconciliation", count: 0, oldest_at: nil)
+        stub_failed_job_samples_empty
+        stub_recurring_tasks
+
+        data = described_class.new(project: project).call
+
+        expect(data[:failed_job_release_gate]).to include(
+          status: "pass",
+          notification_required: false,
+          notification_channel: "operations"
+        )
+        expect(data.dig(:failed_job_release_gate, :checks)).to include(
+          hash_including(key: "worker_heartbeat", status: "pass"),
+          hash_including(key: "failed_execution_count", status: "pass"),
+          hash_including(key: "boundary_rejected_count", status: "pass"),
+          hash_including(key: "retry_refailure_rate", status: "not_measured")
+        )
+      end
     end
 
     it "hides failed job samples that do not belong to the requested project" do
@@ -169,6 +228,12 @@ RSpec.describe Operations::QueueHealthQuery do
     jobs_relation = instance_double(ActiveRecord::Relation)
     allow(SolidQueue::Job).to receive(:where).with(id: [ 123 ]).and_return(jobs_relation)
     allow(jobs_relation).to receive(:index_by).and_return(123 => queue_job)
+  end
+
+  def stub_failed_job_samples_empty
+    ordered_failed_executions = instance_double(ActiveRecord::Relation)
+    allow(SolidQueue::FailedExecution).to receive(:order).with(created_at: :desc).and_return(ordered_failed_executions)
+    allow(ordered_failed_executions).to receive(:limit).with(Operations::QueueHealthQuery::FAILED_JOB_LOOKUP_LIMIT).and_return([])
   end
 
   def stub_recurring_tasks
