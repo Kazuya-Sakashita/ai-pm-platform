@@ -92,6 +92,25 @@ type RequirementApprovalBlocker = {
   detail: string;
 };
 
+type RequirementFocusTone = "success" | "warning" | "danger" | "review" | "neutral";
+
+type RequirementDecisionSummaryItem = {
+  key: string;
+  title: string;
+  value: string;
+  detail: string;
+  action: string;
+  tone: RequirementFocusTone;
+};
+
+type RequirementAttentionItem = {
+  key: string;
+  label: string;
+  body: string;
+  meta: string;
+  tone: RequirementFocusTone;
+};
+
 type ApplyRequirementOptions = {
   resetDownstream?: boolean;
   staleDownstream?: boolean;
@@ -349,6 +368,12 @@ function requirementHistoryValueLabel(value: RequirementHistoryValue) {
 
 function requirementHistoryChangeLabel(change: RequirementHistoryChange) {
   return `${requirementFieldLabel(change.field)}: ${requirementHistoryValueLabel(change.before)} から ${requirementHistoryValueLabel(change.after)}`;
+}
+
+function trimSummaryText(value?: string) {
+  const trimmed = value?.trim();
+  if (!trimmed) return "";
+  return trimmed.length > 90 ? `${trimmed.slice(0, 90)}...` : trimmed;
 }
 
 function requirementHistoryMeta(item: RequirementHistoryItem) {
@@ -2333,7 +2358,10 @@ export default function MeetingWorkspace() {
   const requirementReviewToResolve = requirementReviews.find((review) => blockingReviewStatus(review.status)) ?? null;
   const unresolvedRequirementReviews = requirementReviews.filter((review) => blockingReviewStatus(review.status));
   const expiredRequirementRiskReviews = requirementReviews.filter(acceptedRiskExpired);
-  const requirementOpenQuestionCount = requirement?.open_questions?.length ?? 0;
+  const requirementOpenQuestions = requirement?.open_questions ?? [];
+  const requirementRisks = requirement?.risks ?? [];
+  const requirementOpenQuestionCount = requirementOpenQuestions.length;
+  const requirementRiskCount = requirementRisks.length;
   const requirementApprovalNoteMissing = Boolean(requirement) && !requirementApprovalNote.trim();
   const requirementApprovalDetailBlockers: RequirementApprovalBlocker[] = requirement
     ? [
@@ -2363,6 +2391,92 @@ export default function MeetingWorkspace() {
     : [];
   const hasRequirementApprovalBlockers =
     Boolean(requirement) && (requirementOpenQuestionCount > 0 || requirementApprovalDetailBlockers.length > 0);
+  const latestRequirementChange = requirementHistory.find(
+    (item) => (item.changed_fields?.length ?? 0) > 0 || (item.changes?.length ?? 0) > 0 || Boolean(item.stale_issue_draft_count || item.stale_open_api_draft_count)
+  );
+  const latestRequirementChangeCount = latestRequirementChange?.changed_fields?.length ?? latestRequirementChange?.changes?.length ?? 0;
+  const latestRequirementChangeLabels =
+    latestRequirementChange?.changed_fields?.map(requirementFieldLabel).join("、") ??
+    latestRequirementChange?.changes?.map((change) => requirementFieldLabel(change.field)).join("、") ??
+    "";
+  const hasStaleDownstreamDrafts = isIssueDraftStale || isOpenApiDraftStale;
+  const requirementDecisionSummaryItems: RequirementDecisionSummaryItem[] = requirement
+    ? [
+        {
+          key: "open-questions",
+          title: "未決事項",
+          value: `${requirementOpenQuestionCount}件`,
+          detail: requirementOpenQuestionCount > 0 ? trimSummaryText(requirementOpenQuestions[0]) : "未決事項はありません。",
+          action: requirementOpenQuestionCount > 0 ? "回答または削除が必要" : "承認確認へ進めます",
+          tone: requirementOpenQuestionCount > 0 ? "danger" : "success",
+        },
+        {
+          key: "risks",
+          title: "リスク",
+          value: `${requirementRiskCount}件`,
+          detail: requirementRiskCount > 0 ? trimSummaryText(requirementRisks[0]) : "登録済みリスクはありません。",
+          action: requirementRiskCount > 0 ? "対策または受容を確認" : "追加確認なし",
+          tone: requirementRiskCount > 0 ? "warning" : "success",
+        },
+        {
+          key: "reviews",
+          title: "レビュー",
+          value: unresolvedRequirementReviews.length > 0 ? `${unresolvedRequirementReviews.length}件未解決` : latestRequirementReview ? statusLabel(latestRequirementReview.status) : "未依頼",
+          detail: latestRequirementReview
+            ? `${latestRequirementReview.reviewer_role} / ${statusLabel(latestRequirementReview.status)}`
+            : "レビュー依頼後に状態が表示されます。",
+          action: unresolvedRequirementReviews.length > 0 ? "レビュー対応が必要" : "ブロッカーなし",
+          tone: unresolvedRequirementReviews.length > 0 ? "danger" : latestRequirementReview ? "success" : "neutral",
+        },
+        {
+          key: "latest-change",
+          title: "最新差分",
+          value: latestRequirementChange ? `${latestRequirementChangeCount || 1}項目` : "なし",
+          detail: latestRequirementChange
+            ? latestRequirementChangeLabels || latestRequirementChange.title || "下流Draftの再確認が必要です。"
+            : "保存後に変更履歴が表示されます。",
+          action: latestRequirementChange?.approval_reset ? "再承認が必要" : latestRequirementChange ? "履歴で確認" : "差分なし",
+          tone: latestRequirementChange?.approval_reset || hasStaleDownstreamDrafts ? "warning" : latestRequirementChange ? "review" : "neutral",
+        },
+        {
+          key: "downstream",
+          title: "下流Draft",
+          value: hasStaleDownstreamDrafts ? "再確認が必要" : requirement.status === "approved" ? "生成可能" : "承認待ち",
+          detail: hasStaleDownstreamDrafts
+            ? "IssueまたはOpenAPIドラフトが古くなっています。"
+            : requirement.status === "approved"
+              ? "IssueとOpenAPIを生成できます。"
+              : "要件承認後に下流生成へ進めます。",
+          action: hasStaleDownstreamDrafts ? "再承認と再生成を確認" : "状態確認済み",
+          tone: hasStaleDownstreamDrafts ? "warning" : requirement.status === "approved" ? "success" : "neutral",
+        },
+      ]
+    : [];
+  const requirementAttentionItems: RequirementAttentionItem[] = requirement
+    ? [
+        ...requirementOpenQuestions.slice(0, 3).map((question, index) => ({
+          key: `open-question-${index}`,
+          label: `未決事項 ${index + 1}`,
+          body: trimSummaryText(question),
+          meta: "承認前に回答、削除、またはレビュー依頼が必要です。",
+          tone: "danger" as RequirementFocusTone,
+        })),
+        ...requirementRisks.slice(0, 3).map((risk, index) => ({
+          key: `risk-${index}`,
+          label: `リスク ${index + 1}`,
+          body: trimSummaryText(risk),
+          meta: "対策、受容期限、残存リスクを確認します。",
+          tone: "warning" as RequirementFocusTone,
+        })),
+        ...(latestRequirementChange?.changes?.slice(0, 4).map((change) => ({
+          key: `change-${latestRequirementChange.id}-${change.field}`,
+          label: requirementFieldLabel(change.field),
+          body: requirementHistoryChangeLabel(change),
+          meta: latestRequirementChange.approval_reset ? "承認済み要件の再編集により再承認が必要です。" : "最新差分です。",
+          tone: latestRequirementChange.approval_reset ? ("warning" as RequirementFocusTone) : ("review" as RequirementFocusTone),
+        })) ?? []),
+      ]
+    : [];
   const canApproveConversationSummaryDraft = Boolean(
     conversationSummaryDraft && conversationSummaryDraft.status === "draft" && !hasBlockingConversationSummaryReview
   );
@@ -3249,6 +3363,76 @@ export default function MeetingWorkspace() {
                 要件レビュー対応済み
               </button>
             </div>
+            {requirement ? (
+              <div className="requirement-decision-summary" aria-label="要件判断サマリー">
+                {requirementDecisionSummaryItems.map((item) => (
+                  <div className={`requirement-metric-card ${item.tone}`} key={item.key}>
+                    <div className="metric-heading">
+                      <strong>{item.title}</strong>
+                      <span>{item.action}</span>
+                    </div>
+                    <span className="metric-value">{item.value}</span>
+                    <p>{item.detail}</p>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {requirement ? (
+              <div className="requirement-focus-grid" aria-label="要件注目ポイント">
+                <div className="focus-panel">
+                  <div className="panel-header">
+                    <h3>未決事項・リスク</h3>
+                    <span className={`chip ${requirementOpenQuestionCount + requirementRiskCount > 0 ? "warning" : "success"}`}>
+                      {requirementOpenQuestionCount + requirementRiskCount}件
+                    </span>
+                  </div>
+                  <div className="focus-list">
+                    {requirementAttentionItems.filter((item) => item.key.startsWith("open-question") || item.key.startsWith("risk")).length ? (
+                      requirementAttentionItems
+                        .filter((item) => item.key.startsWith("open-question") || item.key.startsWith("risk"))
+                        .map((item) => (
+                          <div className="focus-item" key={item.key}>
+                            <span className={`focus-marker ${item.tone}`}>{item.tone === "danger" ? <AlertTriangle size={14} /> : <Activity size={14} />}</span>
+                            <div>
+                              <strong>{item.label}</strong>
+                              <p>{item.body}</p>
+                              <span>{item.meta}</span>
+                            </div>
+                          </div>
+                        ))
+                    ) : (
+                      <p className="empty">未決事項とリスクはありません。</p>
+                    )}
+                  </div>
+                </div>
+                <div className="focus-panel">
+                  <div className="panel-header">
+                    <h3>差分注目ポイント</h3>
+                    <span className={`chip ${latestRequirementChange ? "review" : "neutral"}`}>{latestRequirementChange ? `${latestRequirementChangeCount || 1}項目` : "差分なし"}</span>
+                  </div>
+                  <div className="focus-list">
+                    {requirementAttentionItems.filter((item) => item.key.startsWith("change")).length ? (
+                      requirementAttentionItems
+                        .filter((item) => item.key.startsWith("change"))
+                        .map((item) => (
+                          <div className="focus-item" key={item.key}>
+                            <span className={`focus-marker ${item.tone}`}>
+                              {item.tone === "warning" ? <AlertTriangle size={14} /> : <GitBranch size={14} />}
+                            </span>
+                            <div>
+                              <strong>{item.label}</strong>
+                              <p>{item.body}</p>
+                              <span>{item.meta}</span>
+                            </div>
+                          </div>
+                        ))
+                    ) : (
+                      <p className="empty">保存後の差分はまだありません。</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : null}
             {requirement ? (
               <div className={`validation-panel ${hasRequirementApprovalBlockers ? "danger" : "success"}`} aria-label="要件承認ブロッカー">
                 <h3>承認ブロッカー</h3>

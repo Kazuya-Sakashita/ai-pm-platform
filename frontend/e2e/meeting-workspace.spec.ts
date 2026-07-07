@@ -766,6 +766,9 @@ test.describe("Meeting Workspace", () => {
       page.locator("#requirements .validation-row").filter({
         has: page.locator("strong", { hasText: new RegExp(`^${label}$`) }),
       });
+    const requirementSummary = page.getByLabel("要件判断サマリー");
+    const requirementSummaryCard = (label: string) => requirementSummary.locator(".requirement-metric-card", { hasText: label });
+    const requirementFocus = page.getByLabel("要件注目ポイント");
     const requirementHistory = page.locator("[aria-label='Requirement履歴タイムライン']");
 
     await createProject(page, projectName);
@@ -792,6 +795,11 @@ test.describe("Meeting Workspace", () => {
     await expect(page.getByLabel("背景")).toHaveValue(/Playwright smoke coverage/);
     await expect(page.locator("#requirements").getByRole("textbox", { name: "機能要件", exact: true })).toHaveValue(/connect Playwright smoke coverage/);
     await expect(page.locator("#requirements").getByLabel("未解決事項")).toHaveValue(/who reviews/);
+    await expect(requirementSummaryCard("未決事項").getByText("1件", { exact: true })).toBeVisible();
+    await expect(requirementSummaryCard("リスク").getByText("2件", { exact: true })).toBeVisible();
+    await expect(requirementFocus.getByText("未決事項 1")).toBeVisible();
+    await expect(requirementFocus.getByText("リスク 1")).toBeVisible();
+    await expect(requirementFocus.getByText(/who reviews/)).toBeVisible();
     await expect(requirementBlockerRow("未決事項").getByText("1件", { exact: true })).toBeVisible();
     await expect(requirementHistory.getByText("要件定義を生成")).toBeVisible();
 
@@ -801,6 +809,10 @@ test.describe("Meeting Workspace", () => {
     await expect(page.locator("header").getByText("要件定義を保存しました")).toBeVisible();
     await expect(page.getByLabel("目的")).toHaveValue("Updated requirement goal from E2E.");
     await expect(requirementBlockerRow("未決事項").getByText("0件", { exact: true })).toBeVisible();
+    await expect(requirementSummaryCard("未決事項").getByText("0件", { exact: true })).toBeVisible();
+    await expect(requirementSummaryCard("最新差分").getByText("2項目")).toBeVisible();
+    await expect(requirementFocus.getByText("目的", { exact: true })).toBeVisible();
+    await expect(requirementFocus.getByText(/Updated requirement goal from E2E\./)).toBeVisible();
     await expect(page.locator("#requirements").getByText("承認前に表示対象のブロッカーはありません。")).toBeVisible();
     await expect(requirementHistory.getByText("要件定義を更新")).toBeVisible();
     await expect(requirementHistory.getByText(/目的: .*Updated requirement goal from E2E\./)).toBeVisible();
@@ -811,6 +823,7 @@ test.describe("Meeting Workspace", () => {
     await expect(requirementHistory.getByText("レビューを依頼")).toBeVisible();
     await expect(requirementHistory.getByText("関連Issue: #3")).toBeVisible();
     await expect(requirementBlockerRow("未解決レビュー").getByText("1件", { exact: true })).toBeVisible();
+    await expect(requirementSummaryCard("レビュー").getByText("1件未解決")).toBeVisible();
     await expect(requirementBlockerRow("未解決レビュー").getByText("未対応 / Product Manager")).toBeVisible();
     await expect(page.getByLabel("要件承認ブロッカー").getByText("背景、目的、受け入れ条件、未解決事項、リスクを確認する。")).toBeVisible();
     await expect(page.getByRole("button", { name: "要件定義を承認", exact: true })).toBeDisabled();
@@ -924,6 +937,7 @@ test.describe("Meeting Workspace", () => {
     await expect(page.locator("#requirements > .panel-header .chip")).toHaveText("修正が必要");
     await expect(page.locator("#issue-draft > .panel-header .chip")).toHaveText("再確認が必要");
     await expect(page.locator("#openapi-draft > .panel-header .chip")).toHaveText("再確認が必要");
+    await expect(requirementSummaryCard("下流Draft").getByText("再確認が必要")).toBeVisible();
     await expect(page.locator("[aria-label='Issueドラフト再生成案内']")).toContainText("このIssueドラフトは古くなっています");
     await expect(page.locator("[aria-label='OpenAPIドラフト再生成案内']")).toContainText("このOpenAPIドラフトは古くなっています");
     await expect(requirementHistory.getByText("再確認対象: Issue 1件 / OpenAPI 1件")).toBeVisible();
@@ -946,6 +960,11 @@ test.describe("Meeting Workspace", () => {
     await expect(page.locator("header").getByText("OpenAPIドラフトを生成しました")).toBeVisible();
     await expect(page.locator("[aria-label='OpenAPIドラフト再生成案内']")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "OpenAPIドラフトを保存", exact: true })).toBeEnabled();
+
+    await page.setViewportSize({ width: 390, height: 900 });
+    await expectNoHorizontalLayoutOverflow(page, "#requirements");
+    await expectNoHorizontalLayoutOverflow(page, "[aria-label='要件判断サマリー']");
+    await expectNoHorizontalLayoutOverflow(page, "[aria-label='要件注目ポイント']");
   });
 
   test("shows validation errors when required meeting fields are missing", async ({ page, request }) => {

@@ -264,12 +264,23 @@ AI議事録ツールとの差別化には、会議内容を実装可能な要件
 - `npm run frontend:e2e -- --grep "creates a project, saves a Discord log, generates minutes, and requests review"`: 1 passed
 - 判定: ISSUE-054のMVP要件は完了。PR CI通過後にGitHub #73をクローズし、Issue #3はISSUE-052とISSUE-053の完了状況を見て最終クローズ判断する
 
+2026-07-07 11:35 JST追加:
+
+- ISSUE-053 / GitHub #70でRequirement Workspaceの未決事項、リスク、差分強調UXを実装
+- Requirement Workspaceに `要件判断サマリー` を追加し、未決事項、リスク、レビュー、最新差分、下流Draft状態をカードで確認できるようにした
+- `要件注目ポイント` を追加し、未決事項、リスク、最新差分の先頭項目を編集欄までスクロールせず確認できるようにした
+- 色だけに依存せず、件数、状態文言、見出し、アイコンでレビュー担当者が判断できるようにした
+- Playwright happy pathに判断サマリー、注目ポイント、390px幅の横あふれ確認を追加
+- `npm run display:check`: 成功
+- `npm run frontend:build`: 成功
+- `NEXT_PUBLIC_API_BASE_URL=http://localhost:3001/api/v1 npm run frontend:e2e -- --grep "creates a project, saves a Discord log, generates minutes, and requests review"`: 1 passed
+- 判定: ISSUE-053のMVP要件は完了。PR CI通過後にGitHub #70をクローズし、Issue #3はISSUE-052の完了後に最終クローズ判断する
+
 未完了:
 
 - ISSUE-052: Requirement生成OpenAI provider比較
-- ISSUE-053: Requirement Workspaceの未決事項、リスク、差分強調UX
 
 ## 次アクション
 
 - ISSUE-052は既存provider実装を読み、OpenAI provider比較の設計レビューから始める
-- ISSUE-053はRequirement履歴タイムラインと衝突しない範囲で画面改善を進める
+- ISSUE-053はPR CI成功後にGitHub #70をクローズする
