@@ -1926,6 +1926,7 @@ export interface components {
             /** Format: date-time */
             github_issue_updated_at?: string;
             github_issue_score?: number;
+            /** Format: int64 */
             github_issue_api_id?: number;
             github_issue_node_id?: string;
         };
@@ -1945,6 +1946,7 @@ export interface components {
             github_issue_number?: number;
             /** Format: uri */
             github_issue_url?: string;
+            /** Format: int64 */
             github_issue_api_id?: number;
             github_issue_node_id?: string;
         };

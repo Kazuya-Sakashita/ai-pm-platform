@@ -10,7 +10,7 @@ RSpec.describe GithubIssuePublishService do
         github_issue_number: 42,
         github_issue_url: "https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/42",
         github_repository: "Kazuya-Sakashita/ai-pm-platform",
-        github_issue_api_id: 420,
+        github_issue_api_id: 4_832_594_358,
         github_issue_node_id: "I_kwDUMMY"
       }
     )
@@ -21,7 +21,7 @@ RSpec.describe GithubIssuePublishService do
     expect(result).to include(status: "published", github_issue_number: 42)
     expect(issue_draft.reload.status).to eq("published")
     expect(issue_draft.github_issue_url).to eq("https://github.com/Kazuya-Sakashita/ai-pm-platform/issues/42")
-    expect(issue_draft.github_issue_api_id).to eq(420)
+    expect(issue_draft.github_issue_api_id).to eq(4_832_594_358)
     expect(issue_draft.github_issue_node_id).to eq("I_kwDUMMY")
     expect(issue_draft.publish_idempotency_key).to eq(digest)
     expect(issue_draft.publish_idempotency_key).not_to include("publish-key-1")
