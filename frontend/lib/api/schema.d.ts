@@ -725,7 +725,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Receive GitHub App webhook */
+        /** GitHub App webhookを受信する */
         post: operations["receiveGitHubWebhook"];
         delete?: never;
         options?: never;
@@ -2023,7 +2023,9 @@ export interface components {
         };
         WebhookAcceptedResponse: {
             data: {
-                delivery_id: string;
+                /** @description GitHub delivery idのSHA-256 digest。delivery id生値は返さない。 */
+                delivery_digest: string;
+                event: string;
                 /** @enum {string} */
                 status: "accepted" | "duplicate_ignored";
             };
@@ -3749,7 +3751,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Webhook accepted */
+            /** @description Webhookを受理した */
             202: {
                 headers: {
                     [name: string]: unknown;

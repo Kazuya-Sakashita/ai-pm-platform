@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_07_07_195000) do
+ActiveRecord::Schema[7.1].define(version: 2026_07_07_203500) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pgcrypto"
   enable_extension "plpgsql"
@@ -172,7 +172,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_07_195000) do
     t.datetime "updated_at", null: false
     t.index ["approved_by_actor_id"], name: "idx_failed_job_discard_approvals_approver"
     t.index ["project_id", "expires_at"], name: "idx_failed_job_discard_approvals_expiry"
-    t.index ["project_id", "failed_job_id", "reason_template"], name: "idx_failed_job_discard_approvals_active_unique", unique: true, where: "((status)::text = ANY ((ARRAY['pending'::character varying, 'approved'::character varying])::text[]))"
+    t.index ["project_id", "failed_job_id", "reason_template"], name: "idx_failed_job_discard_approvals_active_unique", unique: true, where: "((status)::text = ANY (ARRAY[('pending'::character varying)::text, ('approved'::character varying)::text]))"
     t.index ["project_id", "failed_job_id", "status"], name: "idx_failed_job_discard_approvals_lookup"
     t.index ["project_id"], name: "index_failed_job_discard_approvals_on_project_id"
     t.index ["requested_by_actor_id"], name: "idx_failed_job_discard_approvals_requester"
@@ -222,6 +222,22 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_07_195000) do
     t.index ["issue_draft_id"], name: "index_github_issue_publish_attempts_on_issue_draft_id"
     t.index ["project_id", "status"], name: "index_github_issue_publish_attempts_on_project_id_and_status"
     t.index ["project_id"], name: "index_github_issue_publish_attempts_on_project_id"
+  end
+
+  create_table "github_webhook_deliveries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "delivery_digest", null: false
+    t.string "event", null: false
+    t.string "status", default: "processing", null: false
+    t.string "github_installation_id"
+    t.string "repository_full_name"
+    t.string "safe_error_code"
+    t.datetime "processed_at"
+    t.jsonb "metadata", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["delivery_digest"], name: "index_github_webhook_deliveries_on_delivery_digest", unique: true
+    t.index ["event", "status"], name: "index_github_webhook_deliveries_on_event_and_status"
+    t.index ["github_installation_id"], name: "index_github_webhook_deliveries_on_github_installation_id"
   end
 
   create_table "integration_accounts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
