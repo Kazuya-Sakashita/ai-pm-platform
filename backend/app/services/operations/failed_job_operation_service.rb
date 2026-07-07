@@ -1,27 +1,34 @@
 module Operations
   class FailedJobOperationService
-    REASON_TEMPLATES = {
+    RETRY_REASON_TEMPLATES = {
       "transient_failure_recovered" => "一時的な障害が解消したため再実行します。",
-      "operator_confirmed_safe_retry" => "運用者が副作用リスクを確認したため再実行します。",
+      "operator_confirmed_safe_retry" => "運用者が副作用リスクを確認したため再実行します。"
+    }.freeze
+
+    DISCARD_REASON_TEMPLATES = {
       "manually_resolved" => "手動対応済みのため破棄します。",
       "unsafe_to_retry" => "再実行による副作用を避けるため破棄します。"
     }.freeze
+
+    REASON_TEMPLATES = RETRY_REASON_TEMPLATES.merge(DISCARD_REASON_TEMPLATES).freeze
 
     ACTIONS = %w[retry discard].freeze
 
     Result = Struct.new(:success?, :data, :code, :message, :http_status, :details, keyword_init: true)
 
-    def initialize(project:, actor_id:, failed_job_id:, action:, reason_template:)
+    def initialize(project:, actor_id:, failed_job_id:, action:, reason_template:, discard_safety_confirmed: false)
       @project = project
       @actor_id = actor_id
       @failed_job_id = failed_job_id
       @action = action.to_s
       @reason_template = reason_template.to_s
+      @discard_safety_confirmed = ActiveModel::Type::Boolean.new.cast(discard_safety_confirmed)
     end
 
     def call
       return invalid_action unless ACTIONS.include?(action)
       return invalid_reason_template if reason_template_label.blank?
+      return discard_confirmation_required if discard? && !discard_safety_confirmed
 
       failed_execution = find_failed_execution
       return failed_job_not_found unless failed_execution
@@ -48,7 +55,7 @@ module Operations
 
     private
 
-    attr_reader :project, :actor_id, :failed_job_id, :action, :reason_template
+    attr_reader :project, :actor_id, :failed_job_id, :action, :reason_template, :discard_safety_confirmed
 
     def find_failed_execution
       SolidQueue::FailedExecution.includes(:job).find_by(id: failed_job_id)
@@ -71,7 +78,8 @@ module Operations
         queue_name: job&.queue_name || "unknown",
         class_name: job&.class_name || "unknown",
         active_job_id: job&.active_job_id,
-        reason_template: reason_template
+        reason_template: reason_template,
+        discard_safety_confirmed: discard? ? true : nil
       }.compact
     end
 
@@ -109,15 +117,27 @@ module Operations
     end
 
     def audit_action
-      action == "retry" ? "operations.failed_job_retried" : "operations.failed_job_discarded"
+      retry? ? "operations.failed_job_retried" : "operations.failed_job_discarded"
     end
 
     def audit_summary
-      action == "retry" ? "失敗ジョブの再実行が要求されました。" : "失敗ジョブの破棄が要求されました。"
+      retry? ? "失敗ジョブの再実行が要求されました。" : "失敗ジョブの破棄が要求されました。"
     end
 
     def reason_template_label
-      REASON_TEMPLATES[reason_template]
+      reason_templates_for_action[reason_template]
+    end
+
+    def reason_templates_for_action
+      retry? ? RETRY_REASON_TEMPLATES : DISCARD_REASON_TEMPLATES
+    end
+
+    def retry?
+      action == "retry"
+    end
+
+    def discard?
+      action == "discard"
     end
 
     def invalid_action
@@ -136,7 +156,17 @@ module Operations
         code: "failed_job_reason_template_invalid",
         message: "失敗ジョブ操作理由が不正です。",
         http_status: :unprocessable_entity,
-        details: { reason_template: reason_template, allowed_reason_templates: REASON_TEMPLATES.keys }
+        details: { action: action, reason_template: reason_template, allowed_reason_templates: reason_templates_for_action.keys }
+      )
+    end
+
+    def discard_confirmation_required
+      Result.new(
+        success?: false,
+        code: "failed_job_discard_confirmation_required",
+        message: "失敗ジョブを破棄する前にリスク確認が必要です。",
+        http_status: :unprocessable_entity,
+        details: { action: action, discard_safety_confirmed: false }
       )
     end
 

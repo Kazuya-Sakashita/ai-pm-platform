@@ -51,6 +51,9 @@ type Job = components["schemas"]["Job"];
 type QueueHealth = components["schemas"]["QueueHealth"];
 type FailedJobSample = components["schemas"]["FailedJobSample"];
 type FailedJobOperationReasonTemplate = components["schemas"]["FailedJobOperationReasonTemplate"];
+type FailedJobRetryReasonTemplate = components["schemas"]["FailedJobRetryReasonTemplate"];
+type FailedJobDiscardReasonTemplate = components["schemas"]["FailedJobDiscardReasonTemplate"];
+type FailedJobOperationHistoryItem = components["schemas"]["FailedJobOperationHistoryItem"];
 type Review = components["schemas"]["Review"];
 type IntegrationAccount = components["schemas"]["IntegrationAccount"];
 type MeetingSourceType = components["schemas"]["MeetingSourceType"];
@@ -148,6 +151,15 @@ const failedJobOperationReasonLabels: Record<FailedJobOperationReasonTemplate, s
   operator_confirmed_safe_retry: "副作用リスクを確認済み",
   manually_resolved: "手動対応済み",
   unsafe_to_retry: "再実行せず破棄",
+};
+
+const defaultFailedJobRetryReasonTemplates: FailedJobRetryReasonTemplate[] = ["operator_confirmed_safe_retry", "transient_failure_recovered"];
+const defaultFailedJobDiscardReasonTemplates: FailedJobDiscardReasonTemplate[] = ["manually_resolved", "unsafe_to_retry"];
+
+const failedJobOperationActionLabels: Record<FailedJobOperationHistoryItem["action"], string> = {
+  retry: "再実行",
+  discard: "破棄",
+  boundary_rejected: "境界拒否",
 };
 
 const projectMembershipRoles: ProjectMembershipRole[] = ["owner", "admin", "editor", "reviewer", "viewer", "auditor"];
@@ -295,6 +307,59 @@ function errorJobId(error: unknown) {
   const payload = error as ApiErrorPayload;
   const value = payload.error?.details?.job_id;
   return typeof value === "string" ? value : undefined;
+}
+
+type LegacyFailedJobSample = Omit<FailedJobSample, "operations"> & {
+  operations: Omit<FailedJobSample["operations"], "retry_reason_templates" | "discard_reason_templates"> &
+    Partial<Pick<FailedJobSample["operations"], "retry_reason_templates" | "discard_reason_templates">>;
+};
+
+type LegacyQueueHealth = Omit<QueueHealth, "failed_job_samples" | "failed_job_operation_metrics" | "failed_job_operation_history"> & {
+  failed_job_samples?: LegacyFailedJobSample[];
+  failed_job_operation_metrics?: QueueHealth["failed_job_operation_metrics"];
+  failed_job_operation_history?: QueueHealth["failed_job_operation_history"];
+};
+
+function defaultFailedJobOperationMetrics(): QueueHealth["failed_job_operation_metrics"] {
+  return {
+    recent_window_hours: 24,
+    retry_count: 0,
+    discard_count: 0,
+    rejected_count: 0,
+  };
+}
+
+function normalizeFailedJobSample(job: LegacyFailedJobSample): FailedJobSample {
+  const retryReasonTemplates =
+    job.operations.retry_reason_templates && job.operations.retry_reason_templates.length > 0
+      ? job.operations.retry_reason_templates
+      : defaultFailedJobRetryReasonTemplates;
+  const discardReasonTemplates =
+    job.operations.discard_reason_templates && job.operations.discard_reason_templates.length > 0
+      ? job.operations.discard_reason_templates
+      : defaultFailedJobDiscardReasonTemplates;
+  const reasonTemplates: FailedJobOperationReasonTemplate[] = [...retryReasonTemplates, ...discardReasonTemplates];
+
+  return {
+    ...job,
+    operations: {
+      ...job.operations,
+      retry_reason_templates: retryReasonTemplates,
+      discard_reason_templates: discardReasonTemplates,
+      reason_templates: job.operations.reason_templates ?? reasonTemplates,
+    },
+  };
+}
+
+function normalizeQueueHealth(queueHealth: QueueHealth): QueueHealth {
+  const legacyQueueHealth = queueHealth as LegacyQueueHealth;
+
+  return {
+    ...queueHealth,
+    failed_job_samples: (legacyQueueHealth.failed_job_samples ?? []).map(normalizeFailedJobSample),
+    failed_job_operation_metrics: legacyQueueHealth.failed_job_operation_metrics ?? defaultFailedJobOperationMetrics(),
+    failed_job_operation_history: legacyQueueHealth.failed_job_operation_history ?? [],
+  };
 }
 
 const authRecoveryMessages: Record<string, string> = {
@@ -489,7 +554,9 @@ export default function MeetingWorkspace() {
   const [queueHealth, setQueueHealth] = useState<QueueHealth | null>(null);
   const [queueHealthLoading, setQueueHealthLoading] = useState(false);
   const [failedJobOperationId, setFailedJobOperationId] = useState<number | null>(null);
-  const [failedJobReasonTemplates, setFailedJobReasonTemplates] = useState<Record<number, FailedJobOperationReasonTemplate>>({});
+  const [failedJobRetryReasonTemplates, setFailedJobRetryReasonTemplates] = useState<Record<number, FailedJobRetryReasonTemplate>>({});
+  const [failedJobDiscardReasonTemplates, setFailedJobDiscardReasonTemplates] = useState<Record<number, FailedJobDiscardReasonTemplate>>({});
+  const [failedJobDiscardConfirmations, setFailedJobDiscardConfirmations] = useState<Record<number, boolean>>({});
   const [lastReview, setLastReview] = useState<Review | null>(null);
   const [requirementReviews, setRequirementReviews] = useState<Review[]>([]);
   const [requirementHistory, setRequirementHistory] = useState<RequirementHistoryItem[]>([]);
@@ -953,7 +1020,7 @@ export default function MeetingWorkspace() {
         return;
       }
 
-      setQueueHealth(data.data);
+      setQueueHealth(normalizeQueueHealth(data.data));
       if (announce) setStatusMessage("運用状態を更新しました");
     } catch {
       setQueueHealthLoading(false);
@@ -961,16 +1028,32 @@ export default function MeetingWorkspace() {
     }
   }
 
-  function failedJobReasonTemplate(job: FailedJobSample): FailedJobOperationReasonTemplate {
+  function failedJobRetryReasonTemplate(job: FailedJobSample): FailedJobRetryReasonTemplate {
     return (
-      failedJobReasonTemplates[job.failed_job_id] ??
-      job.operations.reason_templates?.[0] ??
+      failedJobRetryReasonTemplates[job.failed_job_id] ??
+      job.operations.retry_reason_templates?.[0] ??
       "operator_confirmed_safe_retry"
     );
   }
 
-  function updateFailedJobReasonTemplate(failedJobId: number, reasonTemplate: FailedJobOperationReasonTemplate) {
-    setFailedJobReasonTemplates((current) => ({ ...current, [failedJobId]: reasonTemplate }));
+  function failedJobDiscardReasonTemplate(job: FailedJobSample): FailedJobDiscardReasonTemplate {
+    return (
+      failedJobDiscardReasonTemplates[job.failed_job_id] ??
+      job.operations.discard_reason_templates?.[0] ??
+      "manually_resolved"
+    );
+  }
+
+  function updateFailedJobRetryReasonTemplate(failedJobId: number, reasonTemplate: FailedJobRetryReasonTemplate) {
+    setFailedJobRetryReasonTemplates((current) => ({ ...current, [failedJobId]: reasonTemplate }));
+  }
+
+  function updateFailedJobDiscardReasonTemplate(failedJobId: number, reasonTemplate: FailedJobDiscardReasonTemplate) {
+    setFailedJobDiscardReasonTemplates((current) => ({ ...current, [failedJobId]: reasonTemplate }));
+  }
+
+  function updateFailedJobDiscardConfirmation(failedJobId: number, checked: boolean) {
+    setFailedJobDiscardConfirmations((current) => ({ ...current, [failedJobId]: checked }));
   }
 
   async function operateFailedJob(job: FailedJobSample, action: "retry" | "discard") {
@@ -979,23 +1062,31 @@ export default function MeetingWorkspace() {
       return;
     }
 
-    const reasonTemplate = failedJobReasonTemplate(job);
-    const path =
-      action === "retry"
-        ? "/operations/failed-jobs/{failed_job_id}/retry"
-        : "/operations/failed-jobs/{failed_job_id}/discard";
+    if (action === "discard" && !failedJobDiscardConfirmations[job.failed_job_id]) {
+      setApiError("破棄前にリスク確認が必要です。");
+      return;
+    }
 
     setFailedJobOperationId(job.failed_job_id);
     setError("");
 
     try {
-      const { error: apiError } = await apiClient.POST(path, {
-        params: {
-          path: { failed_job_id: job.failed_job_id },
-          query: { project_id: selectedProjectId },
-        },
-        body: { reason_template: reasonTemplate },
-      });
+      const { error: apiError } =
+        action === "retry"
+          ? await apiClient.POST("/operations/failed-jobs/{failed_job_id}/retry", {
+              params: {
+                path: { failed_job_id: job.failed_job_id },
+                query: { project_id: selectedProjectId },
+              },
+              body: { reason_template: failedJobRetryReasonTemplate(job) },
+            })
+          : await apiClient.POST("/operations/failed-jobs/{failed_job_id}/discard", {
+              params: {
+                path: { failed_job_id: job.failed_job_id },
+                query: { project_id: selectedProjectId },
+              },
+              body: { reason_template: failedJobDiscardReasonTemplate(job), discard_safety_confirmed: true },
+            });
 
       if (apiError) {
         setApiError(errorMessage(apiError));
@@ -2554,6 +2645,8 @@ export default function MeetingWorkspace() {
   const recentProductFailedCount = queueHealth?.product_jobs.recent_failed_count ?? 0;
   const queueRows = queueHealth?.queues.slice(0, 4) ?? [];
   const failedJobRows = queueHealth?.failed_job_samples.slice(0, 3) ?? [];
+  const failedJobOperationMetrics = queueHealth?.failed_job_operation_metrics;
+  const failedJobOperationHistoryRows = queueHealth?.failed_job_operation_history.slice(0, 3) ?? [];
   const warningRows = queueHealth?.warnings.slice(0, 3) ?? [];
   const bearerAuthAvailable = clientReady && hasBearerAuth();
   const currentAuthSession = authSessions.find((authSession) => authSession.current) ?? null;
@@ -2916,6 +3009,12 @@ export default function MeetingWorkspace() {
                   <span>{recentProductFailedCount}件</span>
                   <strong>定期タスク</strong>
                   <span>{queueHealth ? `${queueHealth.recurring_tasks.length}件` : "-"}</span>
+                  <strong>操作</strong>
+                  <span>
+                    {failedJobOperationMetrics
+                      ? `再実行${failedJobOperationMetrics.retry_count}件 / 破棄${failedJobOperationMetrics.discard_count}件 / 拒否${failedJobOperationMetrics.rejected_count}件`
+                      : "-"}
+                  </span>
                 </div>
                 <div className="queue-list" aria-label="キュー状態一覧">
                   {queueRows.map((queue) => (
@@ -2942,17 +3041,38 @@ export default function MeetingWorkspace() {
                         </div>
                         <div className="failed-job-actions">
                           <label>
-                            操作理由
+                            再実行理由
                             <select
-                              value={failedJobReasonTemplate(job)}
-                              onChange={(event) => updateFailedJobReasonTemplate(job.failed_job_id, event.target.value as FailedJobOperationReasonTemplate)}
+                              value={failedJobRetryReasonTemplate(job)}
+                              onChange={(event) => updateFailedJobRetryReasonTemplate(job.failed_job_id, event.target.value as FailedJobRetryReasonTemplate)}
                             >
-                              {job.operations.reason_templates?.map((reasonTemplate) => (
+                              {job.operations.retry_reason_templates.map((reasonTemplate) => (
                                 <option key={reasonTemplate} value={reasonTemplate}>
                                   {failedJobOperationReasonLabels[reasonTemplate]}
                                 </option>
                               ))}
                             </select>
+                          </label>
+                          <label>
+                            破棄理由
+                            <select
+                              value={failedJobDiscardReasonTemplate(job)}
+                              onChange={(event) => updateFailedJobDiscardReasonTemplate(job.failed_job_id, event.target.value as FailedJobDiscardReasonTemplate)}
+                            >
+                              {job.operations.discard_reason_templates.map((reasonTemplate) => (
+                                <option key={reasonTemplate} value={reasonTemplate}>
+                                  {failedJobOperationReasonLabels[reasonTemplate]}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="failed-job-confirmation">
+                            <input
+                              type="checkbox"
+                              checked={failedJobDiscardConfirmations[job.failed_job_id] === true}
+                              onChange={(event) => updateFailedJobDiscardConfirmation(job.failed_job_id, event.target.checked)}
+                            />
+                            破棄リスクを確認
                           </label>
                           <div className="failed-job-action-buttons">
                             <button
@@ -2974,6 +3094,23 @@ export default function MeetingWorkspace() {
                               破棄
                             </button>
                           </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                {failedJobOperationHistoryRows.length > 0 ? (
+                  <div className="failed-job-list" aria-label="失敗ジョブ操作履歴">
+                    <strong className="mini-heading">失敗ジョブ操作履歴</strong>
+                    {failedJobOperationHistoryRows.map((entry) => (
+                      <div className="failed-job-row" key={entry.id}>
+                        <div>
+                          <strong>{failedJobOperationActionLabels[entry.action]}</strong>
+                          <span>{entry.summary}</span>
+                          <span>担当: {entry.actor_id}</span>
+                          {entry.reason_template ? <span>理由: {failedJobOperationReasonLabels[entry.reason_template]}</span> : null}
+                          {entry.project_boundary_status ? <span>境界: {statusLabel(entry.project_boundary_status)}</span> : null}
+                          <span>{formatDateTime(entry.created_at)}</span>
                         </div>
                       </div>
                     ))}

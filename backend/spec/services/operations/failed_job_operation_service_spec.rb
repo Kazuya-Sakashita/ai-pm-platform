@@ -60,11 +60,13 @@ RSpec.describe Operations::FailedJobOperationService do
         actor_id: "operator-1",
         failed_job_id: "456",
         action: "discard",
-        reason_template: "manually_resolved"
+        reason_template: "manually_resolved",
+        discard_safety_confirmed: true
       ).call
 
       expect(result).to be_success
       expect(failed_execution).to have_received(:discard)
+      expect(result.data).to include(discard_safety_confirmed: true)
       audit_log = project.audit_logs.find_by!(action: "operations.failed_job_discarded")
       expect(audit_log.summary).to eq("失敗ジョブの破棄が要求されました。")
       expect(audit_log.metadata).to include(
@@ -72,7 +74,8 @@ RSpec.describe Operations::FailedJobOperationService do
         "job_id" => 123,
         "product_job_id" => product_job.id,
         "project_boundary_status" => "verified",
-        "reason_template" => "manually_resolved"
+        "reason_template" => "manually_resolved",
+        "discard_safety_confirmed" => true
       )
     end
 
@@ -88,6 +91,60 @@ RSpec.describe Operations::FailedJobOperationService do
       expect(result).not_to be_success
       expect(result.code).to eq("failed_job_reason_template_invalid")
       expect(result.http_status).to eq(:unprocessable_entity)
+      expect(result.details).to include(allowed_reason_templates: Operations::FailedJobOperationService::RETRY_REASON_TEMPLATES.keys)
+    end
+
+    it "rejects a discard-only reason template for retry" do
+      result = described_class.new(
+        project: create(:project),
+        actor_id: "operator-1",
+        failed_job_id: "456",
+        action: "retry",
+        reason_template: "manually_resolved"
+      ).call
+
+      expect(result).not_to be_success
+      expect(result.code).to eq("failed_job_reason_template_invalid")
+      expect(result.details).to include(
+        action: "retry",
+        allowed_reason_templates: Operations::FailedJobOperationService::RETRY_REASON_TEMPLATES.keys
+      )
+    end
+
+    it "requires explicit confirmation before discard" do
+      project = create(:project)
+
+      result = described_class.new(
+        project: project,
+        actor_id: "operator-1",
+        failed_job_id: "456",
+        action: "discard",
+        reason_template: "manually_resolved"
+      ).call
+
+      expect(result).not_to be_success
+      expect(result.code).to eq("failed_job_discard_confirmation_required")
+      expect(result.http_status).to eq(:unprocessable_entity)
+      expect(result.details).to include(action: "discard", discard_safety_confirmed: false)
+      expect(project.audit_logs).to be_empty
+    end
+
+    it "rejects a retry-only reason template for discard" do
+      result = described_class.new(
+        project: create(:project),
+        actor_id: "operator-1",
+        failed_job_id: "456",
+        action: "discard",
+        reason_template: "operator_confirmed_safe_retry",
+        discard_safety_confirmed: true
+      ).call
+
+      expect(result).not_to be_success
+      expect(result.code).to eq("failed_job_reason_template_invalid")
+      expect(result.details).to include(
+        action: "discard",
+        allowed_reason_templates: Operations::FailedJobOperationService::DISCARD_REASON_TEMPLATES.keys
+      )
     end
 
     it "returns not_found when the failed job no longer exists" do
@@ -155,7 +212,8 @@ RSpec.describe Operations::FailedJobOperationService do
         actor_id: "operator-1",
         failed_job_id: "456",
         action: "discard",
-        reason_template: "manually_resolved"
+        reason_template: "manually_resolved",
+        discard_safety_confirmed: true
       ).call
 
       expect(result).not_to be_success

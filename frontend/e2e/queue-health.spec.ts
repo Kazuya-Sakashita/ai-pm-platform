@@ -81,8 +81,46 @@ test.describe("Queue health operations panel", () => {
                     operations: {
                       retryable: true,
                       discardable: true,
+                      retry_reason_templates: ["operator_confirmed_safe_retry", "transient_failure_recovered"],
+                      discard_reason_templates: ["manually_resolved", "unsafe_to_retry"],
                       reason_templates: ["operator_confirmed_safe_retry", "manually_resolved", "unsafe_to_retry"],
                     },
+                  },
+                ],
+            failed_job_operation_metrics: {
+              recent_window_hours: 24,
+              retry_count: healthy ? 1 : 0,
+              discard_count: 0,
+              rejected_count: healthy ? 0 : 1,
+              last_operated_at: healthy ? now : undefined,
+            },
+            failed_job_operation_history: healthy
+              ? [
+                  {
+                    id: "7fa2360e-4b5b-48d4-a130-2f3b2a9db708",
+                    action: "retry",
+                    outcome: "succeeded",
+                    actor_id: "admin-actor",
+                    summary: "失敗ジョブの再実行が要求されました。",
+                    failed_job_id: 456,
+                    job_id: 123,
+                    product_job_id: "18b92270-8f9f-45cb-a8d0-6f7442ce8241",
+                    project_boundary_status: "verified",
+                    reason_template: "operator_confirmed_safe_retry",
+                    reason_template_label: "運用者が副作用リスクを確認したため再実行します。",
+                    created_at: now,
+                  },
+                ]
+              : [
+                  {
+                    id: "bb983a8e-067b-4ed0-8cfc-ef12e6f0a016",
+                    action: "boundary_rejected",
+                    outcome: "rejected",
+                    actor_id: "admin-actor",
+                    summary: "失敗ジョブ操作のProject境界検証に失敗しました。",
+                    failed_job_id: "455",
+                    project_boundary_status: "project_mismatch",
+                    created_at: now,
                   },
                 ],
             recurring_tasks: [{ key: "cleanup_expired_github_connection_states", class_name: "GithubConnectionStateCleanupJob", queue_name: "default", schedule: "*/10 * * * *" }],
@@ -137,11 +175,17 @@ test.describe("Queue health operations panel", () => {
     await expect(failedJobs).toContainText("github_reconciliation");
     await expect(failedJobs).toContainText("管理ジョブID: 18b92270-8f9f-45cb-a8d0-6f7442ce8241");
     await expect(failedJobs).toContainText("Project境界確認済み");
-    await expect(failedJobs.getByLabel("操作理由")).toBeVisible();
+    await expect(failedJobs.getByLabel("再実行理由")).toBeVisible();
+    await expect(failedJobs.getByLabel("破棄理由")).toBeVisible();
+    await failedJobs.getByRole("button", { name: "破棄" }).click();
+    await expect(page.getByText("破棄前にリスク確認が必要です。")).toBeVisible();
+    expect(operationRequests).toBe(0);
     await failedJobs.getByRole("button", { name: "再実行" }).click();
     await expect(page.getByText("失敗ジョブを再実行しました")).toBeVisible();
     expect(operationRequests).toBe(1);
     await expect(panel.getByText("正常")).toBeVisible();
+    await expect(panel.getByText("再実行1件 / 破棄0件 / 拒否0件")).toBeVisible();
+    await expect(panel.getByLabel("失敗ジョブ操作履歴")).toContainText("失敗ジョブの再実行が要求されました。");
 
     queueHealthRequests = 0;
     await panel.getByRole("button", { name: "運用状態更新" }).click();

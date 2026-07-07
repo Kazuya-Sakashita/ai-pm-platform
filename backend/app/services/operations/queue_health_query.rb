@@ -10,12 +10,19 @@ module Operations
     RECURRING_TASK_LIMIT = 20
     FAILED_JOB_SAMPLE_LIMIT = 5
     FAILED_JOB_LOOKUP_LIMIT = 50
+    FAILED_JOB_OPERATION_HISTORY_LIMIT = 5
 
     SOLID_QUEUE_MODELS = [
       "SolidQueue::Job",
       "SolidQueue::Process",
       "SolidQueue::FailedExecution",
       "SolidQueue::RecurringTask"
+    ].freeze
+
+    FAILED_JOB_OPERATION_AUDIT_ACTIONS = [
+      "operations.failed_job_retried",
+      "operations.failed_job_discarded",
+      "operations.failed_job_project_boundary_rejected"
     ].freeze
 
     def initialize(project: nil)
@@ -27,6 +34,8 @@ module Operations
       warnings = []
       data = base_data(checked_at, warnings)
       data[:product_jobs] = product_jobs_summary(checked_at)
+      data[:failed_job_operation_metrics] = failed_job_operation_metrics(checked_at)
+      data[:failed_job_operation_history] = failed_job_operation_history
 
       unless solid_queue_available?
         warnings << "Solid Queue tableを確認できません。queue schema setupを確認してください。"
@@ -63,6 +72,8 @@ module Operations
         queues: configured_queue_names.map { |queue_name| queue_summary(queue_name, 0, nil, nil) },
         failed_executions: { count: 0 },
         failed_job_samples: [],
+        failed_job_operation_metrics: empty_failed_job_operation_metrics,
+        failed_job_operation_history: [],
         recurring_tasks: [],
         product_jobs: { by_status: [], recent_failed_count: 0 },
         warnings: warnings
@@ -182,10 +193,77 @@ module Operations
           operations: {
             retryable: project ? project_boundary.verified_for?(project) : project_boundary.verified?,
             discardable: project ? project_boundary.verified_for?(project) : project_boundary.verified?,
+            retry_reason_templates: FailedJobOperationService::RETRY_REASON_TEMPLATES.keys,
+            discard_reason_templates: FailedJobOperationService::DISCARD_REASON_TEMPLATES.keys,
             reason_templates: FailedJobOperationService::REASON_TEMPLATES.keys
           }
         }.compact
       end.first(FAILED_JOB_SAMPLE_LIMIT)
+    end
+
+    def failed_job_operation_metrics(checked_at)
+      return empty_failed_job_operation_metrics unless project
+
+      recent_logs = project.audit_logs
+        .where(action: FAILED_JOB_OPERATION_AUDIT_ACTIONS)
+        .where("created_at >= ?", checked_at - RECENT_FAILURE_WINDOW)
+
+      counts = recent_logs.group(:action).count
+      empty_failed_job_operation_metrics.merge(
+        retry_count: counts.fetch("operations.failed_job_retried", 0),
+        discard_count: counts.fetch("operations.failed_job_discarded", 0),
+        rejected_count: counts.fetch("operations.failed_job_project_boundary_rejected", 0),
+        last_operated_at: iso_time(recent_logs.maximum(:created_at))
+      ).compact
+    end
+
+    def empty_failed_job_operation_metrics
+      {
+        recent_window_hours: (RECENT_FAILURE_WINDOW / 1.hour).to_i,
+        retry_count: 0,
+        discard_count: 0,
+        rejected_count: 0
+      }
+    end
+
+    def failed_job_operation_history
+      return [] unless project
+
+      project.audit_logs
+        .where(action: FAILED_JOB_OPERATION_AUDIT_ACTIONS)
+        .order(created_at: :desc)
+        .limit(FAILED_JOB_OPERATION_HISTORY_LIMIT)
+        .map { |audit_log| failed_job_operation_history_item(audit_log) }
+    end
+
+    def failed_job_operation_history_item(audit_log)
+      metadata = audit_log.metadata || {}
+      {
+        id: audit_log.id,
+        action: failed_job_operation_history_action(audit_log.action),
+        outcome: audit_log.action == "operations.failed_job_project_boundary_rejected" ? "rejected" : "succeeded",
+        actor_id: audit_log.actor_id,
+        summary: audit_log.summary,
+        failed_job_id: metadata["failed_job_id"],
+        job_id: metadata["job_id"],
+        product_job_id: metadata["product_job_id"],
+        project_boundary_status: metadata["project_boundary_status"],
+        reason_template: metadata["reason_template"],
+        reason_template_label: metadata["reason_template_label"],
+        discard_safety_confirmed: metadata["discard_safety_confirmed"],
+        created_at: iso_time(audit_log.created_at)
+      }.compact
+    end
+
+    def failed_job_operation_history_action(action)
+      case action
+      when "operations.failed_job_retried"
+        "retry"
+      when "operations.failed_job_discarded"
+        "discard"
+      else
+        "boundary_rejected"
+      end
     end
 
     def recurring_task_summaries(warnings)

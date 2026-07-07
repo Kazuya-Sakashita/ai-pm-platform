@@ -48,14 +48,39 @@ failed job操作を本番SaaS運用に耐える安全制御へ引き上げ、誤
 - `docs/review/20260707_failed_job_retry_discard_operations_design_review.md`
 - `docs/review/20260707_failed_job_retry_discard_operations_implementation_review.md`
 - `docs/review/20260707_failed_job_followup_issue_split_review.md`
+- `docs/review/20260707_failed_job_operation_safety_design_review.md`
+- `docs/review/20260707_failed_job_operation_safety_implementation_review.md`
+- `docs/evaluation/20260707_failed_job_operation_slo_candidates.md`
 
 ## レビュー結果
 
 P2。ISSUE-056のMVP完了後に取り組むべき運用品質改善である。現時点のMVPをブロックするほどではないが、世界レベルSaaSの運用UIとしては、誤操作防止、通知、SLOが不足している。
 
+2026-07-07追記: ISSUE-061のMVPとして、action別理由テンプレート、discard確認必須、AuditLog由来のsafe運用履歴、24時間retry/discard/rejected件数、SLO候補文書を追加した。Slack通知、外部監視、二人承認、retry後再失敗率はISSUE-063 / GitHub Issue #96で継続する。
+
+## 実装結果
+
+- retry/discard request schemaをOpenAPIで分離した。
+- Backendでretry理由とdiscard理由をaction別にvalidationするようにした。
+- discard操作は `discard_safety_confirmed: true` がない場合に拒否するようにした。
+- Queue health responseへ24時間のretry/discard/rejected件数とsafe操作履歴を追加した。
+- Frontendで再実行理由、破棄理由、破棄リスク確認チェックを分離した。
+- Queue health responseの古いモックや旧レスポンスで新規操作メトリクス、履歴が欠落しても、Frontend側で安全な既定値へ正規化するようにした。
+- SLO候補を `docs/evaluation/20260707_failed_job_operation_slo_candidates.md` に保存した。
+
+## 検証結果
+
+- 2026-07-07: `git diff --check`: 成功
+- 2026-07-07: `git diff --cached --check`: 成功
+- 2026-07-07: `bundle exec rspec spec/services/operations/failed_job_operation_service_spec.rb spec/services/operations/queue_health_query_spec.rb spec/requests/api/v1/operations_spec.rb`: 18 examples, 0 failures
+- 2026-07-07: `npm run api:verify`: 成功。Redocly CLIのNode version warningのみ非ブロッキング
+- 2026-07-07: `npm run display:check`: 成功
+- 2026-07-07: `npm run frontend:build`: 成功
+- 2026-07-07: `npm run frontend:e2e -- --grep "Queue health operations panel"`: 1 passed
+- 2026-07-07: PR #97 CIで旧queue-health mock由来のFrontendクラッシュを検出し、payload正規化で修正。`npm run frontend:e2e -- e2e/auth-session.spec.ts e2e/meeting-workspace.spec.ts e2e/queue-health.spec.ts` は20 passed、6 failed。失敗6件はローカルRails API未起動による接続不可で、今回の互換修正とは別要因。
+- 2026-07-07: PR #97 GitHub Actions `verify` run 28857189655 / job 85586547052 は成功。CheckRun annotationsは空。
+
 ## 次アクション
 
-1. failed job操作のaction別リスクを整理する。
-2. retry/discard別の理由テンプレートと確認導線を設計する。
-3. 通知、運用履歴、SLO候補を比較し、最小実装範囲を決める。
-4. OpenAPI、Backend、Frontend、テストの更新計画を作る。
+1. GitHub Issue #90へ検証結果をコメントし、PR #97 mergeでクローズする。
+2. Slack通知、外部監視、二人承認、retry後再失敗率はISSUE-063 / GitHub Issue #96で継続する。
