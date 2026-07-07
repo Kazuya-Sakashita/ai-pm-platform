@@ -14,6 +14,8 @@ test.describe("Queue health operations panel", () => {
     };
     let queueHealthRequests = 0;
     let operationRequests = 0;
+    let discardApprovalStatus: "none" | "pending" | "approved" = "none";
+    const discardApprovalId = "70a7e7e0-6f16-4bd5-a357-35ad08f5ff97";
     const projectId = project.id;
 
     await page.route("**/api/v1/projects", async (route) => {
@@ -42,7 +44,28 @@ test.describe("Queue health operations panel", () => {
 
     await page.route("**/api/v1/operations/queue-health**", async (route) => {
       queueHealthRequests += 1;
-      const healthy = queueHealthRequests > 1;
+      const healthy = operationRequests > 0;
+      const discardApproval =
+        discardApprovalStatus === "none"
+          ? null
+          : {
+              id: discardApprovalId,
+              project_id: projectId,
+              failed_job_id: 456,
+              job_id: 123,
+              product_job_id: "18b92270-8f9f-45cb-a8d0-6f7442ce8241",
+              queue_name: "github_reconciliation",
+              class_name: "GithubIssuePublish::ReconciliationRetryJob",
+              reason_template: "manually_resolved",
+              discard_safety_confirmed: true,
+              status: discardApprovalStatus,
+              requested_by_actor_id: "admin-actor",
+              approved_by_actor_id: discardApprovalStatus === "approved" ? "release-owner" : undefined,
+              approval_note_present: discardApprovalStatus === "approved",
+              expires_at: now,
+              created_at: now,
+              updated_at: now,
+            };
 
       await route.fulfill({
         status: 200,
@@ -84,6 +107,7 @@ test.describe("Queue health operations panel", () => {
                       discardable: true,
                       retry_reason_templates: ["operator_confirmed_safe_retry", "transient_failure_recovered"],
                       discard_reason_templates: ["manually_resolved", "unsafe_to_retry"],
+                      discard_approval: discardApproval,
                       reason_templates: ["operator_confirmed_safe_retry", "manually_resolved", "unsafe_to_retry"],
                     },
                   },
@@ -133,7 +157,22 @@ test.describe("Queue health operations panel", () => {
                   notification_policy: {
                     channel: "operations",
                     required_for: ["release_gate_warning", "release_gate_blocked", "failed_job_operation_executed", "notification_failed"],
-                    payload_fields: ["project_id", "failed_job_id", "job_id", "queue_name", "class_name", "action", "reason_template", "operator_actor_id", "audit_log_action", "release_gate_status"],
+                    payload_fields: [
+                      "project_id",
+                      "failed_job_id",
+                      "job_id",
+                      "queue_name",
+                      "class_name",
+                      "action",
+                      "reason_template",
+                      "operator_actor_id",
+                      "audit_log_action",
+                      "discard_approval_id",
+                      "discard_approval_requested_by_actor_id",
+                      "discard_approval_approved_by_actor_id",
+                      "discard_approval_expires_at",
+                      "release_gate_status",
+                    ],
                     prohibited_fields: ["raw_exception", "backtrace", "serialized_arguments", "token", "database_url", "dm_body", "ai_prompt"],
                     fallback: "通知失敗時はAuditLogまたはrelease evidenceへsafe metadataのみを保存し、release ownerが手動確認します。",
                   },
@@ -188,7 +227,22 @@ test.describe("Queue health operations panel", () => {
                   notification_policy: {
                     channel: "operations",
                     required_for: ["release_gate_warning", "release_gate_blocked", "failed_job_operation_executed", "notification_failed"],
-                    payload_fields: ["project_id", "failed_job_id", "job_id", "queue_name", "class_name", "action", "reason_template", "operator_actor_id", "audit_log_action", "release_gate_status"],
+                    payload_fields: [
+                      "project_id",
+                      "failed_job_id",
+                      "job_id",
+                      "queue_name",
+                      "class_name",
+                      "action",
+                      "reason_template",
+                      "operator_actor_id",
+                      "audit_log_action",
+                      "discard_approval_id",
+                      "discard_approval_requested_by_actor_id",
+                      "discard_approval_approved_by_actor_id",
+                      "discard_approval_expires_at",
+                      "release_gate_status",
+                    ],
                     prohibited_fields: ["raw_exception", "backtrace", "serialized_arguments", "token", "database_url", "dm_body", "ai_prompt"],
                     fallback: "通知失敗時はAuditLogまたはrelease evidenceへsafe metadataのみを保存し、release ownerが手動確認します。",
                   },
@@ -278,6 +332,97 @@ test.describe("Queue health operations panel", () => {
       });
     });
 
+    await page.route("**/api/v1/operations/failed-jobs/456/discard-approval-requests**", async (route) => {
+      const body = route.request().postDataJSON();
+      expect(body.reason_template).toBe("manually_resolved");
+      expect(body.discard_safety_confirmed).toBe(true);
+      discardApprovalStatus = "pending";
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: {
+            id: discardApprovalId,
+            project_id: projectId,
+            failed_job_id: 456,
+            job_id: 123,
+            product_job_id: "18b92270-8f9f-45cb-a8d0-6f7442ce8241",
+            queue_name: "github_reconciliation",
+            class_name: "GithubIssuePublish::ReconciliationRetryJob",
+            reason_template: "manually_resolved",
+            discard_safety_confirmed: true,
+            status: "pending",
+            requested_by_actor_id: "admin-actor",
+            expires_at: now,
+            created_at: now,
+            updated_at: now,
+          },
+        }),
+      });
+    });
+
+    await page.route(`**/api/v1/operations/failed-job-discard-approvals/${discardApprovalId}/approve**`, async (route) => {
+      const body = route.request().postDataJSON();
+      expect(body.approval_note).toContain("復旧不要");
+      discardApprovalStatus = "approved";
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: {
+            id: discardApprovalId,
+            project_id: projectId,
+            failed_job_id: 456,
+            job_id: 123,
+            queue_name: "github_reconciliation",
+            class_name: "GithubIssuePublish::ReconciliationRetryJob",
+            reason_template: "manually_resolved",
+            discard_safety_confirmed: true,
+            status: "approved",
+            requested_by_actor_id: "admin-actor",
+            approved_by_actor_id: "release-owner",
+            approval_note_present: true,
+            expires_at: now,
+            approved_at: now,
+            created_at: now,
+            updated_at: now,
+          },
+        }),
+      });
+    });
+
+    await page.route(/\/api\/v1\/operations\/failed-jobs\/456\/discard\?/, async (route) => {
+      operationRequests += 1;
+      const body = route.request().postDataJSON();
+      expect(body.reason_template).toBe("manually_resolved");
+      expect(body.discard_safety_confirmed).toBe(true);
+      expect(body.discard_approval_id).toBe(discardApprovalId);
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: {
+            failed_job_id: 456,
+            job_id: 123,
+            product_job_id: "18b92270-8f9f-45cb-a8d0-6f7442ce8241",
+            project_id: projectId,
+            project_boundary_status: "verified",
+            product_job_mapping_source: "explicit",
+            action: "discard",
+            queue_name: "github_reconciliation",
+            class_name: "GithubIssuePublish::ReconciliationRetryJob",
+            reason_template: "manually_resolved",
+            discard_safety_confirmed: true,
+            discard_approval_id: discardApprovalId,
+            discard_approval_requested_by_actor_id: "admin-actor",
+            discard_approval_approved_by_actor_id: "release-owner",
+            discard_approval_expires_at: now,
+            operated_at: now,
+          },
+        }),
+      });
+    });
+
     await page.goto("/");
 
     const panel = page.getByLabel("運用監視");
@@ -298,27 +443,31 @@ test.describe("Queue health operations panel", () => {
     await expect(failedJobs).toContainText("境界根拠: 明示マッピング");
     await expect(failedJobs.getByLabel("再実行理由")).toBeVisible();
     await expect(failedJobs.getByLabel("破棄理由")).toBeVisible();
-    await failedJobs.getByRole("button", { name: "破棄" }).click();
-    await expect(page.getByText("破棄前にリスク確認が必要です。")).toBeVisible();
+    await expect(failedJobs).toContainText("二人承認");
+    await expect(failedJobs).toContainText("未依頼");
+    await expect(failedJobs.getByRole("button", { name: "破棄", exact: true })).toBeDisabled();
+    await failedJobs.getByRole("button", { name: "破棄承認を依頼" }).click();
+    await expect(page.getByText("破棄承認を依頼する前にリスク確認が必要です。")).toBeVisible();
     expect(operationRequests).toBe(0);
-    await failedJobs.getByRole("button", { name: "再実行" }).click();
-    await expect(page.getByText("失敗ジョブを再実行しました")).toBeVisible();
+    await failedJobs.getByLabel("破棄リスクを確認").check();
+    await failedJobs.getByRole("button", { name: "破棄承認を依頼" }).click();
+    await expect(page.getByText("破棄承認を依頼しました")).toBeVisible();
+    await expect(failedJobs).toContainText("承認待ち");
+    await failedJobs.getByLabel("承認コメント").fill("復旧不要の根拠を確認しました。");
+    await failedJobs.getByRole("button", { name: "承認" }).click();
+    await expect(page.getByText("破棄承認を承認しました")).toBeVisible();
+    await expect(failedJobs).toContainText("承認済み");
+    await failedJobs.getByRole("button", { name: "破棄", exact: true }).click();
+    await expect(page.getByText("失敗ジョブを破棄しました")).toBeVisible();
     expect(operationRequests).toBe(1);
     await expect(panel.getByText("正常")).toBeVisible();
     await expect(panel.getByLabel("失敗ジョブリリースゲート")).toContainText("通過");
     await expect(panel.getByText("再実行1件 / 破棄0件 / 拒否0件")).toBeVisible();
-    await expect(panel.getByLabel("失敗ジョブ操作履歴")).toContainText("失敗ジョブの再実行が要求されました。");
-    await expect(panel.getByLabel("失敗ジョブ操作履歴")).toContainText("境界根拠: 明示マッピング");
 
-    queueHealthRequests = 0;
     await panel.getByRole("button", { name: "運用状態更新" }).click();
-    await expect(panel.getByText("要確認")).toBeVisible();
-    await expect(panel.getByText("failed executionが1件あります。")).toBeVisible();
     await expect(panel).not.toContainText("DATABASE_URL");
     await expect(panel).not.toContainText("backtrace");
     await expect(panel).not.toContainText("secret-token");
-
-    await panel.getByRole("button", { name: "運用状態更新" }).click();
 
     await expect(panel.getByText("正常")).toBeVisible();
     await expect(panel.getByText("全1件 / 古い応答0件")).toBeVisible();

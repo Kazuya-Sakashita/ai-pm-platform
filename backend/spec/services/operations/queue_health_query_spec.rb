@@ -42,6 +42,7 @@ RSpec.describe Operations::QueueHealthQuery do
               discardable: true,
               retry_reason_templates: Operations::FailedJobOperationService::RETRY_REASON_TEMPLATES.keys,
               discard_reason_templates: Operations::FailedJobOperationService::DISCARD_REASON_TEMPLATES.keys,
+              discard_approval: nil,
               reason_templates: Operations::FailedJobOperationService::REASON_TEMPLATES.keys
             }
           }

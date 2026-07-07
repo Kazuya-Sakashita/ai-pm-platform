@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_07_07_190000) do
+ActiveRecord::Schema[7.1].define(version: 2026_07_07_195000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pgcrypto"
   enable_extension "plpgsql"
@@ -142,6 +142,40 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_07_190000) do
     t.index ["conversation_import_id"], name: "index_conversation_summary_drafts_on_conversation_import_id"
     t.index ["retention_expires_at"], name: "index_conversation_summary_drafts_on_retention_expires_at"
     t.index ["status"], name: "index_conversation_summary_drafts_on_status"
+  end
+
+  create_table "failed_job_discard_approvals", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "project_id", null: false
+    t.string "failed_job_id", null: false
+    t.string "solid_queue_job_id", null: false
+    t.uuid "product_job_id"
+    t.string "queue_name", null: false
+    t.string "class_name", null: false
+    t.string "reason_template", null: false
+    t.boolean "discard_safety_confirmed", default: false, null: false
+    t.string "status", default: "pending", null: false
+    t.string "requested_by_actor_id", null: false
+    t.string "requested_by_role"
+    t.string "approved_by_actor_id"
+    t.string "approved_by_role"
+    t.string "rejected_by_actor_id"
+    t.string "rejected_by_role"
+    t.string "consumed_by_actor_id"
+    t.string "consumed_by_role"
+    t.text "approval_note"
+    t.text "rejection_reason"
+    t.datetime "expires_at", null: false
+    t.datetime "approved_at"
+    t.datetime "rejected_at"
+    t.datetime "consumed_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["approved_by_actor_id"], name: "idx_failed_job_discard_approvals_approver"
+    t.index ["project_id", "expires_at"], name: "idx_failed_job_discard_approvals_expiry"
+    t.index ["project_id", "failed_job_id", "reason_template"], name: "idx_failed_job_discard_approvals_active_unique", unique: true, where: "((status)::text = ANY ((ARRAY['pending'::character varying, 'approved'::character varying])::text[]))"
+    t.index ["project_id", "failed_job_id", "status"], name: "idx_failed_job_discard_approvals_lookup"
+    t.index ["project_id"], name: "index_failed_job_discard_approvals_on_project_id"
+    t.index ["requested_by_actor_id"], name: "idx_failed_job_discard_approvals_requester"
   end
 
   create_table "github_connection_states", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -431,6 +465,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_07_190000) do
   add_foreign_key "auth_sessions", "auth_actors", column: "actor_subject", primary_key: "subject"
   add_foreign_key "conversation_imports", "projects"
   add_foreign_key "conversation_summary_drafts", "conversation_imports"
+  add_foreign_key "failed_job_discard_approvals", "projects"
   add_foreign_key "github_connection_states", "projects"
   add_foreign_key "github_issue_publish_attempts", "issue_drafts"
   add_foreign_key "github_issue_publish_attempts", "projects"

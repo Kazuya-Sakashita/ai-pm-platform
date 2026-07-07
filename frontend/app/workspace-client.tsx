@@ -52,6 +52,7 @@ type QueueHealth = components["schemas"]["QueueHealth"];
 type FailedJobSample = components["schemas"]["FailedJobSample"];
 type FailedJobReleaseGate = components["schemas"]["FailedJobReleaseGate"];
 type FailedJobReleaseGateCheck = components["schemas"]["FailedJobReleaseGateCheck"];
+type FailedJobDiscardApproval = components["schemas"]["FailedJobDiscardApproval"];
 type FailedJobOperationReasonTemplate = components["schemas"]["FailedJobOperationReasonTemplate"];
 type FailedJobRetryReasonTemplate = components["schemas"]["FailedJobRetryReasonTemplate"];
 type FailedJobDiscardReasonTemplate = components["schemas"]["FailedJobDiscardReasonTemplate"];
@@ -168,6 +169,14 @@ const failedJobOperationActionLabels: Record<FailedJobOperationHistoryItem["acti
 const failedJobMappingSourceLabels: Record<FailedJobProductJobMappingSource, string> = {
   explicit: "明示マッピング",
   arguments: "引数復元",
+};
+
+const failedJobDiscardApprovalStatusLabels: Record<FailedJobDiscardApproval["status"], string> = {
+  pending: "承認待ち",
+  approved: "承認済み",
+  rejected: "却下",
+  expired: "期限切れ",
+  consumed: "使用済み",
 };
 
 const failedJobReleaseGateStatusLabels: Record<FailedJobReleaseGate["status"], string> = {
@@ -379,6 +388,10 @@ function defaultFailedJobReleaseGate(): QueueHealth["failed_job_release_gate"] {
         "reason_template",
         "operator_actor_id",
         "audit_log_action",
+        "discard_approval_id",
+        "discard_approval_requested_by_actor_id",
+        "discard_approval_approved_by_actor_id",
+        "discard_approval_expires_at",
         "release_gate_status",
       ],
       prohibited_fields: ["raw_exception", "backtrace", "serialized_arguments", "token", "database_url", "dm_body", "ai_prompt"],
@@ -642,6 +655,8 @@ export default function MeetingWorkspace() {
   const [failedJobRetryReasonTemplates, setFailedJobRetryReasonTemplates] = useState<Record<number, FailedJobRetryReasonTemplate>>({});
   const [failedJobDiscardReasonTemplates, setFailedJobDiscardReasonTemplates] = useState<Record<number, FailedJobDiscardReasonTemplate>>({});
   const [failedJobDiscardConfirmations, setFailedJobDiscardConfirmations] = useState<Record<number, boolean>>({});
+  const [failedJobApprovalNotes, setFailedJobApprovalNotes] = useState<Record<string, string>>({});
+  const [failedJobRejectionReasons, setFailedJobRejectionReasons] = useState<Record<string, string>>({});
   const [lastReview, setLastReview] = useState<Review | null>(null);
   const [requirementReviews, setRequirementReviews] = useState<Review[]>([]);
   const [requirementHistory, setRequirementHistory] = useState<RequirementHistoryItem[]>([]);
@@ -1141,6 +1156,102 @@ export default function MeetingWorkspace() {
     setFailedJobDiscardConfirmations((current) => ({ ...current, [failedJobId]: checked }));
   }
 
+  function failedJobDiscardApproval(job: FailedJobSample) {
+    return job.operations.discard_approval ?? null;
+  }
+
+  function updateFailedJobApprovalNote(approvalId: string, value: string) {
+    setFailedJobApprovalNotes((current) => ({ ...current, [approvalId]: value }));
+  }
+
+  function updateFailedJobRejectionReason(approvalId: string, value: string) {
+    setFailedJobRejectionReasons((current) => ({ ...current, [approvalId]: value }));
+  }
+
+  async function requestFailedJobDiscardApproval(job: FailedJobSample) {
+    if (!selectedProjectId) {
+      setApiError("プロジェクトを先に作成または選択してください。");
+      return;
+    }
+
+    if (!failedJobDiscardConfirmations[job.failed_job_id]) {
+      setApiError("破棄承認を依頼する前にリスク確認が必要です。");
+      return;
+    }
+
+    setFailedJobOperationId(job.failed_job_id);
+    setError("");
+
+    try {
+      const { error: apiError } = await apiClient.POST("/operations/failed-jobs/{failed_job_id}/discard-approval-requests", {
+        params: {
+          path: { failed_job_id: job.failed_job_id },
+          query: { project_id: selectedProjectId },
+        },
+        body: { reason_template: failedJobDiscardReasonTemplate(job), discard_safety_confirmed: true },
+      });
+
+      if (apiError) {
+        setApiError(errorMessage(apiError));
+        return;
+      }
+
+      setStatusMessage("破棄承認を依頼しました");
+      await loadQueueHealth({ announce: false });
+    } catch {
+      setApiError("破棄承認を依頼できませんでした。");
+    } finally {
+      setFailedJobOperationId(null);
+    }
+  }
+
+  async function resolveFailedJobDiscardApproval(approval: FailedJobDiscardApproval, resolution: "approve" | "reject") {
+    if (!selectedProjectId) {
+      setApiError("プロジェクトを先に作成または選択してください。");
+      return;
+    }
+
+    const note = resolution === "approve" ? failedJobApprovalNotes[approval.id]?.trim() : failedJobRejectionReasons[approval.id]?.trim();
+    if (!note) {
+      setApiError(resolution === "approve" ? "承認コメントが必要です。" : "却下理由が必要です。");
+      return;
+    }
+
+    setFailedJobOperationId(approval.failed_job_id);
+    setError("");
+
+    try {
+      const { error: apiError } =
+        resolution === "approve"
+          ? await apiClient.POST("/operations/failed-job-discard-approvals/{approval_id}/approve", {
+              params: {
+                path: { approval_id: approval.id },
+                query: { project_id: selectedProjectId },
+              },
+              body: { approval_note: note },
+            })
+          : await apiClient.POST("/operations/failed-job-discard-approvals/{approval_id}/reject", {
+              params: {
+                path: { approval_id: approval.id },
+                query: { project_id: selectedProjectId },
+              },
+              body: { rejection_reason: note },
+            });
+
+      if (apiError) {
+        setApiError(errorMessage(apiError));
+        return;
+      }
+
+      setStatusMessage(resolution === "approve" ? "破棄承認を承認しました" : "破棄承認を却下しました");
+      await loadQueueHealth({ announce: false });
+    } catch {
+      setApiError(resolution === "approve" ? "破棄承認を承認できませんでした。" : "破棄承認を却下できませんでした。");
+    } finally {
+      setFailedJobOperationId(null);
+    }
+  }
+
   async function operateFailedJob(job: FailedJobSample, action: "retry" | "discard") {
     if (!selectedProjectId) {
       setApiError("プロジェクトを先に作成または選択してください。");
@@ -1151,6 +1262,12 @@ export default function MeetingWorkspace() {
       setApiError("破棄前にリスク確認が必要です。");
       return;
     }
+    const discardApproval = failedJobDiscardApproval(job);
+    if (action === "discard" && discardApproval?.status !== "approved") {
+      setApiError("破棄前に二人承認が必要です。");
+      return;
+    }
+    const discardApprovalId = action === "discard" ? discardApproval?.id : undefined;
 
     setFailedJobOperationId(job.failed_job_id);
     setError("");
@@ -1170,7 +1287,11 @@ export default function MeetingWorkspace() {
                 path: { failed_job_id: job.failed_job_id },
                 query: { project_id: selectedProjectId },
               },
-              body: { reason_template: failedJobDiscardReasonTemplate(job), discard_safety_confirmed: true },
+              body: {
+                reason_template: failedJobDiscardReasonTemplate(job),
+                discard_safety_confirmed: true,
+                discard_approval_id: discardApprovalId ?? "",
+              },
             });
 
       if (apiError) {
@@ -3201,6 +3322,76 @@ export default function MeetingWorkspace() {
                             />
                             破棄リスクを確認
                           </label>
+                          {(() => {
+                            const approval = failedJobDiscardApproval(job);
+                            const canRequestApproval = !approval || ["rejected", "expired", "consumed"].includes(approval.status);
+                            return (
+                              <div className="failed-job-approval">
+                                <div className="approval-status-line">
+                                  <strong>二人承認</strong>
+                                  <span>{approval ? failedJobDiscardApprovalStatusLabels[approval.status] : "未依頼"}</span>
+                                </div>
+                                {approval ? (
+                                  <div className="approval-meta">
+                                    <span>申請者: {approval.requested_by_actor_id}</span>
+                                    {approval.approved_by_actor_id ? <span>承認者: {approval.approved_by_actor_id}</span> : null}
+                                    <span>期限: {formatDateTime(approval.expires_at)}</span>
+                                  </div>
+                                ) : null}
+                                {approval?.status === "pending" ? (
+                                  <div className="approval-resolution">
+                                    <label>
+                                      承認コメント
+                                      <textarea
+                                        rows={2}
+                                        value={failedJobApprovalNotes[approval.id] ?? ""}
+                                        onChange={(event) => updateFailedJobApprovalNote(approval.id, event.target.value)}
+                                      />
+                                    </label>
+                                    <label>
+                                      却下理由
+                                      <textarea
+                                        rows={2}
+                                        value={failedJobRejectionReasons[approval.id] ?? ""}
+                                        onChange={(event) => updateFailedJobRejectionReason(approval.id, event.target.value)}
+                                      />
+                                    </label>
+                                    <div className="failed-job-action-buttons">
+                                      <button
+                                        className="button secondary"
+                                        type="button"
+                                        onClick={() => resolveFailedJobDiscardApproval(approval, "approve")}
+                                        disabled={failedJobOperationId === job.failed_job_id || queueHealthLoading}
+                                      >
+                                        <ShieldCheck size={16} />
+                                        承認
+                                      </button>
+                                      <button
+                                        className="button secondary"
+                                        type="button"
+                                        onClick={() => resolveFailedJobDiscardApproval(approval, "reject")}
+                                        disabled={failedJobOperationId === job.failed_job_id || queueHealthLoading}
+                                      >
+                                        <UserMinus size={16} />
+                                        却下
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : null}
+                                {canRequestApproval ? (
+                                  <button
+                                    className="button secondary"
+                                    type="button"
+                                    onClick={() => requestFailedJobDiscardApproval(job)}
+                                    disabled={failedJobOperationId === job.failed_job_id || queueHealthLoading || !job.operations.discardable}
+                                  >
+                                    <ShieldCheck size={16} />
+                                    破棄承認を依頼
+                                  </button>
+                                ) : null}
+                              </div>
+                            );
+                          })()}
                           <div className="failed-job-action-buttons">
                             <button
                               className="button secondary"
@@ -3215,7 +3406,12 @@ export default function MeetingWorkspace() {
                               className="button secondary"
                               type="button"
                               onClick={() => operateFailedJob(job, "discard")}
-                              disabled={failedJobOperationId === job.failed_job_id || queueHealthLoading || !job.operations.discardable}
+                              disabled={
+                                failedJobOperationId === job.failed_job_id ||
+                                queueHealthLoading ||
+                                !job.operations.discardable ||
+                                failedJobDiscardApproval(job)?.status !== "approved"
+                              }
                             >
                               {failedJobOperationId === job.failed_job_id ? <Loader2 className="spin" size={16} /> : <Trash2 size={16} />}
                               破棄

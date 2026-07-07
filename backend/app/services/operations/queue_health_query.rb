@@ -214,10 +214,29 @@ module Operations
             discardable: project ? project_boundary.verified_for?(project) : project_boundary.verified?,
             retry_reason_templates: FailedJobOperationService::RETRY_REASON_TEMPLATES.keys,
             discard_reason_templates: FailedJobOperationService::DISCARD_REASON_TEMPLATES.keys,
+            discard_approval: discard_approval_state(failed_execution),
             reason_templates: FailedJobOperationService::REASON_TEMPLATES.keys
           }
         }.compact
       end.first(FAILED_JOB_SAMPLE_LIMIT)
+    end
+
+    def discard_approval_state(failed_execution)
+      return nil unless project
+
+      approval = project.failed_job_discard_approvals
+        .where(failed_job_id: failed_execution.id.to_s)
+        .recent_first
+        .first
+      return nil unless approval
+
+      approval.api_json.merge(status: display_approval_status(approval))
+    end
+
+    def display_approval_status(approval)
+      return "expired" if (approval.pending? || approval.approved?) && approval.expired?
+
+      approval.status
     end
 
     def failed_job_operation_metrics(checked_at)

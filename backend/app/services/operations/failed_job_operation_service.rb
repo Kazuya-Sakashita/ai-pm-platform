@@ -23,6 +23,7 @@ module Operations
       action:,
       reason_template:,
       discard_safety_confirmed: false,
+      discard_approval_id: nil,
       notification_service: FailedJobNotificationService.new
     )
       @project = project
@@ -31,6 +32,7 @@ module Operations
       @action = action.to_s
       @reason_template = reason_template.to_s
       @discard_safety_confirmed = ActiveModel::Type::Boolean.new.cast(discard_safety_confirmed)
+      @discard_approval_id = discard_approval_id.to_s.presence
       @notification_service = notification_service
     end
 
@@ -47,9 +49,13 @@ module Operations
       return failed_job_project_boundary_rejected(project_boundary) unless project_boundary.verified_for?(project)
 
       data = operation_data(failed_execution, job, project_boundary)
-
-      perform_operation!(failed_execution)
-      record_audit_log!(data)
+      if discard?
+        operation_error = perform_discard_operation_with_approval!(failed_execution, data)
+        return operation_error if operation_error&.success? == false
+      else
+        perform_operation!(failed_execution)
+        record_audit_log!(data)
+      end
       notify_operation_executed(data)
 
       Result.new(success?: true, data: data.merge(operated_at: Time.current.iso8601))
@@ -65,7 +71,7 @@ module Operations
 
     private
 
-    attr_reader :project, :actor_id, :failed_job_id, :action, :reason_template, :discard_safety_confirmed, :notification_service
+    attr_reader :project, :actor_id, :failed_job_id, :action, :reason_template, :discard_safety_confirmed, :discard_approval_id, :notification_service
 
     def find_failed_execution
       SolidQueue::FailedExecution.includes(:job).find_by(id: failed_job_id)
@@ -90,8 +96,75 @@ module Operations
         class_name: job&.class_name || "unknown",
         active_job_id: job&.active_job_id,
         reason_template: reason_template,
-        discard_safety_confirmed: discard? ? true : nil
+        discard_safety_confirmed: discard? ? true : nil,
+        discard_approval_id: discard_approval_id
       }.compact
+    end
+
+    def perform_discard_operation_with_approval!(failed_execution, data)
+      return discard_approval_required if discard_approval_id.blank?
+
+      operation_error = nil
+      ActiveRecord::Base.transaction do
+        approval = project.failed_job_discard_approvals.lock.find_by(id: discard_approval_id)
+        operation_error = ensure_discard_approval!(approval, data)
+        next if operation_error&.success? == false
+
+        data.merge!(discard_approval_data(approval))
+        perform_operation!(failed_execution)
+        consume_discard_approval!(approval)
+        data.merge!(
+          discard_approval_status: approval.status,
+          discard_approval_consumed_by_actor_id: approval.consumed_by_actor_id,
+          discard_approval_consumed_at: approval.consumed_at.iso8601
+        )
+        record_audit_log!(data)
+      end
+
+      operation_error
+    end
+
+    def ensure_discard_approval!(approval, data)
+      return discard_approval_not_found unless approval
+      return discard_approval_expired(approval) if approval.expired?
+      return discard_approval_not_approved(approval) unless approval.approved?
+      return discard_approval_mismatch(approval) unless discard_approval_matches?(approval, data)
+
+      Result.new(success?: true, data: { approval: approval })
+    end
+
+    def discard_approval_data(approval)
+      {
+        discard_approval_id: approval.id,
+        discard_approval_status: approval.status,
+        discard_approval_requested_by_actor_id: approval.requested_by_actor_id,
+        discard_approval_approved_by_actor_id: approval.approved_by_actor_id,
+        discard_approval_expires_at: approval.expires_at.iso8601
+      }
+    end
+
+    def discard_approval_matches?(approval, data)
+      approval.project_id == project.id &&
+        approval.failed_job_id.to_s == data[:failed_job_id].to_s &&
+        approval.solid_queue_job_id.to_s == data[:job_id].to_s &&
+        approval.product_job_id == data[:product_job_id] &&
+        approval.reason_template == reason_template &&
+        approval.discard_safety_confirmed? &&
+        approval.approved_by_actor_id.present? &&
+        approval.requested_by_actor_id != approval.approved_by_actor_id
+    end
+
+    def consume_discard_approval!(approval)
+      approval.update!(
+        status: "consumed",
+        consumed_by_actor_id: actor_id,
+        consumed_by_role: actor_project_role,
+        consumed_at: Time.current
+      )
+    end
+
+    def actor_project_role
+      project.project_memberships.active.find_by(actor_id: actor_id)&.role
     end
 
     def record_audit_log!(data)
@@ -187,6 +260,65 @@ module Operations
         message: "失敗ジョブを破棄する前にリスク確認が必要です。",
         http_status: :unprocessable_entity,
         details: { action: action, discard_safety_confirmed: false }
+      )
+    end
+
+    def discard_approval_required
+      Result.new(
+        success?: false,
+        code: "failed_job_discard_approval_required",
+        message: "失敗ジョブ破棄には二人承認が必要です。",
+        http_status: :unprocessable_entity,
+        details: { action: action, discard_approval_id: "required" }
+      )
+    end
+
+    def discard_approval_not_found
+      Result.new(
+        success?: false,
+        code: "failed_job_discard_approval_not_found",
+        message: "失敗ジョブ破棄承認が見つかりませんでした。",
+        http_status: :not_found,
+        details: { discard_approval_id: discard_approval_id }
+      )
+    end
+
+    def discard_approval_not_approved(approval)
+      Result.new(
+        success?: false,
+        code: "failed_job_discard_approval_not_approved",
+        message: "失敗ジョブ破棄承認が完了していません。",
+        http_status: :unprocessable_entity,
+        details: approval.api_json
+      )
+    end
+
+    def discard_approval_expired(approval)
+      approval.update!(status: "expired") if approval.pending? || approval.approved?
+      AuditLog.record!(
+        project: project,
+        action: "operations.failed_job_discard_approval_expired",
+        target: approval,
+        actor_id: actor_id,
+        summary: "失敗ジョブ破棄の二人承認が期限切れになりました。",
+        metadata: approval.safe_metadata
+      )
+      Result.new(
+        success?: false,
+        code: "failed_job_discard_approval_expired",
+        message: "失敗ジョブ破棄承認の期限が切れています。",
+        http_status: :unprocessable_entity,
+        details: approval.api_json
+      )
+    end
+
+    def discard_approval_mismatch(approval)
+      Result.new(
+        success?: false,
+        code: "failed_job_discard_approval_mismatch",
+        message: "失敗ジョブ破棄承認の対象が一致しません。",
+        http_status: :not_found,
+        details: { discard_approval_id: approval.id, failed_job_id: failed_job_id }
       )
     end
 

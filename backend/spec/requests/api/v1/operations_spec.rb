@@ -119,13 +119,117 @@ RSpec.describe "API V1 Operations", type: :request do
       )
 
       post "/api/v1/operations/failed-jobs/456/discard",
-           params: { project_id: project.id, reason_template: "free_text", discard_safety_confirmed: false },
+           params: { project_id: project.id, reason_template: "free_text", discard_safety_confirmed: false, discard_approval_id: SecureRandom.uuid },
            headers: auth_headers("admin-actor"),
            as: :json
 
       expect(response).to have_http_status(422)
       expect(JSON.parse(response.body).dig("error", "code")).to eq("failed_job_reason_template_invalid")
       expect(response.body).not_to include("raw exception")
+    end
+  end
+
+  describe "POST /api/v1/operations/failed-jobs/:failed_job_id/discard-approval-requests" do
+    it "allows project admins to request discard approval" do
+      project = create(:project)
+      authorize_project(project, actor_id: "admin-actor", role: "admin")
+      approval_id = SecureRandom.uuid
+      stub_discard_approval_service(
+        method_name: :request,
+        result: Operations::FailedJobDiscardApprovalService::Result.new(
+          success?: true,
+          data: {
+            id: approval_id,
+            project_id: project.id,
+            failed_job_id: 456,
+            job_id: 123,
+            status: "pending",
+            requested_by_actor_id: "admin-actor",
+            expires_at: "2026-07-07T12:40:00Z"
+          }
+        )
+      )
+
+      post "/api/v1/operations/failed-jobs/456/discard-approval-requests",
+           params: { project_id: project.id, reason_template: "manually_resolved", discard_safety_confirmed: true },
+           headers: auth_headers("admin-actor"),
+           as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(JSON.parse(response.body).dig("data", "id")).to eq(approval_id)
+    end
+
+    it "rejects non-admin project members" do
+      project = create(:project)
+      authorize_project(project, actor_id: "viewer-actor", role: "viewer")
+
+      post "/api/v1/operations/failed-jobs/456/discard-approval-requests",
+           params: { project_id: project.id, reason_template: "manually_resolved", discard_safety_confirmed: true },
+           headers: auth_headers("viewer-actor"),
+           as: :json
+
+      expect(response).to have_http_status(:forbidden)
+      expect(JSON.parse(response.body).dig("error", "code")).to eq("project_forbidden")
+    end
+  end
+
+  describe "POST /api/v1/operations/failed-job-discard-approvals/:approval_id/approve" do
+    it "allows project owners to approve discard approval" do
+      project = create(:project)
+      authorize_project(project, actor_id: "approver-actor", role: "owner")
+      approval_id = SecureRandom.uuid
+      stub_discard_approval_service(
+        method_name: :approve,
+        result: Operations::FailedJobDiscardApprovalService::Result.new(
+          success?: true,
+          data: {
+            id: approval_id,
+            project_id: project.id,
+            failed_job_id: 456,
+            status: "approved",
+            approved_by_actor_id: "approver-actor",
+            approval_note_present: true
+          }
+        )
+      )
+
+      post "/api/v1/operations/failed-job-discard-approvals/#{approval_id}/approve",
+           params: { project_id: project.id, approval_note: "対象と復旧不要の根拠を確認しました。" },
+           headers: auth_headers("approver-actor"),
+           as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(JSON.parse(response.body).dig("data", "status")).to eq("approved")
+    end
+  end
+
+  describe "POST /api/v1/operations/failed-job-discard-approvals/:approval_id/reject" do
+    it "allows project owners to reject discard approval" do
+      project = create(:project)
+      authorize_project(project, actor_id: "approver-actor", role: "owner")
+      approval_id = SecureRandom.uuid
+      stub_discard_approval_service(
+        method_name: :reject,
+        result: Operations::FailedJobDiscardApprovalService::Result.new(
+          success?: true,
+          data: {
+            id: approval_id,
+            project_id: project.id,
+            failed_job_id: 456,
+            status: "rejected",
+            rejected_by_actor_id: "approver-actor",
+            rejection_reason_present: true
+          }
+        )
+      )
+
+      post "/api/v1/operations/failed-job-discard-approvals/#{approval_id}/reject",
+           params: { project_id: project.id, rejection_reason: "根拠不足のため却下します。" },
+           headers: auth_headers("approver-actor"),
+           as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(JSON.parse(response.body).dig("data", "status")).to eq("rejected")
     end
   end
 
@@ -138,8 +242,15 @@ RSpec.describe "API V1 Operations", type: :request do
         failed_job_id: "456",
         action: action,
         reason_template: instance_of(String),
-        discard_safety_confirmed: anything
+        discard_safety_confirmed: anything,
+        discard_approval_id: anything
       )
       .and_return(service)
+  end
+
+  def stub_discard_approval_service(method_name:, result:)
+    service = instance_double(Operations::FailedJobDiscardApprovalService)
+    allow(service).to receive(method_name).and_return(result)
+    allow(Operations::FailedJobDiscardApprovalService).to receive(:new).and_return(service)
   end
 end

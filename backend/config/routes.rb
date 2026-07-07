@@ -56,6 +56,9 @@ Rails.application.routes.draw do
       get "operations/queue-health", to: "operations#queue_health"
       post "operations/failed-jobs/:failed_job_id/retry", to: "operations#retry_failed_job"
       post "operations/failed-jobs/:failed_job_id/discard", to: "operations#discard_failed_job"
+      post "operations/failed-jobs/:failed_job_id/discard-approval-requests", to: "operations#request_failed_job_discard_approval"
+      post "operations/failed-job-discard-approvals/:approval_id/approve", to: "operations#approve_failed_job_discard_approval"
+      post "operations/failed-job-discard-approvals/:approval_id/reject", to: "operations#reject_failed_job_discard_approval"
     end
   end
 
