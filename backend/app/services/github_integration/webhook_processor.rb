@@ -9,6 +9,7 @@ module GithubIntegration
     SAFE_PERMISSION_KEYS = %w[metadata issues contents pull_requests administration].freeze
     REVOKED_ACTIONS = %w[deleted suspend].freeze
     REFRESH_ACTIONS = %w[created unsuspend new_permissions_accepted].freeze
+    REPOSITORY_ACTIONS = %w[added removed].freeze
 
     def call(event:, delivery_id:, payload:)
       parsed_payload = parse_payload(payload)
@@ -140,6 +141,8 @@ module GithubIntegration
 
     def process_installation_repositories_event(payload, delivery)
       action = payload["action"].to_s
+      return 0 unless REPOSITORY_ACTIONS.include?(action)
+
       installation_id = required_installation_id(payload)
       permissions = safe_permissions(payload.dig("installation", "permissions"))
       repositories = repositories_for_action(payload, action)

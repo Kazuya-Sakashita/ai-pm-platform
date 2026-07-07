@@ -43,7 +43,7 @@ tags:
   - name: Operations
     description: Read-only operational health and queue monitoring endpoints.
   - name: Webhooks
-    description: Incoming webhook endpoints for connected external systems.
+    description: 外部連携サービスから受信するwebhook endpoint。
   - name: AuditLogs
     description: Immutable project activity and security audit records.
 paths:
@@ -1413,7 +1413,7 @@ paths:
   /webhooks/github:
     post:
       tags: [Webhooks]
-      summary: Receive GitHub App webhook
+      summary: GitHub App webhookを受信する
       operationId: receiveGitHubWebhook
       security: []
       parameters:
@@ -1429,7 +1429,7 @@ paths:
               additionalProperties: true
       responses:
         "202":
-          description: Webhook accepted
+          description: Webhookを受理した
           content:
             application/json:
               schema:
@@ -4538,7 +4538,7 @@ components:
               type: string
               minLength: 64
               maxLength: 64
-              description: SHA-256 digest of the GitHub delivery id. The raw delivery id is not returned.
+              description: GitHub delivery idのSHA-256 digest。delivery id生値は返さない。
             event:
               type: string
             status:

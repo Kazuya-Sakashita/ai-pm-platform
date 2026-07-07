@@ -83,6 +83,21 @@ RSpec.describe "API V1 GitHub Webhooks", type: :request do
       expect(project.audit_logs.where(action: "github.webhook.installation_sync")).to be_empty
     end
 
+    it "secret未設定では検証前副作用を発生させない" do
+      payload = installation_payload(action: "deleted")
+
+      with_env("GITHUB_WEBHOOK_SECRET" => nil) do
+        post_webhook(payload: payload, event: "installation", delivery: "delivery-secret-missing")
+      end
+
+      expect(response).to have_http_status(:unauthorized)
+      body = JSON.parse(response.body)
+      expect(body.dig("error", "code")).to eq("github_webhook_secret_not_configured")
+      expect(account.reload.status).to eq("connected")
+      expect(GithubWebhookDelivery.count).to eq(0)
+      expect(project.audit_logs.where(action: "github.webhook.installation_sync")).to be_empty
+    end
+
     it "JSON不正ではdeliveryもpayloadも保存しない" do
       payload = "{invalid-json"
 
@@ -119,6 +134,49 @@ RSpec.describe "API V1 GitHub Webhooks", type: :request do
       expect(account.reload.status).to eq("revoked")
       expect(other_account.reload.status).to eq("connected")
       expect(project.audit_logs.where(action: "github.webhook.installation_sync").count).to eq(1)
+    end
+
+    it "repository addedでIssues write権限があればconnectedへ復旧する" do
+      account.update!(
+        status: "error",
+        last_error_safe: "GitHub AppのIssues write権限がありません。",
+        granted_permissions: { "metadata" => "read", "issues" => "read" }
+      )
+      payload = JSON.generate(
+        action: "added",
+        installation: installation_payload_hash.fetch(:installation),
+        repositories_added: [
+          { full_name: "Kazuya-Sakashita/ai-pm-platform" }
+        ]
+      )
+
+      post_webhook(payload: payload, event: "installation_repositories", delivery: "delivery-repo-added")
+
+      expect(response).to have_http_status(:accepted)
+      expect(account.reload).to have_attributes(
+        status: "connected",
+        last_error_safe: nil
+      )
+      expect(account.granted_permissions).to include("issues" => "write")
+      audit_log = project.audit_logs.find_by!(action: "github.webhook.installation_sync")
+      expect(audit_log.metadata).to include("sync_status" => "connected")
+    end
+
+    it "installation repositoriesの未知actionは副作用なしでignoredにする" do
+      payload = JSON.generate(
+        action: "renamed",
+        installation: installation_payload_hash.fetch(:installation),
+        repositories_added: [
+          { full_name: "Kazuya-Sakashita/ai-pm-platform" }
+        ]
+      )
+
+      post_webhook(payload: payload, event: "installation_repositories", delivery: "delivery-repo-unknown-action")
+
+      expect(response).to have_http_status(:accepted)
+      expect(account.reload.status).to eq("connected")
+      expect(GithubWebhookDelivery.last.status).to eq("ignored")
+      expect(project.audit_logs.where(action: "github.webhook.installation_sync")).to be_empty
     end
 
     it "Issues write権限が失われたらerrorへ同期する" do
