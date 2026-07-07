@@ -15,6 +15,7 @@ RSpec.describe Operations::QueueHealthQuery do
         stub_worker(last_heartbeat_at: checked_at - 10.seconds)
         stub_unfinished_jobs(queue_name: "github_reconciliation", count: 2, oldest_at: checked_at - 400.seconds)
         stub_failed_job_samples(failed_at: checked_at - 30.seconds, product_job: product_job)
+        stub_retry_refailure_failed_execution_rows(job_ids: [ 123 ], rows: [])
         stub_recurring_tasks
         record_failed_job_operation_logs(project: project, product_job: product_job, checked_at: checked_at)
         notification_service = instance_double(Operations::FailedJobNotificationService, notify_release_gate: true)
@@ -52,6 +53,13 @@ RSpec.describe Operations::QueueHealthQuery do
           retry_count: 1,
           discard_count: 1,
           rejected_count: 1,
+          retry_refailure: hash_including(
+            measured: true,
+            rate: 0.0,
+            numerator: 0,
+            denominator: 1,
+            threshold: 0.1
+          ),
           last_operated_at: checked_at.iso8601
         )
         expect(data[:failed_job_operation_history]).to contain_exactly(
@@ -85,7 +93,7 @@ RSpec.describe Operations::QueueHealthQuery do
         expect(data.dig(:failed_job_release_gate, :checks)).to include(
           hash_including(key: "oldest_unfinished_age", status: "warning", observed_value: "1 queue"),
           hash_including(key: "boundary_rejected_count", status: "blocked", observed_value: "1件"),
-          hash_including(key: "retry_refailure_rate", status: "not_measured")
+          hash_including(key: "retry_refailure_rate", status: "pass", observed_value: "0.0% (0/1)")
         )
         expect(data[:recurring_tasks]).to contain_exactly(hash_including(key: "cleanup_expired_github_connection_states"))
         expect(data.dig(:product_jobs, :recent_failed_count)).to eq(1)
@@ -112,7 +120,18 @@ RSpec.describe Operations::QueueHealthQuery do
       expect(data[:warnings].join(" ")).to include("Solid Queue")
       expect(data[:failed_executions]).to eq(count: 0)
       expect(data[:failed_job_samples]).to eq([])
-      expect(data[:failed_job_operation_metrics]).to include(retry_count: 0, discard_count: 0, rejected_count: 0)
+      expect(data[:failed_job_operation_metrics]).to include(
+        retry_count: 0,
+        discard_count: 0,
+        rejected_count: 0,
+        retry_refailure: hash_including(
+          measured: false,
+          rate: nil,
+          numerator: 0,
+          denominator: 0,
+          threshold: 0.1
+        )
+      )
       expect(data[:failed_job_operation_history]).to eq([])
       expect(data[:failed_job_release_gate]).to include(status: "blocked", notification_required: true)
       expect(data.dig(:failed_job_release_gate, :checks)).to contain_exactly(
@@ -144,7 +163,7 @@ RSpec.describe Operations::QueueHealthQuery do
           hash_including(key: "worker_heartbeat", status: "pass"),
           hash_including(key: "failed_execution_count", status: "pass"),
           hash_including(key: "boundary_rejected_count", status: "pass"),
-          hash_including(key: "retry_refailure_rate", status: "not_measured")
+          hash_including(key: "retry_refailure_rate", status: "not_measured", observed_value: "未計測")
         )
       end
     end
@@ -169,6 +188,7 @@ RSpec.describe Operations::QueueHealthQuery do
         expect(data.to_s).not_to include(other_product_job.id)
       end
     end
+
   end
 
   def stub_solid_queue_tables(available:)
@@ -241,6 +261,12 @@ RSpec.describe Operations::QueueHealthQuery do
     ordered_failed_executions = instance_double(ActiveRecord::Relation)
     allow(SolidQueue::FailedExecution).to receive(:order).with(created_at: :desc).and_return(ordered_failed_executions)
     allow(ordered_failed_executions).to receive(:limit).with(Operations::QueueHealthQuery::FAILED_JOB_LOOKUP_LIMIT).and_return([])
+  end
+
+  def stub_retry_refailure_failed_execution_rows(job_ids:, rows:)
+    failed_execution_scope = instance_double(ActiveRecord::Relation)
+    allow(SolidQueue::FailedExecution).to receive(:where).with(job_id: job_ids).and_return(failed_execution_scope)
+    allow(failed_execution_scope).to receive(:pluck).with(:job_id, :created_at).and_return(rows)
   end
 
   def stub_recurring_tasks

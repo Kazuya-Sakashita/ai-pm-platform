@@ -3971,7 +3971,7 @@ components:
 
     FailedJobOperationMetrics:
       type: object
-      required: [recent_window_hours, retry_count, discard_count, rejected_count]
+      required: [recent_window_hours, retry_count, discard_count, rejected_count, retry_refailure]
       properties:
         recent_window_hours:
           type: integer
@@ -3985,9 +3985,58 @@ components:
         rejected_count:
           type: integer
           minimum: 0
+        retry_refailure:
+          $ref: "#/components/schemas/FailedJobRetryRefailureMetrics"
         last_operated_at:
           type: string
           format: date-time
+
+    FailedJobRetryRefailureMetrics:
+      type: object
+      required: [measured, window_hours, retry_count, numerator, denominator, threshold, exclusions]
+      properties:
+        measured:
+          type: boolean
+          description: この計測窓でAuditLogとjob_queue_mappingsから計測できた場合はtrue。
+        window_hours:
+          type: integer
+          minimum: 1
+        retry_count:
+          type: integer
+          minimum: 0
+        rate:
+          oneOf:
+            - type: number
+              minimum: 0
+              maximum: 1
+            - type: "null"
+          description: retry後再失敗率を0から1の小数で表す。0.1は10%。
+        numerator:
+          type: integer
+          minimum: 0
+        denominator:
+          type: integer
+          minimum: 0
+        threshold:
+          type: number
+          minimum: 0
+          maximum: 1
+        exclusions:
+          type: object
+          required: [missing_product_job_id, missing_solid_queue_job_id, mapping_mismatch, solid_queue_unavailable]
+          properties:
+            missing_product_job_id:
+              type: integer
+              minimum: 0
+            missing_solid_queue_job_id:
+              type: integer
+              minimum: 0
+            mapping_mismatch:
+              type: integer
+              minimum: 0
+            solid_queue_unavailable:
+              type: integer
+              minimum: 0
 
     FailedJobOperationHistoryItem:
       type: object

@@ -4,6 +4,7 @@ module Operations
     OLDEST_UNFINISHED_THRESHOLD_SECONDS = QueueHealthQuery::OLDEST_UNFINISHED_THRESHOLD_SECONDS
     FAILED_EXECUTION_WARNING_THRESHOLD = 5
     FAILED_JOB_RETRY_WARNING_THRESHOLD = 10
+    FAILED_JOB_RETRY_REFAILURE_WARNING_THRESHOLD = 0.1
     FAILED_JOB_DISCARD_WARNING_THRESHOLD = 5
     FAILED_JOB_BOUNDARY_REJECTION_BLOCK_THRESHOLD = 1
     MAPPING_FALLBACK_WARNING_THRESHOLD = 1
@@ -135,11 +136,11 @@ module Operations
         release_gate_check(
           key: "retry_refailure_rate",
           label: "retry後再失敗率",
-          status: "not_measured",
-          severity: "info",
-          observed_value: "未計測",
-          threshold: "10%未満",
-          next_action: "job_queue_mappingsとAuditLogのretry履歴から計測する後続Issueを作成します。"
+          status: retry_refailure_measured? ? retry_refailure_status : "not_measured",
+          severity: retry_refailure_status == "warning" ? "warning" : "info",
+          observed_value: retry_refailure_observed_value,
+          threshold: "#{(FAILED_JOB_RETRY_REFAILURE_WARNING_THRESHOLD * 100).to_i}%未満",
+          next_action: retry_refailure_next_action
         )
       ]
     end
@@ -242,6 +243,43 @@ module Operations
 
     def retry_count
       metrics.fetch(:retry_count).to_i
+    end
+
+    def retry_refailure
+      metrics.fetch(:retry_refailure, {})
+    end
+
+    def retry_refailure_measured?
+      retry_refailure.fetch(:measured, retry_refailure.fetch("measured", false))
+    end
+
+    def retry_refailure_rate
+      retry_refailure.fetch(:rate, retry_refailure.fetch("rate", nil)).to_f
+    end
+
+    def retry_refailure_numerator
+      retry_refailure.fetch(:numerator, retry_refailure.fetch("numerator", 0)).to_i
+    end
+
+    def retry_refailure_denominator
+      retry_refailure.fetch(:denominator, retry_refailure.fetch("denominator", 0)).to_i
+    end
+
+    def retry_refailure_status
+      retry_refailure_rate >= FAILED_JOB_RETRY_REFAILURE_WARNING_THRESHOLD ? "warning" : "pass"
+    end
+
+    def retry_refailure_observed_value
+      return "未計測" unless retry_refailure_measured?
+
+      "#{(retry_refailure_rate * 100).round(1)}% (#{retry_refailure_numerator}/#{retry_refailure_denominator})"
+    end
+
+    def retry_refailure_next_action
+      return "job_queue_mappingsとAuditLogのretry履歴から計測できる状態を確認します。" unless retry_refailure_measured?
+      return "retry理由、再失敗job、外部API状態を確認し、必要ならretryを停止します。" if retry_refailure_status == "warning"
+
+      "retry後再失敗率は閾値内です。継続監視します。"
     end
 
     def discard_count

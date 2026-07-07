@@ -1776,8 +1776,26 @@ export interface components {
             retry_count: number;
             discard_count: number;
             rejected_count: number;
+            retry_refailure: components["schemas"]["FailedJobRetryRefailureMetrics"];
             /** Format: date-time */
             last_operated_at?: string;
+        };
+        FailedJobRetryRefailureMetrics: {
+            /** @description この計測窓でAuditLogとjob_queue_mappingsから計測できた場合はtrue。 */
+            measured: boolean;
+            window_hours: number;
+            retry_count: number;
+            /** @description retry後再失敗率を0から1の小数で表す。0.1は10%。 */
+            rate?: number | null;
+            numerator: number;
+            denominator: number;
+            threshold: number;
+            exclusions: {
+                missing_product_job_id: number;
+                missing_solid_queue_job_id: number;
+                mapping_mismatch: number;
+                solid_queue_unavailable: number;
+            };
         };
         FailedJobOperationHistoryItem: {
             /** Format: uuid */

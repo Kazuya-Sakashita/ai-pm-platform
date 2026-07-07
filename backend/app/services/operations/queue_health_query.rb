@@ -251,6 +251,7 @@ module Operations
         retry_count: counts.fetch("operations.failed_job_retried", 0),
         discard_count: counts.fetch("operations.failed_job_discarded", 0),
         rejected_count: counts.fetch("operations.failed_job_project_boundary_rejected", 0),
+        retry_refailure: RetryRefailureRateQuery.new(project: project).call(checked_at: checked_at),
         last_operated_at: iso_time(recent_logs.maximum(:created_at))
       ).compact
     end
@@ -260,7 +261,8 @@ module Operations
         recent_window_hours: (RECENT_FAILURE_WINDOW / 1.hour).to_i,
         retry_count: 0,
         discard_count: 0,
-        rejected_count: 0
+        rejected_count: 0,
+        retry_refailure: RetryRefailureRateQuery.not_measured
       }
     end
 

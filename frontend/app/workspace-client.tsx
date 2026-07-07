@@ -367,6 +367,21 @@ function defaultFailedJobOperationMetrics(): QueueHealth["failed_job_operation_m
     retry_count: 0,
     discard_count: 0,
     rejected_count: 0,
+    retry_refailure: {
+      measured: false,
+      window_hours: 24,
+      retry_count: 0,
+      rate: null,
+      numerator: 0,
+      denominator: 0,
+      threshold: 0.1,
+      exclusions: {
+        missing_product_job_id: 0,
+        missing_solid_queue_job_id: 0,
+        mapping_mismatch: 0,
+        solid_queue_unavailable: 0,
+      },
+    },
   };
 }
 
