@@ -49,10 +49,15 @@ Requirement生成のOpenAI providerを明示設定時のみ利用できるよう
 - `docs/review/20260706_requirement_generation_quality_baseline_review.md`
 - `docs/review/20260706_requirement_generation_provider_rules_review.md`
 - `docs/review/20260707_requirement_followup_issue_split_review.md`
+- `docs/review/20260707_requirement_openai_provider_design_review.md`
+- `docs/review/20260707_requirement_openai_provider_comparison_security_qa_review.md`
+- `docs/review/20260707_requirement_openai_provider_implementation_review.md`
 
 ## レビュー結果
 
 Requirement生成品質の上限を引き上げるP1作業である。ただし、外部API依存をCIへ持ち込むと品質ゲートが不安定化するため、明示ENV、fixture比較、safe failureを前提にする。
+
+2026-07-07更新: OpenAI provider、ProviderFactory、safe error、request id監査、secret/PII送信前block、評価scriptのOpenAI provider指定、RSpecを追加した。deterministic baselineは合格。実OpenAI APIを使ったlive fixture評価は未実施のため、Issue完全クローズ前にmanual smokeまたは明示的なリスク受容が必要。
 
 ## 優先度
 
@@ -60,7 +65,7 @@ P1
 
 ## 次アクション
 
-1. 既存のMinutes/Conversation Summary provider実装を確認する。
-2. Requirement評価fixtureを再利用する設計レビューを作成する。
-3. OpenAI providerとsafe failure contractを実装する。
-4. deterministic providerとの比較結果を保存する。
+1. PRを作成し、通常CIでdeterministic経路が壊れていないことを確認する。
+2. 安全な検証環境でOpenAI live manual smokeを実施する。
+3. smoke結果を `docs/evaluation/` と `docs/review/` へ追記する。
+4. live結果がP0基準を満たす、または残リスクを明示受容した場合にGitHub Issue #69をクローズする。
