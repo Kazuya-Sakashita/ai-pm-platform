@@ -4532,9 +4532,14 @@ components:
       properties:
         data:
           type: object
-          required: [delivery_id, status]
+          required: [delivery_digest, event, status]
           properties:
-            delivery_id:
+            delivery_digest:
+              type: string
+              minLength: 64
+              maxLength: 64
+              description: SHA-256 digest of the GitHub delivery id. The raw delivery id is not returned.
+            event:
               type: string
             status:
               type: string

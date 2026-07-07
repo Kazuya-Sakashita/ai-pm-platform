@@ -24,6 +24,7 @@ Rails.application.routes.draw do
         post "approve", on: :member
       end
       post "integrations/github/callback", to: "integration_accounts#github_callback"
+      post "webhooks/github", to: "webhooks#github"
 
       resources :meetings, only: %i[show] do
         post "generate-minutes", to: "minutes#generate", on: :member

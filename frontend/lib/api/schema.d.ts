@@ -2023,7 +2023,9 @@ export interface components {
         };
         WebhookAcceptedResponse: {
             data: {
-                delivery_id: string;
+                /** @description SHA-256 digest of the GitHub delivery id. The raw delivery id is not returned. */
+                delivery_digest: string;
+                event: string;
                 /** @enum {string} */
                 status: "accepted" | "duplicate_ignored";
             };
