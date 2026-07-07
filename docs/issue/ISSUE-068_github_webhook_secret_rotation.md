@@ -54,10 +54,26 @@ GitHub Webhook secret rotationの設計方針をADR化し、staging / production
 ## 関連レビュー
 
 - `docs/review/20260707_github_webhook_signature_installation_sync_implementation_review.md`
+- `docs/review/20260707_github_webhook_secret_rotation_design_review.md`
+- `docs/review/20260707_github_webhook_secret_rotation_implementation_review.md`
+
+## 関連ADR
+
+- `docs/decisions/ADR-0021_github_webhook_secret_rotation.md`
 
 ## レビュー結果
 
 ISSUE-067の実装レビューで、secret rotationが未実装の改善点として残った。P0 blockerではないが、production運用前にはP1として方針を固定する必要がある。
+
+2026-07-07更新: ADR-0021でcurrent / previous secret方式を採用し、通常rotationは24時間以内にprevious secretを削除、緊急rotationではprevious secretを使わない方針を定義した。`WebhookSignatureVerifier` は `GITHUB_WEBHOOK_SECRET` と `GITHUB_WEBHOOK_PREVIOUS_SECRET` を検証できるようにし、previous secret署名deliveryをRequest specで確認した。runbookに通常rotation、緊急rotation、rollback、証跡項目を追加した。
+
+## 検証結果
+
+- `bundle exec rspec spec/services/github_integration/webhook_signature_verifier_spec.rb spec/requests/api/v1/webhooks_spec.rb`: 15 examples, 0 failures
+- `bundle exec rspec`: 390 examples, 0 failures
+- `bundle exec ruby bin/rails zeitwerk:check`: All is good
+- `npm run display:check`: Display labels OK
+- `git diff --check`: success
 
 ## 優先度
 
@@ -65,6 +81,6 @@ P1
 
 ## 次アクション
 
-1. rotation方式をADRで比較する。
-2. Verifierを変更する場合はOpenAPI影響なしでRSpecを追加する。
-3. staging / production runbookへrotation手順を追加する。
+1. PRを作成し、GitHub Actions `verify` を確認する。
+2. CI成功後にGitHub Issue #108をクローズする。
+3. 実GitHub deliveryでのrotation smokeはISSUE-004のrelease gateとして継続する。

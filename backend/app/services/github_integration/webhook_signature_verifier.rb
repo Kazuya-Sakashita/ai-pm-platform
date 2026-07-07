@@ -4,23 +4,26 @@ module GithubIntegration
   class WebhookSignatureVerifier
     SIGNATURE_PREFIX = "sha256=".freeze
 
-    def initialize(secret: ENV["GITHUB_WEBHOOK_SECRET"])
-      @secret = secret.to_s
+    def initialize(secret: ENV["GITHUB_WEBHOOK_SECRET"], previous_secret: ENV["GITHUB_WEBHOOK_PREVIOUS_SECRET"])
+      @secrets = [secret, previous_secret].filter_map { |value| value.to_s.presence }.uniq
     end
 
     def verify!(payload:, signature:)
-      raise secret_missing_error if secret.blank?
+      raise secret_missing_error if secrets.empty?
       raise signature_invalid_error unless signature.to_s.start_with?(SIGNATURE_PREFIX)
 
-      expected = "#{SIGNATURE_PREFIX}#{OpenSSL::HMAC.hexdigest("SHA256", secret, payload.to_s)}"
-      return true if secure_compare(signature.to_s, expected)
+      return true if secrets.any? { |candidate| secure_compare(signature.to_s, expected_signature(candidate, payload)) }
 
       raise signature_invalid_error
     end
 
     private
 
-    attr_reader :secret
+    attr_reader :secrets
+
+    def expected_signature(secret, payload)
+      "#{SIGNATURE_PREFIX}#{OpenSSL::HMAC.hexdigest("SHA256", secret, payload.to_s)}"
+    end
 
     def secure_compare(actual, expected)
       actual.bytesize == expected.bytesize &&

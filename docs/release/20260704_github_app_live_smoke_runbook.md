@@ -33,6 +33,7 @@ GITHUB_APP_SLUG=ai-pm-platform
 GITHUB_APP_PRIVATE_KEY_BASE64=base64-encoded-pem
 GITHUB_APP_INSTALLATION_URL=https://github.com/apps/ai-pm-platform/installations/new
 GITHUB_API_BASE_URL=https://api.github.com
+GITHUB_WEBHOOK_SECRET=webhook-secret-from-secret-store
 ```
 
 Prefer `GITHUB_APP_PRIVATE_KEY_BASE64` over raw PEM in shell environments to avoid newline corruption. Do not set both private key variables unless intentionally testing precedence.
@@ -41,6 +42,12 @@ Required GitHub App permissions:
 
 - Metadata: read
 - Issues: write
+
+## GitHub Webhook Secret Rotation
+
+Webhook secret rotationの詳細手順は `docs/release/20260707_github_webhook_secret_rotation_runbook.md` に分離する。
+
+live smokeでは、raw webhook secret、signature、payload、GitHub delivery id生値を保存しない。証跡はdelivery digest、safe error code、環境名、commit SHA、実行時刻、結論に限定する。
 
 ## Preconditions
 
