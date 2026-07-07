@@ -8,6 +8,7 @@ RSpec.describe Operations::QueueHealthQuery do
       checked_at = Time.zone.parse("2026-07-04 12:00:00")
       project = create(:project)
       product_job = create(:job, project: project, job_type: "github_reconciliation", target_type: "github_issue_publish_attempt", status: "failed", safe_error_detail: "raw provider failure")
+      create(:job_queue_mapping, product_job: product_job, solid_queue_job_id: 123, active_job_id: "active-job-123")
 
       travel_to(checked_at) do
         stub_solid_queue_tables(available: true)
@@ -30,6 +31,7 @@ RSpec.describe Operations::QueueHealthQuery do
             product_job_id: product_job.id,
             project_id: project.id,
             project_boundary_status: "verified",
+            product_job_mapping_source: "explicit",
             queue_name: "github_reconciliation",
             class_name: "GithubIssuePublish::ReconciliationRetryJob",
             active_job_id: "active-job-123",
@@ -51,7 +53,7 @@ RSpec.describe Operations::QueueHealthQuery do
           last_operated_at: checked_at.iso8601
         )
         expect(data[:failed_job_operation_history]).to contain_exactly(
-          hash_including(action: "retry", outcome: "succeeded", reason_template: "operator_confirmed_safe_retry", product_job_id: product_job.id),
+          hash_including(action: "retry", outcome: "succeeded", reason_template: "operator_confirmed_safe_retry", product_job_id: product_job.id, product_job_mapping_source: "explicit"),
           hash_including(action: "discard", outcome: "succeeded", reason_template: "manually_resolved", discard_safety_confirmed: true),
           hash_including(action: "boundary_rejected", outcome: "rejected", project_boundary_status: "project_mismatch")
         )
@@ -193,6 +195,7 @@ RSpec.describe Operations::QueueHealthQuery do
           job_id: 123,
           product_job_id: product_job.id,
           project_boundary_status: "verified",
+          product_job_mapping_source: "explicit",
           reason_template: "operator_confirmed_safe_retry",
           reason_template_label: "運用者が副作用リスクを確認したため再実行します。"
         }
@@ -205,6 +208,7 @@ RSpec.describe Operations::QueueHealthQuery do
           job_id: 124,
           product_job_id: product_job.id,
           project_boundary_status: "verified",
+          product_job_mapping_source: "explicit",
           reason_template: "manually_resolved",
           reason_template_label: "手動対応済みのため破棄します。",
           discard_safety_confirmed: true

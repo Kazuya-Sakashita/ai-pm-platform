@@ -3,6 +3,7 @@ class Job < ApplicationRecord
   STATUSES = %w[queued running succeeded failed cancelled].freeze
 
   belongs_to :project
+  has_many :queue_mappings, class_name: "JobQueueMapping", dependent: :destroy, inverse_of: :product_job
 
   validates :job_type, inclusion: { in: JOB_TYPES }
   validates :status, inclusion: { in: STATUSES }

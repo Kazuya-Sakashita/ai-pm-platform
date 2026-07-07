@@ -51,15 +51,36 @@ Product JobとSolid Queue jobの関連を明示的に保存し、Queue health表
 
 - `docs/review/20260707_failed_job_project_boundary_design_review.md`
 - `docs/review/20260707_failed_job_project_boundary_implementation_review.md`
+- `docs/decisions/ADR-0018_solid_queue_product_job_mapping.md`
+- `docs/review/20260707_solid_queue_product_job_mapping_design_review.md`
+- `docs/review/20260707_solid_queue_product_job_mapping_implementation_review.md`
 
 ## レビュー結果
 
 P2。ISSUE-059のMVPは合格だが、ActiveJob arguments依存は長期運用で脆い。Security EngineerとBackend Architect観点では、本番運用前またはfailed job操作対象が増える前に、明示マッピングへ移行できる設計を準備すべきである。
 
+2026-07-07追記: ADR-0018で新規 `job_queue_mappings` table方式を採用した。Product Jobへ単一の `solid_queue_job_id` を持たせる案は、同一Product Jobの複数reschedule履歴を保持できないため不採用とした。
+
+## 実装結果
+
+- `job_queue_mappings` tableを追加し、Product JobとSolid Queue jobの明示マッピングを保存できるようにした。
+- `GithubIssuePublish::ReconciliationRetryScheduler` と `GithubIssuePublish::ReconciliationRetryJob` のreschedule経路で、Solid Queueの `provider_job_id` が取得できる場合にmappingを保存するようにした。
+- `Operations::FailedJobProjectResolver` は明示mappingを優先し、欠落時は既存のarguments fallbackを使うようにした。
+- Queue health sample、failed job操作結果、AuditLog履歴に `product_job_mapping_source` を追加した。
+- Frontendの運用画面で「境界根拠: 明示マッピング / 引数復元」を表示するようにした。
+
+## 検証結果
+
+- 2026-07-07: `RAILS_ENV=test bundle exec rails db:migrate`: 成功
+- 2026-07-07: `bundle exec rspec spec/models/job_queue_mapping_spec.rb spec/services/github_issue_publish/reconciliation_retry_scheduler_spec.rb spec/services/operations/failed_job_project_resolver_spec.rb spec/services/operations/failed_job_operation_service_spec.rb spec/services/operations/queue_health_query_spec.rb spec/jobs/github_issue_publish/reconciliation_retry_job_spec.rb`: 29 examples, 0 failures
+- 2026-07-07: `npm run api:verify`: 成功。Redocly CLIのNode version warningのみ非ブロッキング
+- 2026-07-07: `npm run display:check`: 成功
+- 2026-07-07: `npm run frontend:build`: 成功
+- 2026-07-07: `npm run frontend:e2e -- e2e/queue-health.spec.ts`: 1 passed
+- 2026-07-07: `bundle exec ruby bin/rails zeitwerk:check`: 成功
+
 ## 次アクション
 
-1. 既存のProduct `jobs`、Solid Queue tables、ActiveJob enqueue時点の取得可能IDを調査する。
-2. 新規マッピングテーブル、Product Jobへのsolid_queue_job_id追加、AuditLog補完の3案を比較する。
-3. ADRを作成し、選定理由とfallback方針を記録する。
-4. OpenAPI、Backend、RSpecの変更範囲を確定する。
-5. 実装後、ISSUE-059のResolverが明示マッピングを優先することを確認する。
+1. PRを作成し、GitHub Actions `verify` を確認する。
+2. CI成功後、GitHub Issue #94へ検証結果をコメントし、PR mergeでクローズする。
+3. retry後再失敗率、mapping missing rate、通知/承認gateはISSUE-063 / GitHub Issue #96で継続する。

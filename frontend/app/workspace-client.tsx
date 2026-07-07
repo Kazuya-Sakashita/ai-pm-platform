@@ -53,6 +53,7 @@ type FailedJobSample = components["schemas"]["FailedJobSample"];
 type FailedJobOperationReasonTemplate = components["schemas"]["FailedJobOperationReasonTemplate"];
 type FailedJobRetryReasonTemplate = components["schemas"]["FailedJobRetryReasonTemplate"];
 type FailedJobDiscardReasonTemplate = components["schemas"]["FailedJobDiscardReasonTemplate"];
+type FailedJobProductJobMappingSource = components["schemas"]["FailedJobProductJobMappingSource"];
 type FailedJobOperationHistoryItem = components["schemas"]["FailedJobOperationHistoryItem"];
 type Review = components["schemas"]["Review"];
 type IntegrationAccount = components["schemas"]["IntegrationAccount"];
@@ -160,6 +161,11 @@ const failedJobOperationActionLabels: Record<FailedJobOperationHistoryItem["acti
   retry: "再実行",
   discard: "破棄",
   boundary_rejected: "境界拒否",
+};
+
+const failedJobMappingSourceLabels: Record<FailedJobProductJobMappingSource, string> = {
+  explicit: "明示マッピング",
+  arguments: "引数復元",
 };
 
 const projectMembershipRoles: ProjectMembershipRole[] = ["owner", "admin", "editor", "reviewer", "viewer", "auditor"];
@@ -3037,6 +3043,9 @@ export default function MeetingWorkspace() {
                           <span>{job.queue_name}</span>
                           {job.product_job_id ? <span>管理ジョブID: {job.product_job_id}</span> : null}
                           {job.project_boundary_status === "verified" ? <span>Project境界確認済み</span> : null}
+                          {job.product_job_mapping_source ? (
+                            <span>境界根拠: {failedJobMappingSourceLabels[job.product_job_mapping_source]}</span>
+                          ) : null}
                           <span>{formatDateTime(job.failed_at)}</span>
                         </div>
                         <div className="failed-job-actions">
@@ -3110,6 +3119,9 @@ export default function MeetingWorkspace() {
                           <span>担当: {entry.actor_id}</span>
                           {entry.reason_template ? <span>理由: {failedJobOperationReasonLabels[entry.reason_template]}</span> : null}
                           {entry.project_boundary_status ? <span>境界: {statusLabel(entry.project_boundary_status)}</span> : null}
+                          {entry.product_job_mapping_source ? (
+                            <span>境界根拠: {failedJobMappingSourceLabels[entry.product_job_mapping_source]}</span>
+                          ) : null}
                           <span>{formatDateTime(entry.created_at)}</span>
                         </div>
                       </div>

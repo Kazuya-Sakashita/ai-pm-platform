@@ -1577,12 +1577,13 @@ export interface components {
             job_id?: number;
             /**
              * Format: uuid
-             * @description Project-scoped application job id verified from Solid Queue arguments.
+             * @description Project-scoped application job id verified from explicit mapping or Solid Queue arguments fallback.
              */
             product_job_id?: string;
             /** Format: uuid */
             project_id?: string;
             project_boundary_status?: components["schemas"]["FailedJobProjectBoundaryStatus"];
+            product_job_mapping_source?: components["schemas"]["FailedJobProductJobMappingSource"];
             queue_name: string;
             class_name: string;
             active_job_id?: string;
@@ -1602,6 +1603,8 @@ export interface components {
         };
         /** @enum {string} */
         FailedJobProjectBoundaryStatus: "verified" | "product_job_unresolved" | "product_job_ambiguous" | "product_job_lookup_failed" | "solid_queue_job_missing" | "project_mismatch";
+        /** @enum {string} */
+        FailedJobProductJobMappingSource: "explicit" | "arguments";
         /** @enum {string} */
         FailedJobOperationReasonTemplate: "transient_failure_recovered" | "operator_confirmed_safe_retry" | "manually_resolved" | "unsafe_to_retry";
         /** @enum {string} */
@@ -1625,6 +1628,7 @@ export interface components {
             project_id: string;
             /** @enum {string} */
             project_boundary_status: "verified";
+            product_job_mapping_source: components["schemas"]["FailedJobProductJobMappingSource"];
             /** @enum {string} */
             action: "retry" | "discard";
             queue_name?: string;
@@ -1675,6 +1679,7 @@ export interface components {
             /** Format: uuid */
             product_job_id?: string;
             project_boundary_status?: components["schemas"]["FailedJobProjectBoundaryStatus"];
+            product_job_mapping_source?: components["schemas"]["FailedJobProductJobMappingSource"];
             reason_template?: components["schemas"]["FailedJobOperationReasonTemplate"];
             reason_template_label?: string;
             discard_safety_confirmed?: boolean;
