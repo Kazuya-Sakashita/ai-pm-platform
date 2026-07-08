@@ -25,13 +25,26 @@
 
 通常CIでは実行しない。実API検証を行う場合は、安全な検証用Minutesだけを使い、以下を実行する。
 
+実行前に、secret値を出力しないreadiness scriptで設定状態を確認する。
+
 ```bash
-REQUIREMENT_GENERATION_PROVIDER=openai \
-OPENAI_API_KEY=... \
-OPENAI_REQUIREMENT_MODEL=gpt-5.5 \
+set -a
+source .env
+set +a
+npm run requirements:openai:readiness
+```
+
+`safe_failures` が空の場合のみ、live評価を実行する。
+
+```bash
+cd backend
+set -a
+source ../.env
+set +a
 bundle exec ruby ../scripts/evaluate-requirement-generation.rb \
   --provider openai \
-  --output docs/evaluation/20260707_requirement_generation_openai_provider_live.md \
+  --output docs/evaluation/20260708_requirement_generation_openai_live.md \
+  --enforce \
   --quiet
 ```
 
