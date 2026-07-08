@@ -12,4 +12,5 @@
 - `20260706_jwt_key_rotation_runbook.md`: JWT key rotation、session revocation、emergency key compromise対応手順
 - `20260708_issue004_live_gate_operator_checklist.md`: ISSUE-004のWebhook/worker live gate運用チェックリスト
 - `20260708_requirement_openai_live_smoke_runbook.md`: Requirement生成OpenAI providerのlive評価手順
+- `20260708_requirement_openai_quota_operator_checklist.md`: Requirement OpenAI live評価のquota/billing/model access確認チェックリスト
 - `../review/20260707_failed_job_worker_smoke_evidence_template.md`: failed job retry/discard worker smoke証跡テンプレート
