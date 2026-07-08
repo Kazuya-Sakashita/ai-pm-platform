@@ -1,0 +1,31 @@
+{
+  "generated_at": "2026-07-08T19:50:40Z",
+  "fixture_issue": "ISSUE-003",
+  "fixture_version": "2026-07-06.requirement-generation.v1",
+  "provider": "openai",
+  "status": "safe_failure",
+  "selected_case_ids": [
+    "CASE-RQ-001"
+  ],
+  "completed_case_ids": [
+
+  ],
+  "next_case_id": "CASE-RQ-001",
+  "safe_failure": {
+    "error_class": "RequirementGeneration::ProviderError",
+    "error_code": "insufficient_quota",
+    "http_status": "too_many_requests",
+    "safe_detail": "OpenAI request was rate limited. Retry after the provider limit resets.",
+    "request_id_present": true
+  },
+  "recommended_cli_args": [
+    "--provider",
+    "openai",
+    "--case-id",
+    "CASE-RQ-001",
+    "--delay-seconds",
+    "10",
+    "--enforce",
+    "--quiet"
+  ]
+}
