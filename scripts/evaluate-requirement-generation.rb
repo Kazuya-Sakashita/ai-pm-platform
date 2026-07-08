@@ -389,6 +389,27 @@ module RequirementGenerationQuality
       lines.join("\n")
     end
 
+    def resume_manifest
+      {
+        generated_at: generated_at,
+        fixture_issue: fixtures.fetch("issue", "unknown"),
+        fixture_version: fixtures.fetch("version", "unknown"),
+        provider: provider_name,
+        status: "safe_failure",
+        selected_case_ids: selected_cases.map { |test_case| test_case.fetch("id", nil) }.compact,
+        completed_case_ids: completed_results.map(&:case_id),
+        next_case_id: next_case_id,
+        safe_failure: {
+          error_class: safe_error_class,
+          error_code: safe_error_code,
+          http_status: safe_http_status,
+          safe_detail: safe_detail,
+          request_id_present: request_id_present?
+        },
+        recommended_cli_args: recommended_cli_args
+      }
+    end
+
     private
 
     attr_reader :fixtures, :provider_name, :generated_at, :error, :selected_cases, :completed_results
@@ -444,6 +465,14 @@ module RequirementGenerationQuality
       actions << "成功後に通常の評価Markdownとreview docを保存する。"
       actions.uniq
     end
+
+    def recommended_cli_args
+      args = ["--provider", provider_name]
+      args += ["--case-id", next_case_id] if next_case_id
+      args += ["--delay-seconds", "10"] if safe_http_status.to_s == "too_many_requests" || safe_error_code.to_s.match?(/rate|quota|limit/i)
+      args += ["--enforce", "--quiet"]
+      args
+    end
   end
 
   class Cli
@@ -453,6 +482,7 @@ module RequirementGenerationQuality
         provider: DEFAULT_PROVIDER,
         output_path: nil,
         failure_output_path: nil,
+        resume_output_path: nil,
         case_ids: [],
         limit: nil,
         delay_seconds: 0,
@@ -465,6 +495,7 @@ module RequirementGenerationQuality
         opts.on("--provider NAME", "provider名。deterministicまたはopenai") { |value| options[:provider] = value }
         opts.on("--output PATH", "Markdown baseline reportを書き出す") { |value| options[:output_path] = value }
         opts.on("--failure-output PATH", "Provider失敗時のsafe Markdown reportを書き出す") { |value| options[:failure_output_path] = value }
+        opts.on("--resume-output PATH", "Provider失敗時のsafe resume JSONを書き出す") { |value| options[:resume_output_path] = value }
         opts.on("--case-id ID", "指定caseだけ評価する。複数指定可") { |value| options[:case_ids] << value }
         opts.on("--limit N", Integer, "先頭N件だけ評価する") { |value| options[:limit] = [value, 1].max }
         opts.on("--delay-seconds N", Float, "case間の待機秒数") { |value| options[:delay_seconds] = [value, 0].max }
@@ -515,6 +546,9 @@ module RequirementGenerationQuality
       )
       if options[:failure_output_path]
         File.write(File.expand_path(options.fetch(:failure_output_path), ROOT), "#{failure_report.markdown}\n")
+      end
+      if options[:resume_output_path]
+        File.write(File.expand_path(options.fetch(:resume_output_path), ROOT), "#{JSON.pretty_generate(failure_report.resume_manifest)}\n")
       end
       warn "Requirement生成品質評価: safe failure #{failure_report.send(:safe_error_code)}"
       warn "safe_detail: #{failure_report.send(:safe_detail)}"

@@ -67,6 +67,7 @@ bundle exec ruby ../scripts/evaluate-requirement-generation.rb \
   --fixtures docs/evaluation/fixtures/requirement_generation/cases.json \
   --output docs/evaluation/20260708_requirement_generation_openai_live.md \
   --failure-output docs/evaluation/20260708_requirement_generation_openai_live_failure.md \
+  --resume-output docs/evaluation/20260708_requirement_generation_openai_live_resume.json \
   --enforce \
   --quiet
 ```
@@ -79,6 +80,7 @@ Expected:
 - 出力MarkdownにAPI key、raw response、秘密情報、PIIが含まれない
 
 429などのprovider失敗が出た場合は、`--failure-output` のsafe reportを保存し、通常のlive評価完了とは扱わない。
+再開点を機械的に残したい場合は、`--resume-output` のsafe JSONも保存する。resume JSONにはcase id、provider、safe error、推奨CLI引数だけを含め、API key、raw response、request payload、model outputは含めない。
 
 低負荷で再実行する場合:
 
@@ -90,6 +92,7 @@ bundle exec ruby ../scripts/evaluate-requirement-generation.rb \
   --delay-seconds 10 \
   --output docs/evaluation/20260708_requirement_generation_openai_live_case_001.md \
   --failure-output docs/evaluation/20260708_requirement_generation_openai_live_case_001_failure.md \
+  --resume-output docs/evaluation/20260708_requirement_generation_openai_live_case_001_resume.json \
   --enforce \
   --quiet
 ```
@@ -109,6 +112,7 @@ bundle exec ruby ../scripts/evaluate-requirement-generation.rb \
 - Critical failure件数
 - safe error code
 - safe failure report
+- safe resume JSON
 
 保存してはいけない証跡:
 

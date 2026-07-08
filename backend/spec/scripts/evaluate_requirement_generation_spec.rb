@@ -1,4 +1,5 @@
 require "spec_helper"
+require "tmpdir"
 
 require_relative "../../../backend/app/services/requirement_generation/provider_error"
 require_relative "../../../scripts/evaluate-requirement-generation"
@@ -145,6 +146,52 @@ RSpec.describe RequirementGenerationQuality::FailureReporter do
     expect(markdown).not_to include("token-never-print-this")
     expect(markdown).not_to include("req_secret_like_value")
   end
+
+  it "safe resume manifestをsecret非出力で作成する" do
+    error = RequirementGeneration::ProviderError.new(
+      code: "insufficient_quota",
+      message: "raw secret token-never-print-this",
+      safe_detail: "OpenAI request was rate limited. Retry after the provider limit resets.",
+      http_status: :too_many_requests,
+      request_id: "req_secret_like_value"
+    )
+    completed_result = RequirementGenerationQuality::EvaluationResult.new(
+      case_id: "CASE-RQ-000",
+      title: "completed",
+      score: 90,
+      category_scores: {},
+      critical_failures: [],
+      findings: []
+    )
+
+    manifest = described_class.new(
+      fixtures: { "issue" => "ISSUE-052", "version" => "v1" },
+      provider_name: "openai",
+      generated_at: "2026-07-08T03:40:00Z",
+      error: error,
+      selected_cases: [{ "id" => "CASE-RQ-000" }, { "id" => "CASE-RQ-001" }],
+      completed_results: [completed_result]
+    ).resume_manifest
+
+    expect(manifest).to include(
+      generated_at: "2026-07-08T03:40:00Z",
+      fixture_issue: "ISSUE-052",
+      fixture_version: "v1",
+      provider: "openai",
+      status: "safe_failure",
+      selected_case_ids: %w[CASE-RQ-000 CASE-RQ-001],
+      completed_case_ids: ["CASE-RQ-000"],
+      next_case_id: "CASE-RQ-001"
+    )
+    expect(manifest.fetch(:safe_failure)).to include(
+      error_code: "insufficient_quota",
+      http_status: :too_many_requests,
+      request_id_present: true
+    )
+    expect(manifest.fetch(:recommended_cli_args)).to include("--case-id", "CASE-RQ-001", "--delay-seconds", "10")
+    expect(JSON.generate(manifest)).not_to include("token-never-print-this")
+    expect(JSON.generate(manifest)).not_to include("req_secret_like_value")
+  end
 end
 
 RSpec.describe RequirementGenerationQuality::Cli do
@@ -176,5 +223,77 @@ RSpec.describe RequirementGenerationQuality::Cli do
     provider = described_class.build_provider("openai")
 
     expect(provider).to be_a(RequirementGeneration::OpenaiProvider)
+  end
+
+  it "ProviderError時にsafe resume JSONをCLI経由で書き出す" do
+    Dir.mktmpdir do |dir|
+      fixture_path = File.join(dir, "cases.json")
+      failure_output_path = File.join(dir, "failure.md")
+      resume_output_path = File.join(dir, "resume.json")
+      File.write(
+        fixture_path,
+        JSON.dump(
+          "issue" => "ISSUE-052",
+          "version" => "v1",
+          "cases" => [
+            {
+              "id" => "CASE-RQ-001",
+              "title" => "OpenAI live評価",
+              "minutes" => { "summary" => "議事録サマリー" },
+              "expectations" => {}
+            }
+          ]
+        )
+      )
+      provider = Class.new do
+        def generate(_minutes)
+          raise RequirementGeneration::ProviderError.new(
+            code: "insufficient_quota",
+            message: "raw secret token-never-print-this",
+            safe_detail: "OpenAI request was rate limited. Retry after the provider limit resets.",
+            http_status: :too_many_requests,
+            request_id: "req_secret_like_value"
+          )
+        end
+      end.new
+      allow(described_class).to receive(:build_provider).with("openai").and_return(provider)
+
+      exit_code = nil
+      expect do
+        exit_code = described_class.run(
+          [
+            "--fixtures", fixture_path,
+            "--provider", "openai",
+            "--case-id", "CASE-RQ-001",
+            "--failure-output", failure_output_path,
+            "--resume-output", resume_output_path,
+            "--quiet"
+          ]
+        )
+      end.to output(/safe failure insufficient_quota/).to_stderr
+
+      manifest_json = File.read(resume_output_path)
+      manifest = JSON.parse(manifest_json)
+      failure_markdown = File.read(failure_output_path)
+      expect(exit_code).to eq(1)
+      expect(manifest).to include(
+        "fixture_issue" => "ISSUE-052",
+        "fixture_version" => "v1",
+        "provider" => "openai",
+        "status" => "safe_failure",
+        "selected_case_ids" => ["CASE-RQ-001"],
+        "completed_case_ids" => [],
+        "next_case_id" => "CASE-RQ-001"
+      )
+      expect(manifest.fetch("safe_failure")).to include(
+        "error_code" => "insufficient_quota",
+        "http_status" => "too_many_requests",
+        "request_id_present" => true
+      )
+      expect(manifest.fetch("recommended_cli_args")).to include("--case-id", "CASE-RQ-001", "--delay-seconds", "10")
+      expect(manifest_json).not_to include("token-never-print-this")
+      expect(manifest_json).not_to include("req_secret_like_value")
+      expect(failure_markdown).to include("insufficient_quota")
+    end
   end
 end
