@@ -152,6 +152,7 @@ module RequirementGeneration
             type: "array",
             items: {
               type: "string",
+              pattern: "^FR-\\d{3}:\\s+.+",
               description: "FR-001: 形式の機能要件。"
             }
           },
