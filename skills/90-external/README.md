@@ -16,3 +16,7 @@
 2. このプロジェクトの `AGENTS.md` と競合しないか確認する。
 3. 必要な部分だけ要約し、自分用Skillとして再編集する。
 4. 採用理由とレビュー結果を `docs/review/` へ保存する。
+
+## 登録済み外部Skill参照
+
+- [mattpocock/skills 導入記録](./mattpocock-skills/README.md)
