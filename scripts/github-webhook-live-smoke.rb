@@ -54,7 +54,7 @@ class GithubWebhookLiveSmoke
     }
 
     hard_failures = failures & %w[github_app_id_missing github_app_private_key_missing]
-    return Result.new(ok: false, payload: base_payload) if hard_failures.any?
+    return Result.new(ok: false, payload: with_next_actions(base_payload)) if hard_failures.any?
 
     token = app_jwt(app_id: env.fetch("GITHUB_APP_ID"), private_key_pem: private_key_pem)
     hook_config = get_json(
@@ -77,20 +77,24 @@ class GithubWebhookLiveSmoke
       safe_failures: safe_failures.uniq
     )
 
-    Result.new(ok: smoke_ok?(payload), payload: payload)
+    Result.new(ok: smoke_ok?(payload), payload: with_next_actions(payload))
   rescue OpenSSL::PKey::RSAError
     Result.new(
       ok: false,
-      payload: base_payload.merge(safe_failures: base_payload.fetch(:safe_failures) + [
-        "github_app_private_key_invalid"
-      ])
+      payload: with_next_actions(
+        base_payload.merge(safe_failures: base_payload.fetch(:safe_failures) + [
+          "github_app_private_key_invalid"
+        ])
+      )
     )
   rescue StandardError => e
     Result.new(
       ok: false,
-      payload: base_payload.merge(safe_failures: base_payload.fetch(:safe_failures) + [
-        safe_error_code(e)
-      ])
+      payload: with_next_actions(
+        base_payload.merge(safe_failures: base_payload.fetch(:safe_failures) + [
+          safe_error_code(e)
+        ])
+      )
     )
   end
 
@@ -221,6 +225,38 @@ class GithubWebhookLiveSmoke
       payload.dig(:hook_config, :insecure_ssl) != "1"
   end
 
+  def with_next_actions(payload)
+    failures = Array(payload[:safe_failures]).uniq
+    payload.merge(
+      safe_failures: failures,
+      next_actions: next_actions_for(failures)
+    )
+  end
+
+  def next_actions_for(failures)
+    actions = failures.flat_map do |failure|
+      case failure
+      when "github_app_id_missing"
+        ["GITHUB_APP_IDをruntimeへ設定する。"]
+      when "github_app_private_key_missing"
+        ["GITHUB_APP_PRIVATE_KEY_BASE64またはGITHUB_APP_PRIVATE_KEYをruntimeへ設定する。"]
+      when "github_app_private_key_invalid"
+        ["GitHub App private keyを再発行し、base64化した値をruntimeへ設定し直す。"]
+      when "github_webhook_secret_missing"
+        ["GitHub App settingsのWebhook secretと同じ値をGITHUB_WEBHOOK_SECRETへ設定する。"]
+      when "github_webhook_url_missing", "github_webhook_url_placeholder"
+        ["GitHub App settingsのWebhook URLをowned staging/production endpointの/api/v1/webhooks/githubへ変更する。"]
+      when "github_webhook_insecure_ssl_enabled"
+        ["GitHub App settingsでSSL verificationを有効にする。"]
+      when "github_webhook_recent_delivery_failed"
+        ["Webhook URLとsecret設定後にGitHub deliveryを再送または再triggerし、2xx deliveryを確認する。"]
+      else
+        ["safe failure #{failure} をrunbookに照らして確認する。"]
+      end
+    end
+    actions.uniq
+  end
+
   def safe_url(raw_url)
     uri = URI.parse(raw_url.to_s)
     return nil unless uri.scheme && uri.host
@@ -262,4 +298,6 @@ class GithubWebhookLiveSmoke
   end
 end
 
-exit GithubWebhookLiveSmoke.new(env: ENV, stdout: $stdout, stderr: $stderr).run(ARGV)
+if $PROGRAM_NAME == __FILE__
+  exit GithubWebhookLiveSmoke.new(env: ENV, stdout: $stdout, stderr: $stderr).run(ARGV)
+end

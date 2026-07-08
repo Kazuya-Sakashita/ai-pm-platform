@@ -74,6 +74,7 @@ Expected:
 - `hook_config.insecure_ssl` が `0`
 - 直近deliveryが2xxで成功している
 - 出力にraw webhook secret、signature、payload、GitHub delivery id生値が含まれない
+- `safe_failures` が空でない場合は `next_actions` を確認し、設定修正後に再実行する
 
 `safe_failures` が空でない場合はlive delivery未完了として扱う。
 

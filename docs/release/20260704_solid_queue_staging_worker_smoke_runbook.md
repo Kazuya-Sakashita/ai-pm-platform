@@ -90,6 +90,7 @@ Expected:
 - `cleanup_expired_github_connection_states` と `enforce_conversation_import_retention` がconfiguredかつloaded。
 - Queue healthが `healthy` または理由付き `degraded` で、release ownerが判断できる。
 - `safe_failures` が空である。
+- `safe_failures` が空でない場合は `next_actions` を確認し、staging / production-equivalent環境の設定修正後に再実行する。
 
 保存してよい証跡:
 
