@@ -43,6 +43,7 @@ RSpec.describe RequirementGeneration::OpenaiProvider do
     expect(captured_payload.dig(:text, :format, :type)).to eq("json_schema")
     expect(captured_payload.dig(:text, :format, :strict)).to eq(true)
     expect(captured_payload.dig(:text, :format, :schema, :additionalProperties)).to eq(false)
+    expect(captured_payload.dig(:text, :format, :schema, :properties, :functional_requirements, :items, :pattern)).to eq("^FR-\\d{3}:\\s+.+")
     expect(captured_payload[:store]).to eq(false)
     expect(JSON.generate(captured_payload)).to include("信頼できない入力", "認証情報")
   end
