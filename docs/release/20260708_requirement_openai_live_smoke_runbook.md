@@ -66,6 +66,7 @@ bundle exec ruby ../scripts/evaluate-requirement-generation.rb \
   --provider openai \
   --fixtures docs/evaluation/fixtures/requirement_generation/cases.json \
   --output docs/evaluation/20260708_requirement_generation_openai_live.md \
+  --failure-output docs/evaluation/20260708_requirement_generation_openai_live_failure.md \
   --enforce \
   --quiet
 ```
@@ -76,6 +77,24 @@ Expected:
 - P0未達が0件
 - Critical failureが0件
 - 出力MarkdownにAPI key、raw response、秘密情報、PIIが含まれない
+
+429などのprovider失敗が出た場合は、`--failure-output` のsafe reportを保存し、通常のlive評価完了とは扱わない。
+
+低負荷で再実行する場合:
+
+```sh
+bundle exec ruby ../scripts/evaluate-requirement-generation.rb \
+  --provider openai \
+  --fixtures docs/evaluation/fixtures/requirement_generation/cases.json \
+  --case-id CASE-RQ-001 \
+  --delay-seconds 10 \
+  --output docs/evaluation/20260708_requirement_generation_openai_live_case_001.md \
+  --failure-output docs/evaluation/20260708_requirement_generation_openai_live_case_001_failure.md \
+  --enforce \
+  --quiet
+```
+
+複数caseを続ける場合も `--delay-seconds` を指定し、429時は連続再試行しない。
 
 ## Evidence
 
@@ -89,6 +108,7 @@ Expected:
 - P0未達件数
 - Critical failure件数
 - safe error code
+- safe failure report
 
 保存してはいけない証跡:
 

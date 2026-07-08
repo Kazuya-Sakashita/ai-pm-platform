@@ -35,21 +35,27 @@ module RequirementGenerationQuality
   EvaluationResult = Struct.new(:case_id, :title, :score, :category_scores, :critical_failures, :findings, keyword_init: true)
 
   class Evaluator
-    def initialize(fixtures:, provider:)
+    def initialize(fixtures:, provider:, cases: nil, delay_seconds: 0, sleeper: Kernel)
       @fixtures = fixtures
       @provider = provider
+      @cases = cases || fixtures.fetch("cases")
+      @delay_seconds = delay_seconds.to_f
+      @sleeper = sleeper
     end
 
     def call
-      fixtures.fetch("cases").map do |test_case|
+      cases.each_with_index.map do |test_case, index|
+        sleeper.sleep(delay_seconds) if index.positive? && delay_seconds.positive?
         output = provider.generate(minutes_from(test_case.fetch("minutes")))
-        CaseEvaluator.new(test_case: test_case, output: output).call
+        result = CaseEvaluator.new(test_case: test_case, output: output).call
+        yield result if block_given?
+        result
       end
     end
 
     private
 
-    attr_reader :fixtures, :provider
+    attr_reader :fixtures, :provider, :cases, :delay_seconds, :sleeper
 
     def minutes_from(data)
       MinutesInput.new(
@@ -326,12 +332,130 @@ module RequirementGenerationQuality
     attr_reader :fixtures, :results, :provider_name, :generated_at
   end
 
+  class FailureReporter
+    def initialize(fixtures:, provider_name:, generated_at:, error:, selected_cases:, completed_results:)
+      @fixtures = fixtures
+      @provider_name = provider_name
+      @generated_at = generated_at
+      @error = error
+      @selected_cases = selected_cases
+      @completed_results = completed_results
+    end
+
+    def markdown
+      lines = [
+        "# Requirement生成評価 safe failure report",
+        "",
+        "## メタデータ",
+        "",
+        "- 生成日時: #{generated_at}",
+        "- Issue番号: #{fixtures.fetch("issue")}",
+        "- Fixture version: #{fixtures.fetch("version")}",
+        "- Provider: #{provider_name}",
+        "- 判定: 基準未判定",
+        "- 選択ケース数: #{selected_cases.size}",
+        "- 完了ケース数: #{completed_results.size}",
+        "",
+        "## Safe failure",
+        "",
+        "- error_class: #{safe_error_class}",
+        "- error_code: #{safe_error_code}",
+        "- http_status: #{safe_http_status}",
+        "- safe_detail: #{safe_detail}",
+        "- request_id_present: #{request_id_present?}",
+        "- next_case_id: #{next_case_id || "なし"}",
+        "",
+        "## 完了済みケース",
+        ""
+      ]
+      lines += completed_case_lines
+      lines += [
+        "",
+        "## 次アクション",
+        ""
+      ]
+      lines += next_actions.map { |action| "- #{action}" }
+      lines += [
+        "",
+        "## 保存していない情報",
+        "",
+        "- API key",
+        "- Authorization header",
+        "- raw provider response",
+        "- request payload全文",
+        "- model output",
+        "- PII / credential / token"
+      ]
+      lines.join("\n")
+    end
+
+    private
+
+    attr_reader :fixtures, :provider_name, :generated_at, :error, :selected_cases, :completed_results
+
+    def completed_case_lines
+      return ["- なし"] if completed_results.empty?
+
+      completed_results.map do |result|
+        "- #{result.case_id}: #{result.title} / #{format("%.1f", result.score)}"
+      end
+    end
+
+    def safe_error_class
+      error.class.name
+    end
+
+    def safe_error_code
+      return error.code if error.respond_to?(:code) && error.code.to_s.strip != ""
+
+      "evaluation_provider_error"
+    end
+
+    def safe_http_status
+      return error.http_status if error.respond_to?(:http_status) && error.http_status
+
+      "unknown"
+    end
+
+    def safe_detail
+      return error.safe_detail if error.respond_to?(:safe_detail) && error.safe_detail.to_s.strip != ""
+
+      "Requirement generation evaluation stopped before completion."
+    end
+
+    def request_id_present?
+      error.respond_to?(:request_id) && error.request_id.to_s.strip != ""
+    end
+
+    def next_case_id
+      selected_cases[completed_results.size]&.fetch("id", nil)
+    end
+
+    def next_actions
+      actions = []
+      if safe_http_status.to_s == "too_many_requests" || safe_error_code.to_s.match?(/rate|quota|limit/i)
+        actions << "OpenAI Platform側のusage、billing、rate limit、model accessを確認する。"
+        actions << "時間を置いてから `--case-id #{next_case_id}` または `--limit 1` で低負荷に再実行する。" if next_case_id
+        actions << "`--delay-seconds` を指定してcase間隔を空ける。"
+      else
+        actions << "safe_detailを確認し、secret値やraw responseを保存せずに原因を切り分ける。"
+        actions << "必要に応じて対象caseを `--case-id #{next_case_id}` で再実行する。" if next_case_id
+      end
+      actions << "成功後に通常の評価Markdownとreview docを保存する。"
+      actions.uniq
+    end
+  end
+
   class Cli
     def self.run(argv)
       options = {
         fixture_path: DEFAULT_FIXTURE_PATH,
         provider: DEFAULT_PROVIDER,
         output_path: nil,
+        failure_output_path: nil,
+        case_ids: [],
+        limit: nil,
+        delay_seconds: 0,
         enforce: false,
         quiet: false
       }
@@ -340,14 +464,32 @@ module RequirementGenerationQuality
         opts.on("--fixtures PATH", "評価fixture JSON") { |value| options[:fixture_path] = value }
         opts.on("--provider NAME", "provider名。deterministicまたはopenai") { |value| options[:provider] = value }
         opts.on("--output PATH", "Markdown baseline reportを書き出す") { |value| options[:output_path] = value }
+        opts.on("--failure-output PATH", "Provider失敗時のsafe Markdown reportを書き出す") { |value| options[:failure_output_path] = value }
+        opts.on("--case-id ID", "指定caseだけ評価する。複数指定可") { |value| options[:case_ids] << value }
+        opts.on("--limit N", Integer, "先頭N件だけ評価する") { |value| options[:limit] = [value, 1].max }
+        opts.on("--delay-seconds N", Float, "case間の待機秒数") { |value| options[:delay_seconds] = [value, 0].max }
         opts.on("--enforce", "基準未達ならexit 1") { options[:enforce] = true }
         opts.on("--quiet", "標準出力はsummaryだけにする") { options[:quiet] = true }
       end
       parser.parse!(argv)
 
       fixtures = JSON.parse(File.read(File.expand_path(options.fetch(:fixture_path), ROOT)))
+      selected_cases = select_cases(
+        fixtures.fetch("cases"),
+        case_ids: options.fetch(:case_ids),
+        limit: options.fetch(:limit)
+      )
       provider = build_provider(options.fetch(:provider))
-      results = Evaluator.new(fixtures: fixtures, provider: provider).call
+      completed_results = []
+      results = Evaluator.new(
+        fixtures: fixtures,
+        provider: provider,
+        cases: selected_cases,
+        delay_seconds: options.fetch(:delay_seconds),
+        sleeper: Kernel
+      ).call do |result|
+        completed_results << result
+      end
       reporter = Reporter.new(
         fixtures: fixtures,
         results: results,
@@ -359,6 +501,24 @@ module RequirementGenerationQuality
       puts options[:quiet] ? summary_line(reporter.summary, results.size) : report
 
       reporter.summary.fetch(:passed) || !options[:enforce] ? 0 : 1
+    rescue OptionParser::ParseError => e
+      warn "引数が不正です: #{e.message}"
+      2
+    rescue StandardError => e
+      failure_report = FailureReporter.new(
+        fixtures: fixtures || { "issue" => "unknown", "version" => "unknown" },
+        provider_name: options.fetch(:provider),
+        generated_at: Time.now.utc.iso8601,
+        error: e,
+        selected_cases: selected_cases || [],
+        completed_results: completed_results || []
+      )
+      if options[:failure_output_path]
+        File.write(File.expand_path(options.fetch(:failure_output_path), ROOT), "#{failure_report.markdown}\n")
+      end
+      warn "Requirement生成品質評価: safe failure #{failure_report.send(:safe_error_code)}"
+      warn "safe_detail: #{failure_report.send(:safe_detail)}"
+      1
     end
 
     def self.summary_line(summary, case_count)
@@ -371,6 +531,20 @@ module RequirementGenerationQuality
         "P0未達=#{summary.fetch(:p0_failures).size}",
         "Critical failure=#{summary.fetch(:critical_failures).size}"
       ].join(" ")
+    end
+
+    def self.select_cases(cases, case_ids:, limit:)
+      selected = if case_ids.empty?
+                   cases
+                 else
+                   case_ids.flat_map do |case_id|
+                     match = cases.find { |test_case| test_case.fetch("id") == case_id }
+                     raise ArgumentError, "未対応のcase-idです: #{case_id}" unless match
+
+                     match
+                   end
+                 end
+      limit ? selected.first(limit) : selected
     end
 
     def self.build_provider(name)
