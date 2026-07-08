@@ -1,0 +1,54 @@
+{
+  "checked_at": "2026-07-08T20:00:30Z",
+  "environment_name": "local-development",
+  "rails_env": "development",
+  "production_like": false,
+  "require_worker": true,
+  "expect_solid_queue": true,
+  "active_job_adapter": "ActiveJob::QueueAdapters::AsyncAdapter",
+  "configured_queues": [
+    "github_reconciliation",
+    "ai_generation",
+    "ai_review",
+    "default"
+  ],
+  "secret_presence": {
+    "database_url": false,
+    "queue_database_url": false,
+    "rails_master_key": false,
+    "active_record_encryption_primary_key": false,
+    "active_record_encryption_deterministic_key": false,
+    "active_record_encryption_key_derivation_salt": false
+  },
+  "solid_queue_tables": {
+    "SolidQueue::Job": false,
+    "SolidQueue::Process": false,
+    "SolidQueue::FailedExecution": false,
+    "SolidQueue::RecurringTask": false
+  },
+  "worker_heartbeat": {},
+  "recurring_tasks": {},
+  "queue_latency": {},
+  "failed_executions": {},
+  "queue_health": {
+    "status": "unavailable",
+    "checked_at": "2026-07-08T20:00:30Z",
+    "worker_count": 0,
+    "stale_worker_count": 0,
+    "failed_execution_count": 0,
+    "recurring_task_count": 0,
+    "failed_job_release_gate_status": "blocked",
+    "warnings": [
+      "Solid Queue tableを確認できません。queue schema setupを確認してください。"
+    ]
+  },
+  "safe_warnings": [],
+  "safe_failures": [
+    "solid_queue_tables_unavailable",
+    "active_job_adapter_not_solid_queue"
+  ],
+  "next_actions": [
+    "staging/production-equivalent環境でqueue_schema適用済みのQUEUE_DATABASE_URLを設定して再実行する。",
+    "production-like環境のActiveJob adapterをsolid_queueへ設定する。"
+  ]
+}

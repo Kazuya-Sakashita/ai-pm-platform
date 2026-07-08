@@ -1,0 +1,64 @@
+{
+  "checked_at": "2026-07-08T20:00:29Z",
+  "api_base_url": "https://api.github.com",
+  "app_id_configured": true,
+  "private_key_configured": true,
+  "webhook_secret_configured": false,
+  "hook_config": {
+    "url": "https://example.com/github/webhook",
+    "content_type": "json",
+    "insecure_ssl": "0",
+    "secret_configured_on_github": true
+  },
+  "recent_deliveries": [
+    {
+      "delivery_digest": "3a62a0937b8be135fef1c76e99d367b1f53022f210e09f8104236db55b1a903e",
+      "event": "installation_repositories",
+      "action": "added",
+      "status": "failed to connect to host",
+      "status_code": 502,
+      "delivered_at": "2026-07-07T21:48:28.123Z",
+      "duration": 0,
+      "redelivery": false
+    },
+    {
+      "delivery_digest": "4d27ec93b17fe08b738e5e146ed6704075c078beb012c922a6316471aa66bf55",
+      "event": "installation",
+      "action": "new_permissions_accepted",
+      "status": "failed to connect to host",
+      "status_code": 502,
+      "delivered_at": "2026-07-07T21:48:28.061Z",
+      "duration": 0,
+      "redelivery": false
+    },
+    {
+      "delivery_digest": "b1c6094697103ebb4a3d5d4f03df5ff52dddb1019c2c5473a3007a1dbc919652",
+      "event": "installation",
+      "action": "created",
+      "status": "failed to connect to host",
+      "status_code": 502,
+      "delivered_at": "2026-07-07T20:00:12.134Z",
+      "duration": 0,
+      "redelivery": false
+    },
+    {
+      "delivery_digest": "cc5eb3badab7388a76655e72d1d247ce5b0c294984bb351113461bc05b6b1aba",
+      "event": "ping",
+      "status": "failed to connect to host",
+      "status_code": 502,
+      "delivered_at": "2026-07-07T19:25:53.53Z",
+      "duration": 0,
+      "redelivery": false
+    }
+  ],
+  "safe_failures": [
+    "github_webhook_secret_missing",
+    "github_webhook_url_placeholder",
+    "github_webhook_recent_delivery_failed"
+  ],
+  "next_actions": [
+    "GitHub App settingsのWebhook secretと同じ値をGITHUB_WEBHOOK_SECRETへ設定する。",
+    "GitHub App settingsのWebhook URLをowned staging/production endpointの/api/v1/webhooks/githubへ変更する。",
+    "Webhook URLとsecret設定後にGitHub deliveryを再送または再triggerし、2xx deliveryを確認する。"
+  ]
+}
