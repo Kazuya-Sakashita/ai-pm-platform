@@ -66,6 +66,39 @@ JOB_CONCURRENCY=...
 
 ## Smoke Steps
 
+### 0. Readiness Script
+
+staging / production-equivalent環境では、手作業のSQL確認に入る前にread-only readiness scriptを実行する。
+
+```sh
+cd backend
+bundle exec ruby bin/rails runner ../scripts/solid-queue-worker-smoke-readiness.rb \
+  --smoke-environment staging \
+  --production-like \
+  --expect-solid-queue \
+  --require-worker
+```
+
+productionで観測のみを行い、worker起動直前のpreflightとして使う場合だけ、release owner承認のうえで `--no-require-worker` を使ってよい。ただしproduction worker smoke完了条件には、最終的に `--require-worker` で `safe_failures` が空になる証跡が必要である。
+
+Expected:
+
+- `active_job_adapter` がSolid Queueを示す。
+- `QUEUE_DATABASE_URL` とActive Record Encryption keyの存在確認が `true`。値は出力しない。
+- Solid Queue主要tableがすべて確認できる。
+- worker heartbeatが存在し、staleではない。
+- `cleanup_expired_github_connection_states` と `enforce_conversation_import_retention` がconfiguredかつloaded。
+- Queue healthが `healthy` または理由付き `degraded` で、release ownerが判断できる。
+- `safe_failures` が空である。
+
+保存してよい証跡:
+
+- readiness scriptのJSON出力。ただし環境URL、secret値、DB URL、raw job arguments、raw exception、DM本文、AI promptが含まれていないことを確認する。
+
+保存してはいけない証跡:
+
+- `DATABASE_URL`、`QUEUE_DATABASE_URL`、encryption key、Rails master key、raw exception、backtrace、serialized job arguments、DM body、AI prompt。
+
 ### 1. Confirm Queue Configuration
 
 Run from the backend release directory:
@@ -493,6 +526,7 @@ Required fields:
 - commit SHA
 - worker process command
 - `QUEUE_DATABASE_URL` presence confirmed without exposing the value
+- readiness script result and `safe_failures`
 - worker heartbeat timestamp
 - recurring task row observed
 - cleanup execution result or observation-only reason
