@@ -21,6 +21,7 @@
     "github:issues:dry-run": "ruby scripts/sync-github-issues.rb --dry-run",
     "github:issues:sync": "ruby scripts/sync-github-issues.rb --apply",
     "jwt:keyring:validate": "ruby scripts/validate-jwt-keyring.rb",
+    "requirements:openai:readiness": "ruby scripts/requirement-openai-live-readiness.rb",
     "requirements:evaluate": "cd backend && bundle exec ruby ../scripts/evaluate-requirement-generation.rb"
   },
   "devDependencies": {
