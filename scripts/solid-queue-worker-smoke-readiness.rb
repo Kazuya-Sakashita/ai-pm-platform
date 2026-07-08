@@ -58,8 +58,10 @@ class SolidQueueWorkerSmokeReadiness
     payload = base_payload(checked_at, environment_name, production_like, options)
 
     unless rails_loaded?
-      return payload.merge(
-        safe_failures: payload.fetch(:safe_failures) + ["rails_environment_not_loaded"]
+      return with_next_actions(
+        payload.merge(
+          safe_failures: payload.fetch(:safe_failures) + ["rails_environment_not_loaded"]
+        )
       )
     end
 
@@ -70,9 +72,11 @@ class SolidQueueWorkerSmokeReadiness
     payload[:solid_queue_tables] = solid_queue_tables
 
     unless solid_queue_available?
-      return payload.merge(
-        queue_health: queue_health_snapshot,
-        safe_failures: payload.fetch(:safe_failures) + solid_queue_unavailable_failures(payload, options)
+      return with_next_actions(
+        payload.merge(
+          queue_health: queue_health_snapshot,
+          safe_failures: payload.fetch(:safe_failures) + solid_queue_unavailable_failures(payload, options)
+        )
       )
     end
 
@@ -83,11 +87,13 @@ class SolidQueueWorkerSmokeReadiness
     payload[:queue_health] = queue_health_snapshot
     payload[:safe_warnings] = payload.fetch(:safe_warnings) + warning_codes(payload)
     payload[:safe_failures] = payload.fetch(:safe_failures) + failure_codes(payload, options)
-    payload
+    with_next_actions(payload)
   rescue StandardError => e
-    base_payload(Time.now.utc, options.fetch(:environment_name), options.fetch(:production_like), options).merge(
-      safe_failures: ["solid_queue_worker_smoke_unexpected_error"],
-      safe_error_class: e.class.name
+    with_next_actions(
+      base_payload(Time.now.utc, options.fetch(:environment_name), options.fetch(:production_like), options).merge(
+        safe_failures: ["solid_queue_worker_smoke_unexpected_error"],
+        safe_error_class: e.class.name
+      )
     )
   end
 
@@ -109,7 +115,8 @@ class SolidQueueWorkerSmokeReadiness
       failed_executions: {},
       queue_health: {},
       safe_warnings: [],
-      safe_failures: []
+      safe_failures: [],
+      next_actions: []
     }
   end
 
@@ -382,9 +389,51 @@ class SolidQueueWorkerSmokeReadiness
     end
   end
 
+  def with_next_actions(payload)
+    failures = Array(payload[:safe_failures]).uniq
+    payload.merge(
+      safe_failures: failures,
+      next_actions: next_actions_for(failures)
+    )
+  end
+
+  def next_actions_for(failures)
+    actions = failures.flat_map do |failure|
+      case failure
+      when "rails_environment_not_loaded"
+        ["backendディレクトリからbundle exec ruby bin/rails runner ../scripts/solid-queue-worker-smoke-readiness.rbで実行する。"]
+      when "solid_queue_tables_unavailable"
+        ["staging/production-equivalent環境でqueue_schema適用済みのQUEUE_DATABASE_URLを設定して再実行する。"]
+      when "active_job_adapter_not_solid_queue"
+        ["production-like環境のActiveJob adapterをsolid_queueへ設定する。"]
+      when "worker_heartbeat_missing", "worker_heartbeat_stale"
+        ["worker processを起動または再起動し、60秒以内のheartbeatを確認する。"]
+      when "queue_database_url_missing"
+        ["QUEUE_DATABASE_URLをsecret storeへ設定する。"]
+      when "active_record_encryption_primary_key_missing",
+           "active_record_encryption_deterministic_key_missing",
+           "active_record_encryption_key_derivation_salt_missing"
+        ["Active Record Encryption keyをsecret storeへ設定する。"]
+      when /_recurring_task_not_configured\z/
+        ["backend/config/recurring.ymlで対象recurring taskを設定する。"]
+      when /_recurring_task_not_loaded\z/
+        ["worker/scheduler起動後にrecurring taskがloadedになることを確認する。"]
+      when /_recurring_task_(class|queue)_mismatch\z/
+        ["recurring taskのclass/queue設定をrunbookの期待値へ合わせる。"]
+      when "solid_queue_worker_smoke_unexpected_error"
+        ["safe_error_classを確認し、secret値やraw argumentsを出さずに起動ログを調査する。"]
+      else
+        ["safe failure #{failure} をrunbookに照らして確認する。"]
+      end
+    end
+    actions.uniq
+  end
+
   def present?(value)
     !value.nil? && !value.to_s.empty?
   end
 end
 
-exit SolidQueueWorkerSmokeReadiness.new(env: ENV, stdout: $stdout, stderr: $stderr).run(ARGV)
+if $PROGRAM_NAME == __FILE__
+  exit SolidQueueWorkerSmokeReadiness.new(env: ENV, stdout: $stdout, stderr: $stderr).run(ARGV)
+end
